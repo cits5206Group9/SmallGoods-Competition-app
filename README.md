@@ -1,6 +1,6 @@
 # Small Goods Competion App 🏋️‍♂️
 
-A Flask-based web app for tracking weightlifting workouts and progress.
+A Flask-based web app.
 
 ## Tech Stack
 - **Backend:** Flask, Flask-SQLAlchemy, Flask-Migrate
