@@ -1,4 +1,4 @@
-# Weightlifting App 🏋️‍♂️
+# Small Goods Competion App 🏋️‍♂️
 
 A Flask-based web app for tracking weightlifting workouts and progress.
 
