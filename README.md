@@ -64,3 +64,4 @@ docs/                 # Notes, architecture, decisions
 assets/               # Images or design assets
 .github/workflows/    # CI
 ```
+Added by Chenglin as a test contribution.
