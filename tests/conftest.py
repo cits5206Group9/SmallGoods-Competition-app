@@ -1,6 +1,11 @@
 import pytest
-from src.app import create_app
-from src.app.extensions import db
+import sys
+import os
+
+# Add the "src" direcotry to the python path
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+from app import create_app
+from app.extensions import db
 
 @pytest.fixture()
 def app():
