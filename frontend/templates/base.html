@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#1a73e8">
+    <meta name="description" content="Small Goods Competition Management System">
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+    
+    <!-- Icons -->
+    <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='images/icon-32x32.png') }}">
+    <link rel="icon" type="image/png" sizes="16x16" href="{{ url_for('static', filename='images/icon-16x16.png') }}">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='images/icon-192x192.png') }}">
+    
+    <!-- CSS Files -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/layout.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/components.css') }}">
+    
+    {% if page_css %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/pages/' + page_css + '.css') }}">
+    {% endif %}
+    
+    <!-- Print styles for offline use -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/print.css') }}" media="print">
+    
+    <title>{% block title %}Small Goods Competition{% endblock %}</title>
+</head>
+<body class="{% block body_class %}{% endblock %}">
+    <!-- Offline Status Indicator -->
+    <div id="offline-indicator" class="offline-indicator hidden">
+        <span class="offline-icon">📱</span>
+        <span class="offline-text">Offline Mode</span>
+    </div>
+    
+    <!-- Loading Indicator -->
+    <div id="loading-indicator" class="loading-indicator hidden">
+        <div class="loading-spinner"></div>
+        <span>Loading...</span>
+    </div>
+    
+    <!-- Main Layout -->
+    {% block layout %}
+    <div class="app-container">
+        {% block header %}{% endblock %}
+        {% block sidebar %}{% endblock %}
+        
+        <main class="main-content" role="main">
+            {% block content %}{% endblock %}
+        </main>
+        
+        {% block footer %}{% endblock %}
+    </div>
+    {% endblock %}
+    
+    <!-- Error Messages -->
+    <div id="error-messages" class="error-messages" aria-live="polite"></div>
+    
+    <!-- Success Messages -->
+    <div id="success-messages" class="success-messages" aria-live="polite"></div>
+    
+    <!-- Core JavaScript -->
+    <script>
+        // Global app configuration
+        window.APP_CONFIG = {
+            role: '{{ user_role if user_role else "public" }}',
+            competitionId: {{ competition_id if competition_id else 'null' }},
+            apiEndpoint: '{{ api_endpoint if api_endpoint else "/api" }}',
+            wsEndpoint: '{{ ws_endpoint if ws_endpoint else "ws://localhost:8000/ws" }}',
+            offlineMode: false
+        };
+    </script>
+    
+    <!-- JavaScript Modules -->
+    <script src="{{ url_for('static', filename='js/modules/storage.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/modules/ui.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/modules/state-manager.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/modules/websocket.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/modules/offline.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    
+    {% if page_js %}
+    <script src="{{ url_for('static', filename='js/pages/' + page_js + '.js') }}"></script>
+    {% endif %}
+    
+    {% block extra_js %}{% endblock %}
+    
+    <!-- Service Worker Registration -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', function() {
+                navigator.serviceWorker.register('{{ url_for("static", filename="service-worker.js") }}')
+                    .then(function(registration) {
+                        console.log('ServiceWorker registration successful');
+                    })
+                    .catch(function(err) {
+                        console.log('ServiceWorker registration failed: ', err);
+                    });
+            });
+        }
+    </script>
+</body>
+</html>

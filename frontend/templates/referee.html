@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% set page_css = "referee" %}
+{% set page_js = "referee" %}
+
+{% block title %}Referee Interface - Small Goods Competition{% endblock %}
+{% block body_class %}referee-page fullscreen{% endblock %}
+
+{% block layout %}
+<div class="referee-container">
+    <!-- Header with current athlete info -->
+    <header class="referee-header" role="banner">
+        <div class="athlete-info" id="athlete-info">
+            <div class="athlete-name" id="athlete-name">
+                <span class="label">Athlete:</span>
+                <span class="value">{{ current_athlete.name if current_athlete else "No athlete selected" }}</span>
+            </div>
+            <div class="attempt-weight" id="attempt-weight">
+                <span class="label">Weight:</span>
+                <span class="value">{{ current_attempt.weight if current_attempt else "-- kg" }}</span>
+            </div>
+            <div class="attempt-number" id="attempt-number">
+                <span class="label">Attempt:</span>
+                <span class="value">{{ current_attempt.number if current_attempt else "--" }}</span>
+            </div>
+        </div>
+        
+        <div class="timer-info" id="timer-info">
+            <div class="timer-display">
+                <span id="timer-value">02:00</span>
+            </div>
+        </div>
+    </header>
+    
+    <!-- Main decision area -->
+    <main class="referee-main" role="main">
+        <div class="decision-area">
+            <h1 class="sr-only">Make Decision</h1>
+            
+            <div class="decision-buttons">
+                <button class="decision-btn good-lift" 
+                        id="good-lift-btn" 
+                        data-decision="good"
+                        aria-label="Good lift - mark attempt as successful">
+                    <div class="btn-content">
+                        <span class="icon">✅</span>
+                        <span class="text">GOOD LIFT</span>
+                    </div>
+                </button>
+                
+                <button class="decision-btn no-lift" 
+                        id="no-lift-btn" 
+                        data-decision="no"
+                        aria-label="No lift - mark attempt as failed">
+                    <div class="btn-content">
+                        <span class="icon">❌</span>
+                        <span class="text">NO LIFT</span>
+                    </div>
+                </button>
+            </div>
+            
+            <!-- Loading state -->
+            <div class="decision-loading hidden" id="decision-loading">
+                <div class="loading-spinner"></div>
+                <span>Submitting decision...</span>
+            </div>
+        </div>
+        
+        <!-- Emergency controls (small, accessible) -->
+        <div class="emergency-controls">
+            <button class="emergency-btn" id="undo-btn" aria-label="Undo last decision" disabled>
+                <span class="icon">↶</span>
+                <span class="text">Undo</span>
+            </button>
+        </div>
+    </main>
+    
+    <!-- Footer with confirmation -->
+    <footer class="referee-footer" role="contentinfo">
+        <div class="result-confirmation" id="result-confirmation">
+            <div class="confirmation-message" aria-live="polite">
+                Ready to make decision
+            </div>
+            
+            <div class="last-decision" id="last-decision">
+                <!-- Last decision info will appear here -->
+            </div>
+        </div>
+        
+        <div class="referee-info">
+            <span class="referee-id">Referee: {{ referee_id if referee_id else "Unknown" }}</span>
+            <span class="connection-status" id="connection-status">
+                <span class="status-indicator online"></span>
+                <span class="status-text">Online</span>
+            </span>
+        </div>
+    </footer>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Referee-specific configuration
+    window.REFEREE_CONFIG = {
+        refereeId: {{ referee_id if referee_id else 'null' }},
+        currentAttempt: {{ current_attempt | tojson if current_attempt else 'null' }},
+        canUndo: {{ 'true' if can_undo else 'false' }},
+        timeoutDuration: 30000, // 30 seconds for decision timeout
+        confirmationDelay: 2000 // 2 seconds to show confirmation
+    };
+</script>
+{% endblock %}

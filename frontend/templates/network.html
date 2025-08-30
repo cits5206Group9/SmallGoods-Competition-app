@@ -1,0 +1,379 @@
+{% extends "base.html" %}
+{% set page_css = "network" %}
+{% set page_js = "network" %}
+
+{% block title %}Network Access - Small Goods Competition{% endblock %}
+{% block body_class %}network-page{% endblock %}
+
+{% block layout %}
+<div class="network-container">
+    <div class="network-content">
+        <header class="network-header">
+            <h1>📱 Small Goods Competition</h1>
+            <p class="subtitle">Quick Network Access</p>
+        </header>
+        
+        <!-- Wi-Fi QR Code Section (FR8) -->
+        <div class="wifi-section">
+            <h2>📶 Wi-Fi Access</h2>
+            <div class="qr-container">
+                <div class="qr-code" id="wifi-qr">
+                    <!-- QR Code would be generated here -->
+                    <div class="qr-placeholder">
+                        <div class="qr-pattern">
+                            <div class="qr-squares">
+                                <div class="qr-square"></div>
+                                <div class="qr-square"></div>
+                                <div class="qr-square"></div>
+                                <div class="qr-square"></div>
+                                <div class="qr-square"></div>
+                                <div class="qr-square"></div>
+                                <div class="qr-square"></div>
+                                <div class="qr-square"></div>
+                                <div class="qr-square"></div>
+                            </div>
+                        </div>
+                        <p class="qr-instruction">📱 Scan for Wi-Fi</p>
+                    </div>
+                </div>
+                <div class="wifi-details">
+                    <p><strong>Network:</strong> CompetitionWiFi</p>
+                    <p><strong>Password:</strong> Lifting2024!</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Role-based Access Links -->
+        <div class="access-section">
+            <h2>🔗 Quick Access Links</h2>
+            <div class="role-links">
+                <a href="/admin" class="role-link admin">
+                    <div class="role-icon">👨‍💼</div>
+                    <div class="role-info">
+                        <h3>Admin</h3>
+                        <p>Competition Management</p>
+                        <span class="role-url">[domain]/admin</span>
+                    </div>
+                </a>
+                
+                <a href="/ref" class="role-link referee">
+                    <div class="role-icon">👨‍⚖️</div>
+                    <div class="role-info">
+                        <h3>Referee</h3>
+                        <p>Judge Lift Attempts</p>
+                        <span class="role-url">[domain]/ref</span>
+                    </div>
+                </a>
+                
+                <a href="/tc" class="role-link timekeeper">
+                    <div class="role-icon">⏱️</div>
+                    <div class="role-info">
+                        <h3>Timekeeper</h3>
+                        <p>Timer & Queue Control</p>
+                        <span class="role-url">[domain]/tc</span>
+                    </div>
+                </a>
+                
+                <a href="/athlete" class="role-link athlete">
+                    <div class="role-icon">🏋️</div>
+                    <div class="role-info">
+                        <h3>Athlete</h3>
+                        <p>Personal Dashboard</p>
+                        <span class="role-url">[domain]/athlete</span>
+                    </div>
+                </a>
+                
+                <a href="/display" class="role-link display">
+                    <div class="role-icon">📺</div>
+                    <div class="role-info">
+                        <h3>Display Board</h3>
+                        <p>Public Scoreboard</p>
+                        <span class="role-url">[domain]/display</span>
+                    </div>
+                </a>
+            </div>
+        </div>
+        
+        <!-- Additional Info -->
+        <div class="info-section">
+            <h3>ℹ️ Instructions</h3>
+            <ul class="instructions">
+                <li>Connect to the Wi-Fi network using the QR code above</li>
+                <li>Click your role link to access your interface</li>
+                <li>Bookmark the link for quick access</li>
+                <li>Contact technical support if you need assistance</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<style>
+.network-page {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+    color: white;
+}
+
+.network-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    padding: var(--space-lg);
+}
+
+.network-content {
+    background: rgba(255, 255, 255, 0.95);
+    color: var(--gray-900);
+    border-radius: var(--radius-xl);
+    padding: var(--space-3xl);
+    max-width: 600px;
+    width: 100%;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+    backdrop-filter: blur(10px);
+}
+
+.network-header {
+    text-align: center;
+    margin-bottom: var(--space-3xl);
+}
+
+.network-header h1 {
+    font-size: var(--text-4xl);
+    font-weight: var(--font-bold);
+    margin-bottom: var(--space-sm);
+    color: var(--primary-color);
+}
+
+.subtitle {
+    color: var(--gray-600);
+    font-size: var(--text-lg);
+}
+
+.wifi-section {
+    margin-bottom: var(--space-3xl);
+    text-align: center;
+}
+
+.wifi-section h2 {
+    color: var(--primary-color);
+    margin-bottom: var(--space-xl);
+}
+
+.qr-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-lg);
+}
+
+.qr-code {
+    width: 200px;
+    height: 200px;
+    background: white;
+    border-radius: var(--radius-lg);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    box-shadow: var(--shadow-lg);
+    border: 4px solid var(--primary-color);
+}
+
+.qr-pattern {
+    width: 150px;
+    height: 150px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.qr-squares {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 4px;
+    width: 80px;
+    height: 80px;
+}
+
+.qr-square {
+    background: var(--gray-900);
+    border-radius: 2px;
+}
+
+.qr-square:nth-child(1),
+.qr-square:nth-child(3),
+.qr-square:nth-child(7),
+.qr-square:nth-child(9) {
+    background: var(--primary-color);
+}
+
+.qr-instruction {
+    font-size: var(--text-sm);
+    color: var(--gray-600);
+    margin-top: var(--space-sm);
+}
+
+.wifi-details {
+    background: var(--gray-50);
+    padding: var(--space-lg);
+    border-radius: var(--radius-md);
+    text-align: left;
+}
+
+.wifi-details p {
+    margin-bottom: var(--space-sm);
+    font-family: 'Monaco', 'Menlo', monospace;
+}
+
+.access-section {
+    margin-bottom: var(--space-2xl);
+}
+
+.access-section h2 {
+    color: var(--primary-color);
+    text-align: center;
+    margin-bottom: var(--space-xl);
+}
+
+.role-links {
+    display: grid;
+    gap: var(--space-md);
+}
+
+.role-link {
+    display: flex;
+    align-items: center;
+    gap: var(--space-lg);
+    padding: var(--space-lg);
+    background: white;
+    border-radius: var(--radius-lg);
+    text-decoration: none;
+    color: var(--gray-900);
+    box-shadow: var(--shadow-sm);
+    transition: all var(--transition-normal);
+    border-left: 4px solid transparent;
+}
+
+.role-link:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+}
+
+.role-link.admin { border-left-color: var(--primary-color); }
+.role-link.referee { border-left-color: var(--success-color); }
+.role-link.timekeeper { border-left-color: var(--warning-color); }
+.role-link.athlete { border-left-color: var(--info-color); }
+.role-link.display { border-left-color: var(--danger-color); }
+
+.role-icon {
+    font-size: 2.5rem;
+    width: 60px;
+    text-align: center;
+}
+
+.role-info h3 {
+    font-size: var(--text-lg);
+    font-weight: var(--font-semibold);
+    margin-bottom: var(--space-xs);
+}
+
+.role-info p {
+    color: var(--gray-600);
+    font-size: var(--text-sm);
+    margin-bottom: var(--space-xs);
+}
+
+.role-url {
+    font-family: 'Monaco', 'Menlo', monospace;
+    font-size: var(--text-xs);
+    color: var(--gray-500);
+    background: var(--gray-100);
+    padding: var(--space-xs) var(--space-sm);
+    border-radius: var(--radius-sm);
+}
+
+.info-section {
+    background: var(--gray-50);
+    padding: var(--space-lg);
+    border-radius: var(--radius-lg);
+    margin-top: var(--space-xl);
+}
+
+.info-section h3 {
+    color: var(--primary-color);
+    margin-bottom: var(--space-md);
+}
+
+.instructions {
+    list-style: none;
+    padding: 0;
+}
+
+.instructions li {
+    margin-bottom: var(--space-sm);
+    padding-left: var(--space-lg);
+    position: relative;
+}
+
+.instructions li::before {
+    content: "✓";
+    position: absolute;
+    left: 0;
+    color: var(--success-color);
+    font-weight: var(--font-bold);
+}
+
+@media (max-width: 768px) {
+    .network-content {
+        padding: var(--space-xl);
+        margin: var(--space-md);
+    }
+    
+    .qr-container {
+        flex-direction: column;
+    }
+    
+    .role-link {
+        flex-direction: column;
+        text-align: center;
+        gap: var(--space-md);
+    }
+    
+    .role-info {
+        text-align: center;
+    }
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('Network access page loaded');
+    
+    // In a real implementation, this would generate an actual QR code
+    // For now, we're showing a placeholder pattern
+    
+    // Add click handlers for role links
+    const roleLinks = document.querySelectorAll('.role-link');
+    roleLinks.forEach(link => {
+        link.addEventListener('click', function(e) {
+            // Add loading state
+            const originalText = this.querySelector('h3').textContent;
+            this.querySelector('h3').textContent = 'Loading...';
+            
+            // Reset after navigation (in case it fails)
+            setTimeout(() => {
+                this.querySelector('h3').textContent = originalText;
+            }, 3000);
+        });
+    });
+    
+    // Simulate QR code functionality
+    const qrCode = document.getElementById('wifi-qr');
+    qrCode.addEventListener('click', function() {
+        // In a real app, this might show connection instructions
+        alert('In a real implementation, scanning this QR code would connect you to the Wi-Fi network automatically.');
+    });
+});
+</script>
+{% endblock %}

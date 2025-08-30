@@ -1,0 +1,200 @@
+{% extends "base.html" %}
+{% set page_css = "admin" %}
+{% set page_js = "admin" %}
+
+{% block title %}Admin Dashboard - Small Goods Competition{% endblock %}
+{% block body_class %}admin-page{% endblock %}
+
+{% block header %}
+<header class="top-nav" role="banner">
+    <div class="nav-container">
+        <h1 class="competition-name">{{ competition_name or "Small Goods Competition" }}</h1>
+        <nav class="header-nav">
+            <button class="nav-button" data-action="settings" aria-label="Settings">
+                <span class="icon">⚙️</span>
+                <span class="text">Settings</span>
+            </button>
+            <button class="nav-button" data-action="logout" aria-label="Logout">
+                <span class="icon">🚪</span>
+                <span class="text">Logout</span>
+            </button>
+        </nav>
+    </div>
+</header>
+{% endblock %}
+
+{% block sidebar %}
+<aside class="side-nav" role="navigation">
+    <nav class="sidebar-menu">
+        <ul class="menu-list">
+            <li class="menu-item active">
+                <button class="menu-button" data-section="overview">
+                    <span class="icon">📊</span>
+                    <span class="text">Current Event</span>
+                </button>
+            </li>
+            <li class="menu-item">
+                <button class="menu-button" data-section="model-builder">
+                    <span class="icon">🏗️</span>
+                    <span class="text">Model Builder</span>
+                </button>
+            </li>
+            <li class="menu-item">
+                <button class="menu-button" data-section="live-control">
+                    <span class="icon">🎮</span>
+                    <span class="text">Live Model Control</span>
+                </button>
+            </li>
+            <li class="menu-item">
+                <button class="menu-button" data-section="data-manager">
+                    <span class="icon">💾</span>
+                    <span class="text">Data Manager</span>
+                </button>
+            </li>
+            <li class="menu-item">
+                <button class="menu-button" data-section="athletes">
+                    <span class="icon">👥</span>
+                    <span class="text">Athletes/Notifications</span>
+                </button>
+            </li>
+            <li class="menu-item">
+                <button class="menu-button" data-section="timers">
+                    <span class="icon">⏱️</span>
+                    <span class="text">Timers</span>
+                </button>
+            </li>
+            <li class="menu-item">
+                <button class="menu-button" data-section="display-control">
+                    <span class="icon">🖥️</span>
+                    <span class="text">Display Control</span>
+                </button>
+            </li>
+            <li class="menu-item">
+                <button class="menu-button" data-section="network">
+                    <span class="icon">🌐</span>
+                    <span class="text">Network Control</span>
+                </button>
+            </li>
+        </ul>
+    </nav>
+</aside>
+{% endblock %}
+
+{% block content %}
+<div class="admin-content">
+    <!-- Overview Dashboard Section -->
+    <section id="overview-section" class="content-section active">
+        <h2>Overview Dashboard</h2>
+        
+        <div class="dashboard-grid">
+            <div class="dashboard-card current-athlete">
+                <h3>Current Athlete</h3>
+                <div class="athlete-info" id="current-athlete-info">
+                    <div class="placeholder">No active athlete</div>
+                </div>
+            </div>
+            
+            <div class="dashboard-card current-weight">
+                <h3>Current Weight</h3>
+                <div class="weight-display" id="current-weight-display">
+                    <div class="placeholder">-- kg</div>
+                </div>
+            </div>
+            
+            <div class="dashboard-card ranking">
+                <h3>Ranking</h3>
+                <div class="ranking-list" id="ranking-list">
+                    <div class="placeholder">Loading rankings...</div>
+                </div>
+            </div>
+            
+            <div class="dashboard-card queue">
+                <h3>Queue</h3>
+                <div class="queue-list" id="queue-list">
+                    <div class="placeholder">Loading queue...</div>
+                </div>
+            </div>
+            
+            <div class="dashboard-card timer">
+                <h3>Timer</h3>
+                <div class="timer-display" id="timer-display">
+                    <div class="time">02:00</div>
+                    <div class="timer-controls">
+                        <button class="timer-btn" data-action="start">Start</button>
+                        <button class="timer-btn" data-action="pause">Pause</button>
+                        <button class="timer-btn" data-action="reset">Reset</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+    
+    <!-- Model Builder Section -->
+    <section id="model-builder-section" class="content-section">
+        <h2>Competition Model Builder</h2>
+        
+        <!-- Search Bar for FR2 -->
+        <div class="search-section">
+            <div class="search-bar">
+                <input type="search" id="score-search" placeholder="Search recorded scores..." aria-label="Search scores">
+                <button class="search-button" data-action="search">🔍</button>
+            </div>
+            <div class="search-results" id="search-results"></div>
+        </div>
+        
+        <!-- Model Table -->
+        <div class="model-table-container">
+            <div class="table-controls">
+                <button class="action-btn" data-action="add-event">Add Event</button>
+                <button class="action-btn" data-action="add-lift">Add Lift</button>
+                <button class="action-btn" data-action="add-flight">Add Flight</button>
+                <button class="action-btn" data-action="add-athlete">Add Athlete</button>
+                <button class="action-btn" data-action="add-referee">Add Referee</button>
+            </div>
+            
+            <div class="tabs">
+                <button class="tab-button active" data-tab="events">Events</button>
+                <button class="tab-button" data-tab="lifts">Lifts</button>
+                <button class="tab-button" data-tab="flights">Flights</button>
+                <button class="tab-button" data-tab="athletes">Athletes</button>
+                <button class="tab-button" data-tab="referees">Referees</button>
+            </div>
+            
+            <div class="table-content" id="model-table-content">
+                <div class="placeholder">Select a tab to view data</div>
+            </div>
+        </div>
+    </section>
+    
+    <!-- Other sections will be populated by JavaScript -->
+    <section id="live-control-section" class="content-section">
+        <h2>Live Model Control</h2>
+        <div class="placeholder">Live control interface will be loaded here</div>
+    </section>
+    
+    <section id="data-manager-section" class="content-section">
+        <h2>Data Manager</h2>
+        <div class="placeholder">Data management interface will be loaded here</div>
+    </section>
+    
+    <section id="athletes-section" class="content-section">
+        <h2>Athletes & Notifications</h2>
+        <div class="placeholder">Athletes and notification management will be loaded here</div>
+    </section>
+    
+    <section id="timers-section" class="content-section">
+        <h2>Timers</h2>
+        <div class="placeholder">Timer management will be loaded here</div>
+    </section>
+    
+    <section id="display-control-section" class="content-section">
+        <h2>Display Control</h2>
+        <div class="placeholder">Display control interface will be loaded here</div>
+    </section>
+    
+    <section id="network-section" class="content-section">
+        <h2>Network Control</h2>
+        <div class="placeholder">Network control interface will be loaded here</div>
+    </section>
+</div>
+{% endblock %}

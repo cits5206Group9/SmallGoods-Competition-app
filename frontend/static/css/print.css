@@ -1,0 +1,320 @@
+/* ===== PRINT STYLES FOR OFFLINE USE ===== */
+
+@media print {
+    /* Reset and base styles for printing */
+    * {
+        background: white !important;
+        color: black !important;
+        box-shadow: none !important;
+        text-shadow: none !important;
+    }
+    
+    /* Page setup */
+    @page {
+        margin: 1cm;
+        size: A4;
+    }
+    
+    /* Hide non-essential elements */
+    .side-nav,
+    .nav-button,
+    .offline-indicator,
+    .loading-indicator,
+    .error-messages,
+    .success-messages,
+    .timer-controls,
+    .action-btn,
+    .tab-button,
+    .search-button,
+    .row-actions,
+    .emergency-controls,
+    .decision-buttons,
+    button {
+        display: none !important;
+    }
+    
+    /* Layout adjustments */
+    .app-container {
+        grid-template-areas: 
+            "header"
+            "main";
+        grid-template-columns: 1fr;
+        grid-template-rows: auto 1fr;
+    }
+    
+    .main-content {
+        padding: 0;
+    }
+    
+    /* Typography for print */
+    body {
+        font-family: 'Times New Roman', Times, serif;
+        font-size: 12pt;
+        line-height: 1.4;
+    }
+    
+    h1 { font-size: 18pt; page-break-after: avoid; }
+    h2 { font-size: 16pt; page-break-after: avoid; }
+    h3 { font-size: 14pt; page-break-after: avoid; }
+    h4, h5, h6 { font-size: 12pt; page-break-after: avoid; }
+    
+    /* Print-specific layouts */
+    .dashboard-grid {
+        display: block;
+    }
+    
+    .dashboard-card {
+        margin-bottom: 20pt;
+        border: 1pt solid black;
+        padding: 10pt;
+        page-break-inside: avoid;
+    }
+    
+    .dashboard-card h3 {
+        font-weight: bold;
+        margin-bottom: 8pt;
+        border-bottom: 1pt solid black;
+        padding-bottom: 4pt;
+    }
+    
+    /* Tables for print */
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 20pt;
+        page-break-inside: avoid;
+    }
+    
+    th, td {
+        border: 1pt solid black;
+        padding: 4pt;
+        text-align: left;
+    }
+    
+    th {
+        font-weight: bold;
+        background: #f0f0f0 !important;
+    }
+    
+    /* Leaderboard print styles */
+    .ranking-item,
+    .queue-item {
+        display: flex;
+        justify-content: space-between;
+        padding: 4pt;
+        border-bottom: 1pt solid #ccc;
+    }
+    
+    .ranking-position,
+    .queue-position {
+        font-weight: bold;
+        width: 30pt;
+    }
+    
+    /* Timer display for print */
+    .timer-display .time {
+        font-family: 'Courier New', monospace;
+        font-size: 16pt;
+        font-weight: bold;
+        text-align: center;
+        border: 2pt solid black;
+        padding: 8pt;
+        margin: 10pt 0;
+    }
+    
+    /* Search results */
+    .search-results {
+        border: 1pt solid black;
+        margin-bottom: 20pt;
+    }
+    
+    .search-result {
+        padding: 6pt;
+        border-bottom: 1pt solid #ccc;
+    }
+    
+    .search-result:last-child {
+        border-bottom: none;
+    }
+    
+    /* Competition header */
+    .competition-name {
+        font-size: 20pt;
+        font-weight: bold;
+        text-align: center;
+        margin-bottom: 20pt;
+        border-bottom: 2pt solid black;
+        padding-bottom: 10pt;
+    }
+    
+    /* Page breaks */
+    .content-section {
+        page-break-before: always;
+    }
+    
+    .content-section:first-child {
+        page-break-before: avoid;
+    }
+    
+    /* Print date/time */
+    .print-header::after {
+        content: "Printed: " attr(data-print-time);
+        position: fixed;
+        top: 0;
+        right: 0;
+        font-size: 8pt;
+        color: #666;
+    }
+    
+    /* Referee interface print styles */
+    .referee-page .athlete-info {
+        display: block;
+        text-align: center;
+        margin-bottom: 20pt;
+        padding: 10pt;
+        border: 2pt solid black;
+    }
+    
+    .referee-page .athlete-info > div {
+        margin-bottom: 8pt;
+    }
+    
+    .referee-page .label {
+        font-weight: bold;
+    }
+    
+    .referee-page .value {
+        font-size: 14pt;
+        font-weight: bold;
+    }
+    
+    /* Display board print styles */
+    .display-page {
+        background: white !important;
+        color: black !important;
+    }
+    
+    .current-lifter {
+        text-align: center;
+        font-size: 16pt;
+        font-weight: bold;
+        margin-bottom: 20pt;
+        padding: 15pt;
+        border: 3pt solid black;
+    }
+    
+    .leaderboard-panel {
+        page-break-before: always;
+    }
+    
+    /* Athlete view print styles */
+    .upcoming-attempts {
+        margin-bottom: 20pt;
+    }
+    
+    .attempt-card {
+        padding: 8pt;
+        margin-bottom: 8pt;
+        border: 1pt solid black;
+    }
+    
+    /* Network/QR page print styles */
+    .qr-code {
+        text-align: center;
+        margin: 20pt 0;
+    }
+    
+    .role-links {
+        list-style: none;
+        padding: 0;
+    }
+    
+    .role-links li {
+        padding: 4pt;
+        margin-bottom: 4pt;
+        border: 1pt solid black;
+        text-align: center;
+    }
+    
+    /* Print utilities */
+    .print-only {
+        display: block !important;
+    }
+    
+    .no-print {
+        display: none !important;
+    }
+    
+    .print-break {
+        page-break-after: always;
+    }
+    
+    .print-avoid-break {
+        page-break-inside: avoid;
+    }
+    
+    /* Links for print */
+    a[href]:after {
+        content: " (" attr(href) ")";
+        font-size: 9pt;
+        color: #666;
+    }
+    
+    /* Special print sections */
+    .print-summary {
+        margin-bottom: 20pt;
+        padding: 10pt;
+        border: 2pt solid black;
+    }
+    
+    .print-summary h2 {
+        margin-top: 0;
+        text-align: center;
+    }
+    
+    .print-timestamp {
+        position: fixed;
+        bottom: 10pt;
+        right: 10pt;
+        font-size: 8pt;
+        color: #666;
+    }
+    
+    /* Competition results table */
+    .results-table {
+        width: 100%;
+        font-size: 10pt;
+    }
+    
+    .results-table th {
+        background: #e0e0e0 !important;
+        font-weight: bold;
+    }
+    
+    .results-table .athlete-name {
+        font-weight: bold;
+    }
+    
+    .results-table .good-lift {
+        color: #000 !important;
+    }
+    
+    .results-table .no-lift {
+        color: #000 !important;
+        text-decoration: line-through;
+    }
+}
+
+/* Print JavaScript utilities */
+@media print {
+    body::before {
+        content: "";
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 1cm;
+        background: white;
+        z-index: 999;
+    }
+}

@@ -1,0 +1,423 @@
+/* ===== ADMIN PAGE STYLES ===== */
+
+.admin-page {
+    --sidebar-width: 250px;
+}
+
+/* Admin-specific layout adjustments */
+.admin-content {
+    padding: var(--space-lg);
+}
+
+.content-section {
+    display: none;
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+.content-section.active {
+    display: block;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Dashboard specific styles */
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: var(--space-lg);
+    margin-bottom: var(--space-2xl);
+}
+
+.dashboard-card {
+    min-height: 200px;
+    display: flex;
+    flex-direction: column;
+}
+
+.dashboard-card h3 {
+    margin-bottom: var(--space-md);
+    padding-bottom: var(--space-sm);
+    border-bottom: 1px solid var(--gray-200);
+    font-size: var(--text-sm);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--gray-600);
+}
+
+/* Current athlete info */
+.athlete-info .athlete-name {
+    font-size: var(--text-xl);
+    font-weight: var(--font-semibold);
+    margin-bottom: var(--space-sm);
+}
+
+.athlete-info .athlete-details {
+    display: flex;
+    gap: var(--space-md);
+    font-size: var(--text-sm);
+    color: var(--gray-600);
+}
+
+/* Weight display */
+.weight-display {
+    text-align: center;
+    padding: var(--space-xl);
+}
+
+.weight-display .value {
+    font-size: var(--text-4xl);
+    font-weight: var(--font-bold);
+    color: var(--primary-color);
+    font-family: 'Monaco', 'Menlo', monospace;
+}
+
+.weight-display .unit {
+    font-size: var(--text-lg);
+    color: var(--gray-500);
+    margin-left: var(--space-xs);
+}
+
+/* Ranking list */
+.ranking-list {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.ranking-item {
+    display: flex;
+    align-items: center;
+    padding: var(--space-sm) var(--space-md);
+    border-bottom: 1px solid var(--gray-100);
+}
+
+.ranking-item:last-child {
+    border-bottom: none;
+}
+
+.ranking-position {
+    width: 30px;
+    font-weight: var(--font-bold);
+    color: var(--primary-color);
+}
+
+.ranking-name {
+    flex: 1;
+    margin-left: var(--space-sm);
+}
+
+.ranking-score {
+    font-weight: var(--font-medium);
+    color: var(--gray-700);
+}
+
+/* Queue list */
+.queue-list {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.queue-item {
+    display: flex;
+    align-items: center;
+    padding: var(--space-sm) var(--space-md);
+    border-bottom: 1px solid var(--gray-100);
+    cursor: pointer;
+    transition: background-color var(--transition-fast);
+}
+
+.queue-item:hover {
+    background-color: var(--gray-50);
+}
+
+.queue-item.current {
+    background-color: var(--primary-color);
+    color: var(--white);
+}
+
+.queue-item .position {
+    width: 30px;
+    font-weight: var(--font-bold);
+}
+
+.queue-item .name {
+    flex: 1;
+    margin-left: var(--space-sm);
+}
+
+.queue-item .weight {
+    font-size: var(--text-sm);
+    color: inherit;
+    opacity: 0.8;
+}
+
+/* Model builder section */
+.search-section {
+    margin-bottom: var(--space-xl);
+    padding: var(--space-lg);
+    background-color: var(--gray-50);
+    border-radius: var(--radius-lg);
+}
+
+.search-results {
+    margin-top: var(--space-md);
+    max-height: 200px;
+    overflow-y: auto;
+    background-color: var(--white);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--gray-200);
+    display: none;
+}
+
+.search-results.has-results {
+    display: block;
+}
+
+.search-result {
+    padding: var(--space-sm) var(--space-md);
+    border-bottom: 1px solid var(--gray-100);
+    cursor: pointer;
+    transition: background-color var(--transition-fast);
+}
+
+.search-result:hover {
+    background-color: var(--gray-50);
+}
+
+.search-result:last-child {
+    border-bottom: none;
+}
+
+/* Model table container */
+.model-table-container {
+    background-color: var(--white);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    box-shadow: var(--shadow-sm);
+}
+
+.table-controls {
+    padding: var(--space-lg);
+    background-color: var(--gray-50);
+    border-bottom: 1px solid var(--gray-200);
+    display: flex;
+    gap: var(--space-sm);
+    flex-wrap: wrap;
+}
+
+.action-btn {
+    padding: var(--space-sm) var(--space-md);
+    background-color: var(--primary-color);
+    color: var(--white);
+    border: none;
+    border-radius: var(--radius-md);
+    font-size: var(--text-sm);
+    font-weight: var(--font-medium);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    min-height: var(--touch-target);
+}
+
+.action-btn:hover {
+    background-color: var(--primary-dark);
+    transform: translateY(-1px);
+}
+
+.action-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+}
+
+/* Tabs styling */
+.tabs {
+    background-color: var(--white);
+    border-bottom: 1px solid var(--gray-200);
+    overflow-x: auto;
+}
+
+.tab-button {
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+/* Table content area */
+.table-content {
+    padding: var(--space-lg);
+    min-height: 400px;
+}
+
+.table-content .placeholder {
+    text-align: center;
+    color: var(--gray-500);
+    padding: var(--space-3xl);
+    font-style: italic;
+}
+
+/* Editable table styles */
+.editable-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.editable-table th,
+.editable-table td {
+    padding: var(--space-sm) var(--space-md);
+    text-align: left;
+    border-bottom: 1px solid var(--gray-200);
+    position: relative;
+}
+
+.editable-table th {
+    background-color: var(--gray-50);
+    font-weight: var(--font-semibold);
+    color: var(--gray-700);
+    position: sticky;
+    top: 0;
+    z-index: var(--z-sticky);
+}
+
+.editable-table tbody tr:hover {
+    background-color: var(--gray-50);
+}
+
+.editable-cell {
+    cursor: pointer;
+    padding: var(--space-xs);
+    border-radius: var(--radius-sm);
+    transition: all var(--transition-fast);
+}
+
+.editable-cell:hover {
+    background-color: var(--primary-color);
+    background-opacity: 0.1;
+}
+
+.editable-cell.editing {
+    background-color: var(--white);
+    box-shadow: 0 0 0 2px var(--primary-color);
+}
+
+.editable-cell input {
+    width: 100%;
+    border: none;
+    background: transparent;
+    font: inherit;
+    padding: var(--space-xs);
+}
+
+.editable-cell input:focus {
+    outline: none;
+}
+
+/* Row actions */
+.row-actions {
+    display: flex;
+    gap: var(--space-xs);
+    opacity: 0;
+    transition: opacity var(--transition-fast);
+}
+
+.editable-table tbody tr:hover .row-actions {
+    opacity: 1;
+}
+
+.row-action-btn {
+    padding: var(--space-xs);
+    background: none;
+    border: none;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-size: var(--text-sm);
+    transition: all var(--transition-fast);
+    color: var(--gray-500);
+}
+
+.row-action-btn:hover {
+    background-color: var(--gray-100);
+    color: var(--gray-900);
+}
+
+.row-action-btn.delete:hover {
+    background-color: var(--danger-color);
+    color: var(--white);
+}
+
+/* Status indicators */
+.status-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-xs);
+    padding: var(--space-xs) var(--space-sm);
+    border-radius: var(--radius-full);
+    font-size: var(--text-xs);
+    font-weight: var(--font-medium);
+}
+
+.status-indicator.online {
+    background-color: var(--success-color);
+    color: var(--white);
+}
+
+.status-indicator.offline {
+    background-color: var(--gray-400);
+    color: var(--white);
+}
+
+.status-indicator.sync {
+    background-color: var(--warning-color);
+    color: var(--black);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .admin-content {
+        padding: var(--space-md);
+    }
+    
+    .dashboard-grid {
+        grid-template-columns: 1fr;
+        gap: var(--space-md);
+    }
+    
+    .table-controls {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .action-btn {
+        width: 100%;
+        justify-content: center;
+    }
+    
+    .tabs {
+        padding: 0 var(--space-sm);
+    }
+    
+    .editable-table {
+        font-size: var(--text-sm);
+    }
+    
+    .editable-table th,
+    .editable-table td {
+        padding: var(--space-xs) var(--space-sm);
+    }
+}
+
+@media (max-width: 480px) {
+    .athlete-details {
+        flex-direction: column;
+        gap: var(--space-xs);
+    }
+    
+    .queue-item,
+    .ranking-item {
+        padding: var(--space-sm);
+    }
+    
+    .search-section {
+        padding: var(--space-md);
+    }
+}

@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#1a73e8">
+    <meta name="description" content="Small Goods Competition Management System">
+    
+    <title>Admin Dashboard - Small Goods Competition</title>
+    
+    <!-- CSS Files -->
+    <link rel="stylesheet" href="static/css/base.css">
+    <link rel="stylesheet" href="static/css/layout.css">
+    <link rel="stylesheet" href="static/css/components.css">
+    <link rel="stylesheet" href="static/css/pages/admin.css">
+    <link rel="stylesheet" href="static/css/print.css" media="print">
+</head>
+<body class="admin-page">
+    <!-- Offline Status Indicator -->
+    <div id="offline-indicator" class="offline-indicator hidden">
+        <span class="offline-icon">📱</span>
+        <span class="offline-text">Offline Mode</span>
+    </div>
+    
+    <!-- Loading Indicator -->
+    <div id="loading-indicator" class="loading-indicator hidden">
+        <div class="loading-spinner"></div>
+        <span>Loading...</span>
+    </div>
+    
+    <!-- Main Layout -->
+    <div class="app-container">
+        <header class="top-nav" role="banner">
+            <div class="nav-container">
+                <h1 class="competition-name">Test Competition 2024</h1>
+                <nav class="header-nav">
+                    <button class="nav-button" data-action="settings" aria-label="Settings">
+                        <span class="icon">⚙️</span>
+                        <span class="text">Settings</span>
+                    </button>
+                    <button class="nav-button" data-action="logout" aria-label="Logout">
+                        <span class="icon">🚪</span>
+                        <span class="text">Logout</span>
+                    </button>
+                </nav>
+            </div>
+        </header>
+        
+        <aside class="side-nav" role="navigation">
+            <nav class="sidebar-menu">
+                <ul class="menu-list">
+                    <li class="menu-item active">
+                        <button class="menu-button" data-section="overview">
+                            <span class="icon">📊</span>
+                            <span class="text">Current Event</span>
+                        </button>
+                    </li>
+                    <li class="menu-item">
+                        <button class="menu-button" data-section="model-builder">
+                            <span class="icon">🏗️</span>
+                            <span class="text">Model Builder</span>
+                        </button>
+                    </li>
+                    <li class="menu-item">
+                        <button class="menu-button" data-section="live-control">
+                            <span class="icon">🎮</span>
+                            <span class="text">Live Model Control</span>
+                        </button>
+                    </li>
+                    <li class="menu-item">
+                        <button class="menu-button" data-section="data-manager">
+                            <span class="icon">💾</span>
+                            <span class="text">Data Manager</span>
+                        </button>
+                    </li>
+                    <li class="menu-item">
+                        <button class="menu-button" data-section="athletes">
+                            <span class="icon">👥</span>
+                            <span class="text">Athletes/Notifications</span>
+                        </button>
+                    </li>
+                    <li class="menu-item">
+                        <button class="menu-button" data-section="timers">
+                            <span class="icon">⏱️</span>
+                            <span class="text">Timers</span>
+                        </button>
+                    </li>
+                    <li class="menu-item">
+                        <button class="menu-button" data-section="display-control">
+                            <span class="icon">🖥️</span>
+                            <span class="text">Display Control</span>
+                        </button>
+                    </li>
+                    <li class="menu-item">
+                        <button class="menu-button" data-section="network">
+                            <span class="icon">🌐</span>
+                            <span class="text">Network Control</span>
+                        </button>
+                    </li>
+                </ul>
+            </nav>
+        </aside>
+        
+        <main class="main-content" role="main">
+            <div class="admin-content">
+                <!-- Overview Dashboard Section -->
+                <section id="overview-section" class="content-section active">
+                    <h2>Overview Dashboard</h2>
+                    
+                    <div class="dashboard-grid">
+                        <div class="dashboard-card current-athlete">
+                            <h3>Current Athlete</h3>
+                            <div class="athlete-info" id="current-athlete-info">
+                                <div class="athlete-name">John Smith</div>
+                                <div class="athlete-details">
+                                    <span class="weight">150 kg</span>
+                                    <span class="attempt">Attempt 2</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="dashboard-card current-weight">
+                            <h3>Current Weight</h3>
+                            <div class="weight-display" id="current-weight-display">
+                                <span class="value">150</span><span class="unit">kg</span>
+                            </div>
+                        </div>
+                        
+                        <div class="dashboard-card ranking">
+                            <h3>Ranking</h3>
+                            <div class="ranking-list" id="ranking-list">
+                                <div class="ranking-item">
+                                    <span class="ranking-position">1</span>
+                                    <span class="ranking-name">Alex Davis</span>
+                                    <span class="ranking-score">320</span>
+                                </div>
+                                <div class="ranking-item">
+                                    <span class="ranking-position">2</span>
+                                    <span class="ranking-name">David Wilson</span>
+                                    <span class="ranking-score">310</span>
+                                </div>
+                                <div class="ranking-item">
+                                    <span class="ranking-position">3</span>
+                                    <span class="ranking-name">John Smith</span>
+                                    <span class="ranking-score">300</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="dashboard-card queue">
+                            <h3>Queue</h3>
+                            <div class="queue-list" id="queue-list">
+                                <div class="queue-item current">
+                                    <span class="position">1</span>
+                                    <span class="name">John Smith</span>
+                                    <span class="weight">150 kg</span>
+                                </div>
+                                <div class="queue-item">
+                                    <span class="position">2</span>
+                                    <span class="name">Mike Johnson</span>
+                                    <span class="weight">145 kg</span>
+                                </div>
+                                <div class="queue-item">
+                                    <span class="position">3</span>
+                                    <span class="name">David Wilson</span>
+                                    <span class="weight">155 kg</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="dashboard-card timer">
+                            <h3>Timer</h3>
+                            <div class="timer-display" id="timer-display">
+                                <div class="time">02:00</div>
+                                <div class="timer-controls">
+                                    <button class="timer-btn" data-action="start">Start</button>
+                                    <button class="timer-btn" data-action="pause" style="display: none;">Pause</button>
+                                    <button class="timer-btn" data-action="reset">Reset</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+                
+                <!-- Model Builder Section -->
+                <section id="model-builder-section" class="content-section">
+                    <h2>Competition Model Builder</h2>
+                    
+                    <!-- Search Bar for FR2 -->
+                    <div class="search-section">
+                        <div class="search-bar">
+                            <input type="search" id="score-search" placeholder="Search recorded scores..." aria-label="Search scores">
+                            <button class="search-button" data-action="search">🔍</button>
+                        </div>
+                        <div class="search-results" id="search-results"></div>
+                    </div>
+                    
+                    <!-- Model Table -->
+                    <div class="model-table-container">
+                        <div class="table-controls">
+                            <button class="action-btn" data-action="add-event">Add Event</button>
+                            <button class="action-btn" data-action="add-lift">Add Lift</button>
+                            <button class="action-btn" data-action="add-flight">Add Flight</button>
+                            <button class="action-btn" data-action="add-athlete">Add Athlete</button>
+                            <button class="action-btn" data-action="add-referee">Add Referee</button>
+                        </div>
+                        
+                        <div class="tabs">
+                            <button class="tab-button active" data-tab="events">Events</button>
+                            <button class="tab-button" data-tab="lifts">Lifts</button>
+                            <button class="tab-button" data-tab="flights">Flights</button>
+                            <button class="tab-button" data-tab="athletes">Athletes</button>
+                            <button class="tab-button" data-tab="referees">Referees</button>
+                        </div>
+                        
+                        <div class="table-content" id="model-table-content">
+                            <div style="text-align: center; padding: 40px; color: #666; font-style: italic;">
+                                Click the Flask server option above to test interactive features
+                            </div>
+                        </div>
+                    </div>
+                </section>
+                
+                <!-- Placeholder sections -->
+                <section id="live-control-section" class="content-section">
+                    <h2>Live Model Control</h2>
+                    <div style="text-align: center; padding: 40px; color: #666; font-style: italic;">
+                        Live control interface - interactive with server
+                    </div>
+                </section>
+                
+                <section id="data-manager-section" class="content-section">
+                    <h2>Data Manager</h2>
+                    <div style="text-align: center; padding: 40px; color: #666; font-style: italic;">
+                        Data management interface - interactive with server
+                    </div>
+                </section>
+                
+                <section id="athletes-section" class="content-section">
+                    <h2>Athletes & Notifications</h2>
+                    <div style="text-align: center; padding: 40px; color: #666; font-style: italic;">
+                        Athletes and notification management - interactive with server
+                    </div>
+                </section>
+                
+                <section id="timers-section" class="content-section">
+                    <h2>Timers</h2>
+                    <div style="text-align: center; padding: 40px; color: #666; font-style: italic;">
+                        Timer management - interactive with server
+                    </div>
+                </section>
+                
+                <section id="display-control-section" class="content-section">
+                    <h2>Display Control</h2>
+                    <div style="text-align: center; padding: 40px; color: #666; font-style: italic;">
+                        Display control interface - interactive with server
+                    </div>
+                </section>
+                
+                <section id="network-section" class="content-section">
+                    <h2>Network Control</h2>
+                    <div style="text-align: center; padding: 40px; color: #666; font-style: italic;">
+                        Network control interface - interactive with server
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+    
+    <!-- Error Messages -->
+    <div id="error-messages" class="error-messages" aria-live="polite"></div>
+    
+    <!-- Success Messages -->
+    <div id="success-messages" class="success-messages" aria-live="polite"></div>
+    
+    <!-- Core JavaScript -->
+    <script>
+        // Mock app configuration for preview
+        window.APP_CONFIG = {
+            role: 'admin',
+            competitionId: 1,
+            apiEndpoint: '/api',
+            wsEndpoint: 'ws://localhost:8000/ws',
+            offlineMode: true
+        };
+        
+        // Simple preview functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            // Navigation functionality
+            const menuButtons = document.querySelectorAll('.menu-button');
+            menuButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    const section = this.dataset.section;
+                    switchSection(section);
+                });
+            });
+            
+            function switchSection(section) {
+                // Update menu active state
+                document.querySelectorAll('.menu-item').forEach(item => {
+                    item.classList.remove('active');
+                });
+                
+                const activeItem = document.querySelector(`[data-section="${section}"]`).closest('.menu-item');
+                if (activeItem) {
+                    activeItem.classList.add('active');
+                }
+                
+                // Switch content sections
+                document.querySelectorAll('.content-section').forEach(sec => {
+                    sec.classList.remove('active');
+                });
+                
+                const targetSection = document.getElementById(`${section}-section`);
+                if (targetSection) {
+                    targetSection.classList.add('active');
+                }
+            }
+            
+            // Tab functionality
+            const tabButtons = document.querySelectorAll('.tab-button');
+            tabButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    document.querySelectorAll('.tab-button').forEach(btn => {
+                        btn.classList.remove('active');
+                    });
+                    this.classList.add('active');
+                    
+                    const tableContent = document.getElementById('model-table-content');
+                    tableContent.innerHTML = `<div style="text-align: center; padding: 40px; color: #666; font-style: italic;">
+                        ${this.dataset.tab.charAt(0).toUpperCase() + this.dataset.tab.slice(1)} table - requires server for data
+                    </div>`;
+                });
+            });
+            
+            // Timer controls
+            let timerRunning = false;
+            const timerButtons = document.querySelectorAll('.timer-btn');
+            timerButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    const action = this.dataset.action;
+                    if (action === 'start') {
+                        timerRunning = true;
+                        document.querySelector('[data-action="start"]').style.display = 'none';
+                        document.querySelector('[data-action="pause"]').style.display = 'inline-flex';
+                        showMessage('Timer started (preview mode)', 'info');
+                    } else if (action === 'pause') {
+                        timerRunning = false;
+                        document.querySelector('[data-action="start"]').style.display = 'inline-flex';
+                        document.querySelector('[data-action="pause"]').style.display = 'none';
+                        showMessage('Timer paused (preview mode)', 'info');
+                    } else if (action === 'reset') {
+                        timerRunning = false;
+                        document.querySelector('[data-action="start"]').style.display = 'inline-flex';
+                        document.querySelector('[data-action="pause"]').style.display = 'none';
+                        document.querySelector('.time').textContent = '02:00';
+                        showMessage('Timer reset (preview mode)', 'info');
+                    }
+                });
+            });
+            
+            // Search functionality
+            const searchInput = document.getElementById('score-search');
+            if (searchInput) {
+                searchInput.addEventListener('input', function() {
+                    if (this.value.length >= 2) {
+                        const resultsContainer = document.getElementById('search-results');
+                        resultsContainer.innerHTML = `
+                            <div class="search-result">
+                                <div class="result-athlete">John Smith</div>
+                                <div class="result-details">
+                                    <span class="result-lift">Snatch</span>
+                                    <span class="result-weight">150 kg</span>
+                                    <span class="result-outcome good">Good</span>
+                                </div>
+                                <div class="result-timestamp">Mock result for: "${this.value}"</div>
+                            </div>
+                        `;
+                        resultsContainer.classList.add('has-results');
+                    } else {
+                        document.getElementById('search-results').classList.remove('has-results');
+                    }
+                });
+            }
+            
+            // Show preview notification
+            showMessage('Frontend preview mode - use Flask server for full functionality', 'info', 8000);
+        });
+        
+        function showMessage(text, type = 'info', duration = 3000) {
+            const container = document.getElementById('success-messages');
+            const message = document.createElement('div');
+            message.className = 'success-message';
+            message.textContent = text;
+            container.appendChild(message);
+            
+            setTimeout(() => {
+                if (message.parentNode) {
+                    message.parentNode.removeChild(message);
+                }
+            }, duration);
+        }
+    </script>
+</body>
+</html>

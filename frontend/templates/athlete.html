@@ -1,0 +1,255 @@
+{% extends "base.html" %}
+{% set page_css = "athlete" %}
+{% set page_js = "athlete" %}
+
+{% block title %}Athlete View - Small Goods Competition{% endblock %}
+{% block body_class %}athlete-page{% endblock %}
+
+{% block content %}
+<div class="athlete-content">
+    <header class="athlete-header">
+        <h1>🏋️ {{ athlete_name if athlete_name else "Athlete Dashboard" }}</h1>
+        <div class="competition-info">
+            <span class="competition-name">{{ competition_name if competition_name else "Test Competition" }}</span>
+            <span class="event-name">{{ current_event if current_event else "Men's 85kg" }}</span>
+        </div>
+    </header>
+    
+    <div class="athlete-dashboard">
+        <div class="dashboard-card">
+            <h3>📋 Upcoming Attempts</h3>
+            <div id="upcoming-attempts">
+                <div class="attempt-card">
+                    <div class="attempt-info">
+                        <span class="lift-type">Snatch</span>
+                        <span class="weight">150 kg</span>
+                        <span class="attempt-number">Attempt #2</span>
+                    </div>
+                    <div class="countdown">
+                        <span class="time-remaining">~5 min</span>
+                    </div>
+                </div>
+                
+                <div class="attempt-card next">
+                    <div class="attempt-info">
+                        <span class="lift-type">Clean & Jerk</span>
+                        <span class="weight">180 kg</span>
+                        <span class="attempt-number">Attempt #1</span>
+                    </div>
+                    <div class="countdown">
+                        <span class="time-remaining">~15 min</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="dashboard-card">
+            <h3>🔔 Notifications (FR10)</h3>
+            <div id="notifications">
+                <div class="notification-banner info">
+                    <span class="icon">ℹ️</span>
+                    <span class="message">You're currently 2nd in queue</span>
+                </div>
+                <div class="notification-banner warning" style="display: none;" id="warning-banner">
+                    <span class="icon">⚠️</span>
+                    <span class="message">You're up in 2 minutes!</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="dashboard-card">
+            <h3>📊 Your Performance</h3>
+            <div id="performance-history">
+                <div class="performance-item">
+                    <span class="lift">Snatch</span>
+                    <span class="weight successful">145 kg ✅</span>
+                    <span class="time">10:30 AM</span>
+                </div>
+                <div class="performance-item">
+                    <span class="lift">Snatch</span>
+                    <span class="weight failed">150 kg ❌</span>
+                    <span class="time">10:35 AM</span>
+                </div>
+                <div class="performance-item pending">
+                    <span class="lift">Snatch</span>
+                    <span class="weight">150 kg (retry)</span>
+                    <span class="time">Next up</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="dashboard-card">
+            <h3>🏆 Current Rankings</h3>
+            <div id="current-rankings">
+                <div class="ranking-item">
+                    <span class="position">1st</span>
+                    <span class="athlete">Alex Davis</span>
+                    <span class="total">320 kg</span>
+                </div>
+                <div class="ranking-item">
+                    <span class="position">2nd</span>
+                    <span class="athlete">David Wilson</span>
+                    <span class="total">310 kg</span>
+                </div>
+                <div class="ranking-item current">
+                    <span class="position">3rd</span>
+                    <span class="athlete">You</span>
+                    <span class="total">295 kg</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.athlete-content {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: var(--space-lg);
+}
+
+.athlete-header {
+    text-align: center;
+    margin-bottom: var(--space-2xl);
+    padding: var(--space-lg);
+    background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
+    color: white;
+    border-radius: var(--radius-lg);
+}
+
+.competition-info {
+    display: flex;
+    justify-content: center;
+    gap: var(--space-lg);
+    margin-top: var(--space-md);
+    opacity: 0.9;
+}
+
+.athlete-dashboard {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: var(--space-lg);
+}
+
+.attempt-card {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--space-md);
+    margin-bottom: var(--space-sm);
+    background: var(--gray-50);
+    border-radius: var(--radius-md);
+    border-left: 4px solid var(--primary-color);
+}
+
+.attempt-card.next {
+    border-left-color: var(--gray-400);
+    opacity: 0.7;
+}
+
+.attempt-info {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
+}
+
+.lift-type {
+    font-weight: var(--font-semibold);
+    color: var(--primary-color);
+}
+
+.weight {
+    font-size: var(--text-lg);
+    font-weight: var(--font-bold);
+}
+
+.countdown .time-remaining {
+    background: var(--warning-color);
+    padding: var(--space-xs) var(--space-sm);
+    border-radius: var(--radius-sm);
+    font-size: var(--text-sm);
+    font-weight: var(--font-bold);
+}
+
+.notification-banner {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    padding: var(--space-md);
+    border-radius: var(--radius-md);
+    margin-bottom: var(--space-sm);
+}
+
+.notification-banner.info {
+    background: var(--info-color);
+    color: white;
+}
+
+.notification-banner.warning {
+    background: var(--warning-color);
+    color: black;
+    animation: pulse 1s infinite;
+}
+
+.performance-item {
+    display: flex;
+    justify-content: space-between;
+    padding: var(--space-sm) var(--space-md);
+    border-bottom: 1px solid var(--gray-200);
+}
+
+.performance-item:last-child {
+    border-bottom: none;
+}
+
+.performance-item.pending {
+    background: var(--gray-50);
+    font-weight: var(--font-semibold);
+}
+
+.weight.successful {
+    color: var(--success-color);
+}
+
+.weight.failed {
+    color: var(--danger-color);
+}
+
+.ranking-item {
+    display: flex;
+    justify-content: space-between;
+    padding: var(--space-sm) var(--space-md);
+    border-bottom: 1px solid var(--gray-200);
+}
+
+.ranking-item.current {
+    background: var(--primary-color);
+    color: white;
+    border-radius: var(--radius-sm);
+    font-weight: var(--font-semibold);
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('Athlete page loaded');
+    
+    // Simulate notifications (FR10)
+    setTimeout(() => {
+        document.getElementById('warning-banner').style.display = 'flex';
+        console.log('Warning notification triggered');
+    }, 5000); // Show warning after 5 seconds
+    
+    // Simulate countdown updates
+    let minutes = 5;
+    setInterval(() => {
+        const countdowns = document.querySelectorAll('.time-remaining');
+        countdowns.forEach((countdown, index) => {
+            const time = minutes + (index * 10);
+            countdown.textContent = `~${time} min`;
+        });
+        minutes = Math.max(0, minutes - 1);
+    }, 60000); // Update every minute
+});
+</script>
+{% endblock %}

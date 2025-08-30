@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#1a73e8">
+    
+    <title>Referee Interface - Small Goods Competition</title>
+    
+    <!-- CSS Files -->
+    <link rel="stylesheet" href="static/css/base.css">
+    <link rel="stylesheet" href="static/css/layout.css">
+    <link rel="stylesheet" href="static/css/components.css">
+    <link rel="stylesheet" href="static/css/pages/referee.css">
+</head>
+<body class="referee-page fullscreen">
+    <div class="referee-container">
+        <!-- Header with current athlete info -->
+        <header class="referee-header" role="banner">
+            <div class="athlete-info" id="athlete-info">
+                <div class="athlete-name" id="athlete-name">
+                    <span class="label">Athlete:</span>
+                    <span class="value">John Smith</span>
+                </div>
+                <div class="attempt-weight" id="attempt-weight">
+                    <span class="label">Weight:</span>
+                    <span class="value">150 kg</span>
+                </div>
+                <div class="attempt-number" id="attempt-number">
+                    <span class="label">Attempt:</span>
+                    <span class="value">2</span>
+                </div>
+            </div>
+            
+            <div class="timer-info" id="timer-info">
+                <div class="timer-display">
+                    <span id="timer-value">02:00</span>
+                </div>
+            </div>
+        </header>
+        
+        <!-- Main decision area -->
+        <main class="referee-main" role="main">
+            <div class="decision-area">
+                <h1 class="sr-only">Make Decision</h1>
+                
+                <div class="decision-buttons">
+                    <button class="decision-btn good-lift" 
+                            id="good-lift-btn" 
+                            data-decision="good"
+                            aria-label="Good lift - mark attempt as successful">
+                        <div class="btn-content">
+                            <span class="icon">✅</span>
+                            <span class="text">GOOD LIFT</span>
+                        </div>
+                    </button>
+                    
+                    <button class="decision-btn no-lift" 
+                            id="no-lift-btn" 
+                            data-decision="no"
+                            aria-label="No lift - mark attempt as failed">
+                        <div class="btn-content">
+                            <span class="icon">❌</span>
+                            <span class="text">NO LIFT</span>
+                        </div>
+                    </button>
+                </div>
+                
+                <!-- Loading state -->
+                <div class="decision-loading hidden" id="decision-loading">
+                    <div class="loading-spinner"></div>
+                    <span>Submitting decision...</span>
+                </div>
+            </div>
+            
+            <!-- Emergency controls (small, accessible) -->
+            <div class="emergency-controls">
+                <button class="emergency-btn" id="undo-btn" aria-label="Undo last decision" disabled>
+                    <span class="icon">↶</span>
+                    <span class="text">Undo</span>
+                </button>
+            </div>
+        </main>
+        
+        <!-- Footer with confirmation -->
+        <footer class="referee-footer" role="contentinfo">
+            <div class="result-confirmation" id="result-confirmation">
+                <div class="confirmation-message" aria-live="polite">
+                    Ready to make decision (Preview Mode)
+                </div>
+                
+                <div class="last-decision" id="last-decision">
+                    <!-- Last decision info will appear here -->
+                </div>
+            </div>
+            
+            <div class="referee-info">
+                <span class="referee-id">Referee: REF001</span>
+                <span class="connection-status" id="connection-status">
+                    <span class="status-indicator offline"></span>
+                    <span class="status-text">Preview Mode</span>
+                </span>
+            </div>
+        </footer>
+    </div>
+    
+    <script>
+        // Mock referee configuration for preview
+        window.REFEREE_CONFIG = {
+            refereeId: 'REF001',
+            currentAttempt: {
+                athleteId: 1,
+                athleteName: 'John Smith',
+                weight: 150,
+                attempt: 2,
+                lift: 'Snatch'
+            },
+            canUndo: false,
+            timeoutDuration: 30000,
+            confirmationDelay: 2000
+        };
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            let lastDecision = null;
+            let decisionTimeout = null;
+            
+            // Decision button handlers
+            const decisionButtons = document.querySelectorAll('.decision-btn');
+            decisionButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    const decision = this.dataset.decision;
+                    makeDecision(decision);
+                });
+            });
+            
+            function makeDecision(decision) {
+                // Disable buttons
+                decisionButtons.forEach(btn => btn.disabled = true);
+                
+                // Show loading
+                const loadingElement = document.getElementById('decision-loading');
+                loadingElement.classList.remove('hidden');
+                
+                // Hide decision buttons
+                document.querySelector('.decision-buttons').style.display = 'none';
+                
+                // Simulate network delay
+                setTimeout(() => {
+                    // Hide loading
+                    loadingElement.classList.add('hidden');
+                    
+                    // Show confirmation
+                    const confirmationMessage = document.querySelector('.confirmation-message');
+                    const decisionText = decision === 'good' ? 'GOOD LIFT' : 'NO LIFT';
+                    const decisionIcon = decision === 'good' ? '✅' : '❌';
+                    
+                    confirmationMessage.textContent = `Decision recorded: ${decisionText}`;
+                    
+                    // Update last decision
+                    const lastDecisionElement = document.getElementById('last-decision');
+                    lastDecisionElement.innerHTML = `
+                        <span class="decision-icon">${decisionIcon}</span>
+                        <span>Last: ${decisionText} - John Smith (150kg)</span>
+                        <span class="decision-time">${new Date().toLocaleTimeString()}</span>
+                    `;
+                    lastDecisionElement.className = `last-decision ${decision}`;
+                    
+                    // Store decision
+                    lastDecision = {
+                        decision: decision,
+                        timestamp: new Date().toISOString(),
+                        athlete: 'John Smith',
+                        weight: 150
+                    };
+                    
+                    // Enable undo
+                    const undoBtn = document.getElementById('undo-btn');
+                    undoBtn.disabled = false;
+                    
+                    // Reset after delay
+                    clearTimeout(decisionTimeout);
+                    decisionTimeout = setTimeout(resetInterface, 3000);
+                    
+                    // Show success animation
+                    const clickedButton = document.querySelector(`[data-decision="${decision}"]`);
+                    clickedButton.style.transform = 'scale(1.1)';
+                    clickedButton.style.backgroundColor = decision === 'good' ? '#34a853' : '#ea4335';
+                    clickedButton.style.color = 'white';
+                    
+                    setTimeout(() => {
+                        clickedButton.style.transform = '';
+                        clickedButton.style.backgroundColor = '';
+                        clickedButton.style.color = '';
+                    }, 1000);
+                    
+                }, 1500); // 1.5 second delay to simulate processing
+            }
+            
+            function resetInterface() {
+                // Show decision buttons
+                document.querySelector('.decision-buttons').style.display = 'flex';
+                
+                // Enable buttons
+                decisionButtons.forEach(btn => btn.disabled = false);
+                
+                // Reset confirmation message
+                document.querySelector('.confirmation-message').textContent = 'Ready to make decision (Preview Mode)';
+                
+                // Simulate next athlete (in real app this would come from server)
+                setTimeout(() => {
+                    updateAthleteInfo({
+                        name: 'Mike Johnson',
+                        weight: 145,
+                        attempt: 1
+                    });
+                }, 2000);
+            }
+            
+            function updateAthleteInfo(athlete) {
+                document.querySelector('#athlete-name .value').textContent = athlete.name;
+                document.querySelector('#attempt-weight .value').textContent = athlete.weight + ' kg';
+                document.querySelector('#attempt-number .value').textContent = athlete.attempt;
+            }
+            
+            // Undo functionality
+            document.getElementById('undo-btn').addEventListener('click', function() {
+                if (lastDecision) {
+                    // Show undo confirmation
+                    const confirmationMessage = document.querySelector('.confirmation-message');
+                    confirmationMessage.textContent = `Undoing ${lastDecision.decision === 'good' ? 'GOOD LIFT' : 'NO LIFT'} decision...`;
+                    
+                    // Simulate undo processing
+                    setTimeout(() => {
+                        confirmationMessage.textContent = 'Decision undone. Ready to make new decision.';
+                        document.getElementById('last-decision').innerHTML = '';
+                        this.disabled = true;
+                        lastDecision = null;
+                        
+                        // Reset after short delay
+                        setTimeout(() => {
+                            confirmationMessage.textContent = 'Ready to make decision (Preview Mode)';
+                        }, 2000);
+                    }, 1000);
+                }
+            });
+            
+            // Timer simulation
+            let timeRemaining = 120; // 2 minutes
+            let timerInterval = setInterval(() => {
+                if (timeRemaining > 0) {
+                    timeRemaining--;
+                    const minutes = Math.floor(timeRemaining / 60);
+                    const seconds = timeRemaining % 60;
+                    document.getElementById('timer-value').textContent = 
+                        `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                    
+                    // Warning colors
+                    const timerElement = document.getElementById('timer-value');
+                    if (timeRemaining <= 30) {
+                        timerElement.style.color = '#ea4335'; // Red
+                    } else if (timeRemaining <= 60) {
+                        timerElement.style.color = '#fbbc04'; // Yellow
+                    } else {
+                        timerElement.style.color = 'white';
+                    }
+                } else {
+                    // Timer expired
+                    document.getElementById('timer-value').textContent = '00:00';
+                    document.getElementById('timer-value').style.color = '#ea4335';
+                    
+                    // Disable decision buttons
+                    decisionButtons.forEach(btn => {
+                        btn.disabled = true;
+                        btn.style.opacity = '0.5';
+                    });
+                    
+                    // Show timeout message
+                    document.querySelector('.confirmation-message').textContent = 'Time expired!';
+                    
+                    clearInterval(timerInterval);
+                    
+                    // Reset after 3 seconds
+                    setTimeout(() => {
+                        timeRemaining = 120;
+                        document.getElementById('timer-value').textContent = '02:00';
+                        document.getElementById('timer-value').style.color = 'white';
+                        decisionButtons.forEach(btn => {
+                            btn.disabled = false;
+                            btn.style.opacity = '1';
+                        });
+                        document.querySelector('.confirmation-message').textContent = 'Ready to make decision (Preview Mode)';
+                        
+                        // Restart timer
+                        timerInterval = setInterval(arguments.callee, 1000);
+                    }, 3000);
+                }
+            }, 1000);
+            
+            // Keyboard shortcuts
+            document.addEventListener('keydown', function(e) {
+                if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+                
+                if (e.key === 'g' || e.key === 'G') {
+                    document.getElementById('good-lift-btn').click();
+                } else if (e.key === 'n' || e.key === 'N') {
+                    document.getElementById('no-lift-btn').click();
+                } else if (e.key === 'u' || e.key === 'U') {
+                    if (!document.getElementById('undo-btn').disabled) {
+                        document.getElementById('undo-btn').click();
+                    }
+                }
+            });
+            
+            // Touch feedback
+            decisionButtons.forEach(button => {
+                button.addEventListener('touchstart', function() {
+                    this.style.transform = 'scale(0.95)';
+                });
+                
+                button.addEventListener('touchend', function() {
+                    this.style.transform = '';
+                });
+            });
+            
+            // Show initial instructions
+            setTimeout(() => {
+                document.querySelector('.confirmation-message').textContent = 
+                    'Preview Mode: Press G for Good Lift, N for No Lift, U for Undo';
+            }, 2000);
+        });
+    </script>
+</body>
+</html>

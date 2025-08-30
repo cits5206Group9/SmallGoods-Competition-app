@@ -1,0 +1,459 @@
+/* ===== REFEREE PAGE STYLES ===== */
+
+.referee-page {
+    touch-action: manipulation; /* Improve touch performance */
+    -webkit-user-select: none;
+    user-select: none; /* Prevent text selection on touch */
+}
+
+/* Referee layout */
+.referee-container {
+    background: linear-gradient(135deg, var(--gray-50) 0%, var(--white) 100%);
+    font-size: var(--text-lg); /* Larger base font for touch interface */
+}
+
+/* Header styling */
+.referee-header {
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+    box-shadow: var(--shadow-md);
+}
+
+.athlete-info {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    gap: var(--space-lg);
+    align-items: center;
+}
+
+.athlete-info > div {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+}
+
+.athlete-info .label {
+    font-size: var(--text-sm);
+    opacity: 0.9;
+    font-weight: var(--font-medium);
+    margin-bottom: var(--space-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+}
+
+.athlete-info .value {
+    font-size: var(--text-xl);
+    font-weight: var(--font-bold);
+}
+
+.timer-info {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.timer-info .timer-display {
+    background-color: rgba(255, 255, 255, 0.2);
+    padding: var(--space-md) var(--space-lg);
+    border-radius: var(--radius-lg);
+    backdrop-filter: blur(10px);
+}
+
+.timer-info #timer-value {
+    font-family: 'Monaco', 'Menlo', monospace;
+    font-size: var(--text-3xl);
+    font-weight: var(--font-bold);
+    color: var(--white);
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+/* Main decision area */
+.referee-main {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    min-height: 0; /* Allow flex shrinking */
+    flex: 1;
+}
+
+.decision-area {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    max-width: 800px;
+    width: 100%;
+}
+
+/* Decision buttons - optimized for touch */
+.decision-buttons {
+    display: flex;
+    gap: var(--space-3xl);
+    margin-bottom: var(--space-xl);
+}
+
+.decision-btn {
+    position: relative;
+    width: 220px;
+    height: 220px;
+    border-width: 4px;
+    border-style: solid;
+    border-radius: var(--radius-xl);
+    background-color: var(--white);
+    cursor: pointer;
+    transition: all var(--transition-normal);
+    user-select: none;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    box-shadow: var(--shadow-lg);
+}
+
+.decision-btn:focus {
+    outline: 4px solid var(--primary-color);
+    outline-offset: 4px;
+}
+
+.decision-btn:active {
+    transform: scale(0.95);
+    box-shadow: var(--shadow-md);
+}
+
+.decision-btn .btn-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    pointer-events: none; /* Prevent touch event issues */
+}
+
+.decision-btn .icon {
+    font-size: 4rem;
+    margin-bottom: var(--space-md);
+    transition: transform var(--transition-fast);
+}
+
+.decision-btn:hover .icon {
+    transform: scale(1.1);
+}
+
+.decision-btn .text {
+    font-size: var(--text-xl);
+    font-weight: var(--font-bold);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+}
+
+/* Good lift styling */
+.good-lift {
+    border-color: var(--success-color);
+    color: var(--success-color);
+}
+
+.good-lift:hover:not(:disabled) {
+    background-color: var(--success-color);
+    color: var(--white);
+    box-shadow: 0 8px 25px rgba(52, 168, 83, 0.3);
+}
+
+.good-lift:active {
+    background-color: #2d5a3d;
+}
+
+/* No lift styling */
+.no-lift {
+    border-color: var(--danger-color);
+    color: var(--danger-color);
+}
+
+.no-lift:hover:not(:disabled) {
+    background-color: var(--danger-color);
+    color: var(--white);
+    box-shadow: 0 8px 25px rgba(234, 67, 53, 0.3);
+}
+
+.no-lift:active {
+    background-color: #c5221f;
+}
+
+/* Disabled state */
+.decision-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    transform: none !important;
+    box-shadow: var(--shadow-sm) !important;
+}
+
+/* Loading state */
+.decision-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-md);
+    padding: var(--space-xl);
+    background-color: rgba(255, 255, 255, 0.9);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-md);
+}
+
+.decision-loading .loading-spinner {
+    width: 40px;
+    height: 40px;
+    border-width: 4px;
+}
+
+/* Emergency controls */
+.emergency-controls {
+    position: absolute;
+    top: var(--space-lg);
+    right: var(--space-lg);
+}
+
+.emergency-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-xs);
+    padding: var(--space-sm);
+    background-color: var(--warning-color);
+    color: var(--black);
+    border: none;
+    border-radius: var(--radius-md);
+    font-size: var(--text-sm);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    min-width: 60px;
+    min-height: var(--touch-target);
+}
+
+.emergency-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.emergency-btn .icon {
+    font-size: var(--text-lg);
+}
+
+.emergency-btn .text {
+    font-size: var(--text-xs);
+    font-weight: var(--font-medium);
+}
+
+/* Footer */
+.referee-footer {
+    background-color: var(--white);
+    border-top: 1px solid var(--gray-200);
+    box-shadow: var(--shadow-sm);
+}
+
+.result-confirmation {
+    flex: 1;
+}
+
+.confirmation-message {
+    font-size: var(--text-lg);
+    font-weight: var(--font-medium);
+    color: var(--gray-700);
+    margin-bottom: var(--space-sm);
+}
+
+.last-decision {
+    font-size: var(--text-sm);
+    color: var(--gray-600);
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+}
+
+.last-decision .decision-icon {
+    font-size: var(--text-lg);
+}
+
+.last-decision.good {
+    color: var(--success-color);
+}
+
+.last-decision.no {
+    color: var(--danger-color);
+}
+
+.referee-info {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: var(--space-xs);
+    font-size: var(--text-sm);
+    color: var(--gray-600);
+}
+
+.referee-id {
+    font-weight: var(--font-medium);
+}
+
+.connection-status {
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+}
+
+.status-indicator {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: var(--gray-400);
+}
+
+.status-indicator.online {
+    background-color: var(--success-color);
+    animation: pulse 2s infinite;
+}
+
+.status-indicator.offline {
+    background-color: var(--danger-color);
+}
+
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.5; }
+    100% { opacity: 1; }
+}
+
+/* Mobile and tablet optimizations */
+@media (max-width: 768px) {
+    .referee-header {
+        padding: var(--space-md);
+    }
+    
+    .athlete-info {
+        grid-template-columns: 1fr;
+        gap: var(--space-md);
+        text-align: center;
+    }
+    
+    .timer-info #timer-value {
+        font-size: var(--text-2xl);
+    }
+    
+    .decision-buttons {
+        gap: var(--space-xl);
+    }
+    
+    .decision-btn {
+        width: 180px;
+        height: 180px;
+    }
+    
+    .decision-btn .icon {
+        font-size: 3rem;
+    }
+    
+    .decision-btn .text {
+        font-size: var(--text-lg);
+    }
+    
+    .referee-footer {
+        padding: var(--space-md);
+        flex-direction: column;
+        gap: var(--space-md);
+        text-align: center;
+    }
+    
+    .referee-info {
+        align-items: center;
+    }
+}
+
+@media (max-width: 480px) {
+    .referee-main {
+        padding: var(--space-md);
+    }
+    
+    .decision-buttons {
+        flex-direction: column;
+        gap: var(--space-lg);
+    }
+    
+    .decision-btn {
+        width: 160px;
+        height: 160px;
+    }
+    
+    .decision-btn .icon {
+        font-size: 2.5rem;
+    }
+    
+    .decision-btn .text {
+        font-size: var(--text-base);
+    }
+    
+    .emergency-controls {
+        position: static;
+        margin-top: var(--space-lg);
+    }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+    .decision-btn {
+        border-width: 6px;
+    }
+    
+    .good-lift {
+        border-color: #008000;
+        color: #008000;
+    }
+    
+    .no-lift {
+        border-color: #ff0000;
+        color: #ff0000;
+    }
+}
+
+/* Reduce motion for accessibility */
+@media (prefers-reduced-motion: reduce) {
+    .decision-btn {
+        transition: none;
+    }
+    
+    .decision-btn:hover .icon {
+        transform: none;
+    }
+    
+    .status-indicator.online {
+        animation: none;
+    }
+}
+
+/* Landscape orientation adjustments */
+@media (orientation: landscape) and (max-height: 600px) {
+    .referee-header {
+        padding: var(--space-sm) var(--space-lg);
+    }
+    
+    .athlete-info .value {
+        font-size: var(--text-lg);
+    }
+    
+    .timer-info #timer-value {
+        font-size: var(--text-2xl);
+    }
+    
+    .referee-main {
+        padding: var(--space-lg);
+    }
+    
+    .decision-buttons {
+        gap: var(--space-2xl);
+    }
+    
+    .decision-btn {
+        width: 160px;
+        height: 160px;
+    }
+    
+    .referee-footer {
+        padding: var(--space-sm) var(--space-lg);
+    }
+}

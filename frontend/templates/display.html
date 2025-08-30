@@ -1,0 +1,395 @@
+{% extends "base.html" %}
+{% set page_css = "display" %}
+{% set page_js = "display" %}
+
+{% block title %}Competition Display Board{% endblock %}
+{% block body_class %}display-page{% endblock %}
+
+{% block layout %}
+<div class="display-container">
+    <!-- Current lifter highlight -->
+    <div class="current-lifter">
+        <div class="lifter-info">
+            <div class="lifter-name">{{ current_athlete.name if current_athlete else "JOHN SMITH" }}</div>
+            <div class="lifter-details">
+                <span class="weight">{{ current_athlete.currentWeight if current_athlete else "150" }}KG</span>
+                <span class="attempt">ATTEMPT #{{ current_athlete.currentAttempt if current_athlete else "2" }}</span>
+                <span class="lift-type">SNATCH</span>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Center timer -->
+    <div class="center-timer">
+        <div class="timer-circle">
+            <div class="timer-value" id="display-timer">2:00</div>
+            <div class="timer-label">REMAINING</div>
+        </div>
+    </div>
+    
+    <!-- Leaderboard panel -->
+    <div class="leaderboard-panel">
+        <h2 class="panel-title">🏆 RANKINGS</h2>
+        <div class="leaderboard-list">
+            <div class="leaderboard-item">
+                <span class="rank">1</span>
+                <span class="name">ALEX DAVIS</span>
+                <span class="total">320</span>
+            </div>
+            <div class="leaderboard-item">
+                <span class="rank">2</span>
+                <span class="name">DAVID WILSON</span>
+                <span class="total">310</span>
+            </div>
+            <div class="leaderboard-item current">
+                <span class="rank">3</span>
+                <span class="name">JOHN SMITH</span>
+                <span class="total">300</span>
+            </div>
+            <div class="leaderboard-item">
+                <span class="rank">4</span>
+                <span class="name">MIKE JOHNSON</span>
+                <span class="total">290</span>
+            </div>
+            <div class="leaderboard-item">
+                <span class="rank">5</span>
+                <span class="name">CHRIS BROWN</span>
+                <span class="total">280</span>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Next athletes ticker -->
+    <div class="ticker-area">
+        <div class="ticker-content">
+            <span class="ticker-label">NEXT UP:</span>
+            <div class="ticker-scroll">
+                <span class="ticker-item">MIKE JOHNSON (145KG)</span>
+                <span class="ticker-separator">•</span>
+                <span class="ticker-item">DAVID WILSON (155KG)</span>
+                <span class="ticker-separator">•</span>
+                <span class="ticker-item">CHRIS BROWN (140KG)</span>
+                <span class="ticker-separator">•</span>
+                <span class="ticker-item">ALEX DAVIS (160KG)</span>
+                <span class="ticker-separator">•</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+/* High contrast display styles (FR11) */
+.display-page {
+    background-color: var(--contrast-bg);
+    color: var(--contrast-text);
+    font-family: 'Arial Black', Arial, sans-serif;
+    overflow: hidden;
+}
+
+.display-container {
+    display: grid;
+    grid-template-areas:
+        "current current"
+        "timer leaderboard"
+        "ticker ticker";
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto 1fr auto;
+    height: 100vh;
+    gap: var(--space-xl);
+    padding: var(--space-xl);
+}
+
+/* Current lifter section */
+.current-lifter {
+    grid-area: current;
+    background: linear-gradient(135deg, var(--contrast-accent), #ffff44);
+    color: var(--contrast-bg);
+    padding: var(--space-2xl);
+    border-radius: var(--radius-xl);
+    text-align: center;
+    box-shadow: 0 8px 32px rgba(255, 255, 0, 0.3);
+}
+
+.lifter-name {
+    font-size: 4rem;
+    font-weight: 900;
+    margin-bottom: var(--space-lg);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.lifter-details {
+    display: flex;
+    justify-content: center;
+    gap: var(--space-2xl);
+    font-size: 2rem;
+    font-weight: 700;
+}
+
+.lifter-details > span {
+    padding: var(--space-md) var(--space-lg);
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: var(--radius-lg);
+}
+
+/* Center timer */
+.center-timer {
+    grid-area: timer;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.timer-circle {
+    width: 300px;
+    height: 300px;
+    border: 8px solid var(--contrast-accent);
+    border-radius: 50%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    background: radial-gradient(circle, rgba(255, 255, 0, 0.1), transparent);
+    box-shadow: 0 0 50px rgba(255, 255, 0, 0.3);
+}
+
+.timer-value {
+    font-size: 4rem;
+    font-weight: 900;
+    font-family: 'Monaco', 'Menlo', monospace;
+    color: var(--contrast-accent);
+    text-shadow: 0 0 20px rgba(255, 255, 0, 0.5);
+}
+
+.timer-label {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--contrast-text);
+    margin-top: var(--space-sm);
+    letter-spacing: 0.2em;
+}
+
+/* Leaderboard */
+.leaderboard-panel {
+    grid-area: leaderboard;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: var(--radius-xl);
+    padding: var(--space-xl);
+    backdrop-filter: blur(10px);
+}
+
+.panel-title {
+    font-size: 2.5rem;
+    font-weight: 900;
+    text-align: center;
+    margin-bottom: var(--space-xl);
+    color: var(--contrast-accent);
+    text-shadow: 0 0 10px rgba(255, 255, 0, 0.5);
+}
+
+.leaderboard-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-md);
+}
+
+.leaderboard-item {
+    display: grid;
+    grid-template-columns: 60px 1fr 100px;
+    align-items: center;
+    padding: var(--space-lg);
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: var(--radius-lg);
+    font-size: 1.5rem;
+    font-weight: 700;
+    transition: all var(--transition-normal);
+}
+
+.leaderboard-item.current {
+    background: var(--contrast-accent);
+    color: var(--contrast-bg);
+    transform: scale(1.05);
+    box-shadow: 0 4px 20px rgba(255, 255, 0, 0.4);
+}
+
+.leaderboard-item .rank {
+    font-size: 2rem;
+    font-weight: 900;
+    text-align: center;
+}
+
+.leaderboard-item .name {
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.leaderboard-item .total {
+    text-align: right;
+    font-size: 1.8rem;
+    font-weight: 900;
+}
+
+.leaderboard-item .total::after {
+    content: "KG";
+    font-size: 1rem;
+    margin-left: var(--space-xs);
+}
+
+/* Ticker */
+.ticker-area {
+    grid-area: ticker;
+    background: var(--contrast-accent);
+    color: var(--contrast-bg);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    box-shadow: 0 4px 20px rgba(255, 255, 0, 0.3);
+}
+
+.ticker-content {
+    display: flex;
+    align-items: center;
+    padding: var(--space-lg) var(--space-xl);
+    font-size: 1.5rem;
+    font-weight: 700;
+}
+
+.ticker-label {
+    margin-right: var(--space-xl);
+    font-size: 1.8rem;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+}
+
+.ticker-scroll {
+    display: flex;
+    animation: scroll-ticker 30s linear infinite;
+}
+
+.ticker-item {
+    margin-right: var(--space-xl);
+    white-space: nowrap;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.ticker-separator {
+    margin-right: var(--space-xl);
+    font-size: 2rem;
+    font-weight: 900;
+}
+
+@keyframes scroll-ticker {
+    0% {
+        transform: translateX(0);
+    }
+    100% {
+        transform: translateX(-50%);
+    }
+}
+
+/* Responsive adjustments for large displays */
+@media (min-width: 1400px) {
+    .lifter-name {
+        font-size: 5rem;
+    }
+    
+    .lifter-details {
+        font-size: 2.5rem;
+    }
+    
+    .timer-circle {
+        width: 400px;
+        height: 400px;
+    }
+    
+    .timer-value {
+        font-size: 5rem;
+    }
+    
+    .panel-title {
+        font-size: 3rem;
+    }
+}
+
+/* Animation for attention */
+@keyframes highlight-current {
+    0%, 100% { transform: scale(1.05); }
+    50% { transform: scale(1.08); }
+}
+
+.current-lifter {
+    animation: highlight-current 3s ease-in-out infinite;
+}
+
+/* Timer warning states */
+.timer-value.warning {
+    color: #ff6600;
+    animation: timer-warning 1s ease-in-out infinite;
+}
+
+.timer-value.critical {
+    color: #ff0000;
+    animation: timer-critical 0.5s ease-in-out infinite;
+}
+
+@keyframes timer-warning {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+}
+
+@keyframes timer-critical {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.8; transform: scale(1.05); }
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('Display board loaded');
+    
+    let timeRemaining = 120; // 2 minutes
+    const timerElement = document.getElementById('display-timer');
+    
+    // Update timer display
+    function updateTimer() {
+        const minutes = Math.floor(timeRemaining / 60);
+        const seconds = timeRemaining % 60;
+        const timeString = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+        timerElement.textContent = timeString;
+        
+        // Add warning classes based on time
+        timerElement.classList.remove('warning', 'critical');
+        if (timeRemaining <= 30) {
+            timerElement.classList.add('critical');
+        } else if (timeRemaining <= 60) {
+            timerElement.classList.add('warning');
+        }
+        
+        if (timeRemaining > 0) {
+            timeRemaining--;
+        } else {
+            // Timer expired - flash effect
+            timerElement.style.color = '#ff0000';
+            setTimeout(() => {
+                timeRemaining = 120;
+                timerElement.style.color = '';
+            }, 3000);
+        }
+    }
+    
+    // Start timer
+    setInterval(updateTimer, 1000);
+    
+    // Simulate data updates every 30 seconds
+    setInterval(() => {
+        console.log('Simulating display board update');
+        
+        // Could update current lifter, rankings, queue, etc.
+        // In real app, this would come from WebSocket
+        
+    }, 30000);
+});
+</script>
+{% endblock %}
