@@ -17,31 +17,67 @@ A Progressive Web App (PWA) for managing powerlifting competitions with offline-
 - **Modern Web Browser** (Chrome, Firefox, Safari, Edge)
 - **Internet Connection** (initial setup only)
 
-### Python Dependencies
+### Python Dependencies (One-Time Setup)
+
+⚠️ **You only need to install Flask ONCE per Python environment**
+
+**Check if already installed:**
+```bash
+python -c "import flask; print('✅ Flask already installed:', flask.__version__)"
+```
+
+**If not installed, choose ONE method:**
+
+**Option A: Direct install (system-wide)**
 ```bash
 pip install flask
 ```
 
-Or install using requirements file:
+**Option B: Using requirements file**
 ```bash
+pip install -r requirements.txt
+```
+
+**Option C: Virtual environment (recommended)**
+```bash
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
 ## 🚀 Quick Start
 
-### 1. Clone and Navigate
+### First-Time Setup
 ```bash
+# 1. Clone and navigate
 git checkout 12-feature-frontend-development
 cd frontend
-```
 
-### 2. Install Dependencies
-```bash
+# 2. Check if Flask is installed
+python -c "import flask; print('✅ Flask ready')" 2>/dev/null || echo "❌ Need to install Flask"
+
+# 3. Install Flask ONLY if the above failed
 pip install flask
+
+# 4. Start server
+python test_server.py
 ```
 
-### 3. Start Development Server
+### Daily Usage (After First Setup)
 ```bash
+cd frontend
+python test_server.py  # No pip install needed!
+```
+
+### With Virtual Environment
+```bash
+# First time setup
+python -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+
+# Daily usage
+source venv/bin/activate  # On Windows: venv\Scripts\activate
 python test_server.py
 ```
 
@@ -197,14 +233,30 @@ ls templates/
 # Firefox: DevTools > Application > Service Workers > Unregister
 ```
 
-### Python Dependencies
+### Flask Not Found Error
 ```bash
-# Install missing packages
-pip install flask
+# Check if Flask is installed
+python -c "import flask; print('Flask version:', flask.__version__)"
 
-# Or create virtual environment
+# If error, install Flask (choose one method)
+pip install flask                    # Direct install
+pip install -r requirements.txt     # From requirements file
+
+# Or use virtual environment (recommended)
 python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
+pip install -r requirements.txt
+```
+
+### Virtual Environment Issues
+```bash
+# Activate virtual environment before running server
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Check if in virtual environment (should show path to venv)
+which python
+
+# If Flask still not found, reinstall in venv
 pip install flask
 ```
 
