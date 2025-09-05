@@ -1,0 +1,710 @@
+{% extends "base.html" %}
+
+{% block title %}Timekeeper Interface - {{ competition.name }}{% endblock %}
+
+{% block extra_head %}
+<style>
+.timekeeper-header {
+  background: linear-gradient(135deg, #6f42c1, #5a2d8e);
+  color: white;
+  padding: 2rem;
+  border-radius: 0.75rem;
+  margin-bottom: 2rem;
+}
+
+.timer-main {
+  text-align: center;
+  padding: 3rem 2rem;
+  background: linear-gradient(135deg, #343a40, #495057);
+  color: white;
+  border-radius: 1rem;
+  margin-bottom: 2rem;
+}
+
+.timer-display {
+  font-size: 8rem;
+  font-weight: bold;
+  font-family: 'Courier New', monospace;
+  margin: 2rem 0;
+  text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+}
+
+.timer-running {
+  color: #28a745;
+  animation: pulse 1s infinite;
+}
+
+.timer-warning {
+  color: #ffc107;
+  animation: pulse 0.5s infinite;
+}
+
+.timer-expired {
+  color: #dc3545;
+  animation: blink 0.3s infinite;
+}
+
+.timer-stopped {
+  color: #6c757d;
+}
+
+.timer-controls {
+  margin: 2rem 0;
+}
+
+.timer-controls .btn {
+  font-size: 1.2rem;
+  padding: 0.75rem 2rem;
+  margin: 0 0.5rem;
+  min-width: 120px;
+}
+
+.current-lifter-info {
+  background: #f8f9fa;
+  border-radius: 0.5rem;
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.preset-buttons {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+  gap: 0.5rem;
+  margin: 1rem 0;
+}
+
+.preset-btn {
+  padding: 0.5rem;
+  font-size: 0.9rem;
+  min-height: 50px;
+}
+
+.status-indicator {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: inline-block;
+  margin-right: 0.5rem;
+}
+
+.status-stopped { background-color: #6c757d; }
+.status-running { background-color: #28a745; }
+.status-paused { background-color: #ffc107; }
+.status-expired { background-color: #dc3545; }
+
+@keyframes pulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.7; }
+  100% { opacity: 1; }
+}
+
+@keyframes blink {
+  0% { opacity: 1; }
+  50% { opacity: 0.3; }
+  100% { opacity: 1; }
+}
+
+.quick-actions {
+  position: sticky;
+  top: 20px;
+}
+
+.sound-controls {
+  text-align: center;
+  margin: 1rem 0;
+}
+
+.volume-slider {
+  width: 100%;
+  margin: 0.5rem 0;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+  <!-- Timekeeper Header -->
+  <div class="timekeeper-header">
+    <div class="row align-items-center">
+      <div class="col-md-8">
+        <h1 class="mb-2">⏱️ Timekeeper Interface</h1>
+        <p class="mb-1"><strong>Competition:</strong> {{ competition.name }}</p>
+        <p class="mb-0"><strong>Status:</strong> 
+          <span class="status-indicator" id="status-indicator"></span>
+          <span id="competition-status">Active</span>
+        </p>
+      </div>
+      <div class="col-md-4 text-md-end">
+        <div class="d-inline-block">
+          <div class="h4 mb-1" id="current-time"></div>
+          <small>Current Time</small>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row">
+    <!-- Main Timer Section -->
+    <div class="col-lg-8">
+      <!-- Current Lifter Info -->
+      <div class="current-lifter-info">
+        <div class="row align-items-center">
+          <div class="col-md-6">
+            <h4 class="mb-1" id="current-athlete-name">No active lifter</h4>
+            <p class="mb-1 text-muted" id="current-team">Team: ---</p>
+            <p class="mb-0">
+              <span class="badge bg-primary" id="current-lift">---</span>
+              <span class="badge bg-info" id="current-weight">---kg</span>
+              <span class="badge bg-warning" id="current-attempt">Attempt -</span>
+            </p>
+          </div>
+          <div class="col-md-6 text-md-end">
+            <div class="h5 mb-1">⏰ Timer Status</div>
+            <div id="timer-status-text" class="text-muted">Stopped</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Main Timer Display -->
+      <div class="timer-main">
+        <div class="timer-display timer-stopped" id="main-timer">1:00</div>
+        
+        <!-- Timer Controls -->
+        <div class="timer-controls">
+          <button class="btn btn-success btn-lg" id="start-btn" onclick="startTimer()">
+            ▶️ Start
+          </button>
+          <button class="btn btn-warning btn-lg" id="pause-btn" onclick="pauseTimer()" disabled>
+            ⏸️ Pause
+          </button>
+          <button class="btn btn-danger btn-lg" id="stop-btn" onclick="stopTimer()" disabled>
+            ⏹️ Stop
+          </button>
+          <button class="btn btn-secondary btn-lg" id="reset-btn" onclick="resetTimer()">
+            🔄 Reset
+          </button>
+        </div>
+
+        <!-- Custom Time Input -->
+        <div class="row justify-content-center">
+          <div class="col-md-6">
+            <div class="input-group">
+              <input type="number" class="form-control" id="custom-minutes" placeholder="Minutes" min="0" max="10" value="1">
+              <span class="input-group-text">:</span>
+              <input type="number" class="form-control" id="custom-seconds" placeholder="Seconds" min="0" max="59" value="0">
+              <button class="btn btn-outline-light" type="button" onclick="setCustomTime()">Set</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Timer Presets -->
+      <div class="card">
+        <div class="card-header">
+          <h5 class="mb-0">⚡ Quick Timer Presets</h5>
+        </div>
+        <div class="card-body">
+          <div class="preset-buttons">
+            <button class="btn btn-outline-primary preset-btn" onclick="setTimer(30)">0:30</button>
+            <button class="btn btn-outline-primary preset-btn" onclick="setTimer(60)">1:00</button>
+            <button class="btn btn-outline-primary preset-btn" onclick="setTimer(90)">1:30</button>
+            <button class="btn btn-outline-primary preset-btn" onclick="setTimer(120)">2:00</button>
+            <button class="btn btn-outline-primary preset-btn" onclick="setTimer(180)">3:00</button>
+            <button class="btn btn-outline-primary preset-btn" onclick="setTimer(300)">5:00</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sidebar -->
+    <div class="col-lg-4">
+      <div class="quick-actions">
+        <!-- Sound Controls -->
+        <div class="card mb-4">
+          <div class="card-header">
+            <h6 class="mb-0">🔊 Sound Controls</h6>
+          </div>
+          <div class="card-body sound-controls">
+            <div class="form-check form-switch">
+              <input class="form-check-input" type="checkbox" id="sound-enabled" checked>
+              <label class="form-check-label" for="sound-enabled">
+                Sound Alerts
+              </label>
+            </div>
+            <input type="range" class="form-range volume-slider" id="volume-slider" min="0" max="100" value="70">
+            <small class="text-muted">Volume: <span id="volume-display">70%</span></small>
+            
+            <div class="mt-3">
+              <button class="btn btn-outline-primary btn-sm" onclick="testSound('start')">Test Start</button>
+              <button class="btn btn-outline-warning btn-sm" onclick="testSound('warning')">Test Warning</button>
+              <button class="btn btn-outline-danger btn-sm" onclick="testSound('end')">Test End</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Timer History -->
+        <div class="card mb-4">
+          <div class="card-header">
+            <h6 class="mb-0">📊 Timer History</h6>
+          </div>
+          <div class="card-body">
+            <div id="timer-history">
+              <small class="text-muted">No recent timer activities</small>
+            </div>
+          </div>
+        </div>
+
+        <!-- Next Athletes -->
+        <div class="card mb-4">
+          <div class="card-header">
+            <h6 class="mb-0">🔄 Upcoming Athletes</h6>
+          </div>
+          <div class="card-body">
+            <div id="next-athletes-list">
+              <div class="text-muted text-center">Loading...</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Emergency Controls -->
+        <div class="card">
+          <div class="card-header">
+            <h6 class="mb-0">🚨 Emergency Controls</h6>
+          </div>
+          <div class="card-body">
+            <button class="btn btn-warning btn-sm w-100 mb-2" onclick="addExtraTime()">
+              ⏰ +30 Seconds
+            </button>
+            <button class="btn btn-danger btn-sm w-100 mb-2" onclick="emergencyStop()">
+              🛑 Emergency Stop
+            </button>
+            <button class="btn btn-info btn-sm w-100" onclick="syncWithCompetition()">
+              🔄 Sync with Competition
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Audio elements for sound alerts -->
+<audio id="start-sound" preload="auto">
+  <source src="{{ url_for('static', filename='sounds/timer-start.mp3') }}" type="audio/mpeg">
+</audio>
+<audio id="warning-sound" preload="auto">
+  <source src="{{ url_for('static', filename='sounds/timer-warning.mp3') }}" type="audio/mpeg">
+</audio>
+<audio id="end-sound" preload="auto">
+  <source src="{{ url_for('static', filename='sounds/timer-end.mp3') }}" type="audio/mpeg">
+</audio>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Timekeeper Interface JavaScript
+const competitionId = {{ competition.id }};
+let timerInterval = null;
+let currentDuration = 60;
+let remainingTime = 60;
+let timerState = 'stopped'; // stopped, running, paused
+let timerStartTime = null;
+let soundEnabled = true;
+let volume = 0.7;
+
+document.addEventListener('DOMContentLoaded', function() {
+  // Join timekeeper room
+  socket.emit('join_competition', {
+    competition_id: competitionId,
+    role: 'timekeeper'
+  });
+
+  // Request initial data
+  socket.emit('get_timekeeper_data', {
+    competition_id: competitionId
+  });
+
+  // Update current time every second
+  setInterval(updateCurrentTime, 1000);
+
+  // Setup volume controls
+  setupVolumeControls();
+
+  // Initial UI update
+  updateCurrentTime();
+});
+
+// Socket event handlers
+socket.on('timekeeper_data', function(data) {
+  updateTimekeeperInterface(data);
+});
+
+socket.on('current_athlete_changed', function(data) {
+  updateCurrentAthleteInfo(data);
+});
+
+socket.on('timer_started', function(data) {
+  if (data.source !== 'timekeeper') {
+    syncTimerState(data);
+  }
+});
+
+socket.on('timer_paused', function(data) {
+  if (data.source !== 'timekeeper') {
+    syncTimerState(data);
+  }
+});
+
+socket.on('timer_reset', function(data) {
+  if (data.source !== 'timekeeper') {
+    syncTimerState(data);
+  }
+});
+
+// Timer control functions
+function startTimer() {
+  if (timerState === 'stopped' || timerState === 'paused') {
+    timerState = 'running';
+    timerStartTime = new Date();
+    
+    // Emit to server
+    socket.emit('start_timer', {
+      competition_id: competitionId,
+      duration: remainingTime,
+      source: 'timekeeper'
+    });
+    
+    startLocalTimer();
+    updateTimerControls();
+    addTimerHistory('Started timer', remainingTime);
+    playSound('start');
+  }
+}
+
+function pauseTimer() {
+  if (timerState === 'running') {
+    timerState = 'paused';
+    clearInterval(timerInterval);
+    
+    socket.emit('pause_timer', {
+      competition_id: competitionId,
+      source: 'timekeeper'
+    });
+    
+    updateTimerControls();
+    addTimerHistory('Paused timer', remainingTime);
+  }
+}
+
+function stopTimer() {
+  timerState = 'stopped';
+  clearInterval(timerInterval);
+  remainingTime = currentDuration;
+  
+  socket.emit('reset_timer', {
+    competition_id: competitionId,
+    duration: currentDuration,
+    source: 'timekeeper'
+  });
+  
+  updateTimerDisplay();
+  updateTimerControls();
+  addTimerHistory('Stopped timer', currentDuration);
+}
+
+function resetTimer() {
+  timerState = 'stopped';
+  clearInterval(timerInterval);
+  remainingTime = currentDuration;
+  
+  socket.emit('reset_timer', {
+    competition_id: competitionId,
+    duration: currentDuration,
+    source: 'timekeeper'
+  });
+  
+  updateTimerDisplay();
+  updateTimerControls();
+  addTimerHistory('Reset timer', currentDuration);
+}
+
+function setTimer(seconds) {
+  if (timerState === 'stopped') {
+    currentDuration = seconds;
+    remainingTime = seconds;
+    updateTimerDisplay();
+    addTimerHistory(`Set timer to`, seconds);
+  }
+}
+
+function setCustomTime() {
+  if (timerState === 'stopped') {
+    const minutes = parseInt(document.getElementById('custom-minutes').value) || 0;
+    const seconds = parseInt(document.getElementById('custom-seconds').value) || 0;
+    const totalSeconds = minutes * 60 + seconds;
+    
+    if (totalSeconds > 0 && totalSeconds <= 600) {
+      setTimer(totalSeconds);
+    } else {
+      alert('Please enter a valid time (max 10 minutes)');
+    }
+  }
+}
+
+function startLocalTimer() {
+  clearInterval(timerInterval);
+  
+  timerInterval = setInterval(() => {
+    const now = new Date();
+    const elapsed = Math.floor((now - timerStartTime) / 1000);
+    remainingTime = Math.max(0, currentDuration - elapsed);
+    
+    updateTimerDisplay();
+    
+    // Sound warnings
+    if (remainingTime === 10 && soundEnabled) {
+      playSound('warning');
+    }
+    
+    if (remainingTime === 0) {
+      timerState = 'expired';
+      clearInterval(timerInterval);
+      updateTimerDisplay();
+      updateTimerControls();
+      addTimerHistory('Timer expired', 0);
+      playSound('end');
+    }
+  }, 100);
+}
+
+// UI update functions
+function updateTimerDisplay() {
+  const timerElement = document.getElementById('main-timer');
+  const statusElement = document.getElementById('timer-status-text');
+  const indicatorElement = document.getElementById('status-indicator');
+  
+  timerElement.textContent = formatTime(remainingTime);
+  
+  // Update visual state
+  timerElement.className = `timer-display timer-${timerState}`;
+  indicatorElement.className = `status-indicator status-${timerState}`;
+  
+  switch (timerState) {
+    case 'running':
+      statusElement.textContent = 'Running';
+      break;
+    case 'paused':
+      statusElement.textContent = 'Paused';
+      break;
+    case 'expired':
+      statusElement.textContent = 'Time Expired';
+      break;
+    default:
+      statusElement.textContent = 'Stopped';
+  }
+}
+
+function updateTimerControls() {
+  const startBtn = document.getElementById('start-btn');
+  const pauseBtn = document.getElementById('pause-btn');
+  const stopBtn = document.getElementById('stop-btn');
+  
+  switch (timerState) {
+    case 'running':
+      startBtn.disabled = true;
+      pauseBtn.disabled = false;
+      stopBtn.disabled = false;
+      break;
+    case 'paused':
+      startBtn.disabled = false;
+      pauseBtn.disabled = true;
+      stopBtn.disabled = false;
+      break;
+    default:
+      startBtn.disabled = false;
+      pauseBtn.disabled = true;
+      stopBtn.disabled = true;
+  }
+}
+
+function updateCurrentAthleteInfo(data) {
+  if (data && data.athlete) {
+    document.getElementById('current-athlete-name').textContent = data.athlete.name;
+    document.getElementById('current-team').textContent = `Team: ${data.athlete.team || 'Individual'}`;
+    document.getElementById('current-lift').textContent = data.lift_name;
+    document.getElementById('current-weight').textContent = `${data.weight}kg`;
+    document.getElementById('current-attempt').textContent = `Attempt ${data.attempt_number}`;
+  } else {
+    document.getElementById('current-athlete-name').textContent = 'No active lifter';
+    document.getElementById('current-team').textContent = 'Team: ---';
+    document.getElementById('current-lift').textContent = '---';
+    document.getElementById('current-weight').textContent = '---kg';
+    document.getElementById('current-attempt').textContent = 'Attempt -';
+  }
+}
+
+function updateTimekeeperInterface(data) {
+  if (data.current_athlete) {
+    updateCurrentAthleteInfo(data.current_athlete);
+  }
+  
+  if (data.next_athletes) {
+    updateNextAthletesList(data.next_athletes);
+  }
+}
+
+function updateNextAthletesList(nextAthletes) {
+  const container = document.getElementById('next-athletes-list');
+  
+  if (nextAthletes.length === 0) {
+    container.innerHTML = '<div class="text-muted text-center">No upcoming athletes</div>';
+    return;
+  }
+
+  container.innerHTML = nextAthletes.slice(0, 3).map(athlete => `
+    <div class="d-flex justify-content-between mb-2 p-2 bg-light rounded">
+      <div>
+        <div class="fw-bold">${athlete.athlete_name}</div>
+        <small class="text-muted">${athlete.lift_name} - Attempt ${athlete.attempt_number}</small>
+      </div>
+      <div class="text-end">
+        <div class="fw-bold text-primary">${athlete.weight}kg</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function addTimerHistory(action, time) {
+  const container = document.getElementById('timer-history');
+  const timestamp = new Date().toLocaleTimeString();
+  
+  const entry = document.createElement('div');
+  entry.className = 'mb-2 p-2 bg-light rounded';
+  entry.innerHTML = `
+    <div class="d-flex justify-content-between">
+      <small>${action}</small>
+      <small class="text-muted">${timestamp}</small>
+    </div>
+    <small class="text-info">${formatTime(time)}</small>
+  `;
+  
+  container.insertBefore(entry, container.firstChild);
+  
+  // Keep only last 5 entries
+  while (container.children.length > 5) {
+    container.removeChild(container.lastChild);
+  }
+}
+
+// Sound functions
+function setupVolumeControls() {
+  const volumeSlider = document.getElementById('volume-slider');
+  const volumeDisplay = document.getElementById('volume-display');
+  const soundToggle = document.getElementById('sound-enabled');
+  
+  volumeSlider.addEventListener('input', function() {
+    volume = this.value / 100;
+    volumeDisplay.textContent = this.value + '%';
+  });
+  
+  soundToggle.addEventListener('change', function() {
+    soundEnabled = this.checked;
+  });
+}
+
+function playSound(type) {
+  if (!soundEnabled) return;
+  
+  const audioElement = document.getElementById(`${type}-sound`);
+  if (audioElement) {
+    audioElement.volume = volume;
+    audioElement.currentTime = 0;
+    audioElement.play().catch(e => console.log('Sound play failed:', e));
+  }
+}
+
+function testSound(type) {
+  playSound(type);
+}
+
+// Emergency functions
+function addExtraTime() {
+  if (timerState === 'running') {
+    currentDuration += 30;
+    remainingTime += 30;
+    addTimerHistory('Added 30 seconds', remainingTime);
+  }
+}
+
+function emergencyStop() {
+  if (confirm('Emergency stop will immediately stop the timer. Continue?')) {
+    stopTimer();
+    addTimerHistory('EMERGENCY STOP', 0);
+  }
+}
+
+function syncWithCompetition() {
+  socket.emit('get_timekeeper_data', {
+    competition_id: competitionId
+  });
+  addTimerHistory('Synced with competition', remainingTime);
+}
+
+function syncTimerState(data) {
+  if (data.state === 'running') {
+    currentDuration = data.duration;
+    remainingTime = data.remaining || data.duration;
+    timerStartTime = new Date(data.started_at);
+    timerState = 'running';
+    startLocalTimer();
+  } else if (data.state === 'paused') {
+    timerState = 'paused';
+    clearInterval(timerInterval);
+  } else {
+    timerState = 'stopped';
+    currentDuration = data.duration;
+    remainingTime = data.duration;
+    clearInterval(timerInterval);
+  }
+  
+  updateTimerDisplay();
+  updateTimerControls();
+}
+
+// Utility functions
+function updateCurrentTime() {
+  const now = new Date();
+  document.getElementById('current-time').textContent = now.toLocaleTimeString();
+}
+
+function formatTime(seconds) {
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return `${mins}:${secs.toString().padStart(2, '0')}`;
+}
+
+// Keyboard shortcuts
+document.addEventListener('keydown', function(e) {
+  if (e.target.tagName.toLowerCase() !== 'input') {
+    switch(e.key) {
+      case ' ':
+        e.preventDefault();
+        if (timerState === 'running') {
+          pauseTimer();
+        } else {
+          startTimer();
+        }
+        break;
+      case 'r':
+        resetTimer();
+        break;
+      case 'Escape':
+        stopTimer();
+        break;
+    }
+  }
+});
+
+console.log('Timekeeper interface initialized for competition:', competitionId);
+</script>
+{% endblock %}

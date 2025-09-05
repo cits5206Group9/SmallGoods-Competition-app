@@ -30,6 +30,9 @@ flask db upgrade  # first run will create SQLite file
 # 5) Run the server
 flask --app src/app --debug run
 # visit http://127.0.0.1:5000
+
+flask --app src/app db current  # check current migration version
+falsk --app src/app db history  # view all migrations
 ```
 
 ### Run tests

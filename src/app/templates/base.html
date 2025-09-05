@@ -3,25 +3,135 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Weightlifting App</title>
+    <title>{% block title %}Small Goods Competition App{% endblock %}</title>
+    
+    <!-- Bootstrap CSS for responsive UI -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Custom CSS -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    
+    <!-- Socket.IO for real-time updates -->
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    
+    {% block extra_head %}{% endblock %}
   </head>
   <body>
-    <header class="container">
-      <h1>Weightlifting App</h1>
-      <nav>
-        <a href="/">Home</a> ·
-        <a href="/health">Health</a>
-      </nav>
-      <hr>
-    </header>
-    <main class="container">
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+      <div class="container">
+        <a class="navbar-brand" href="/">
+          <strong>🏋️‍♂️ Small Goods Competition</strong>
+        </a>
+        
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+          <span class="navbar-toggler-icon"></span>
+        </button>
+        
+        <div class="collapse navbar-collapse" id="navbarNav">
+          <ul class="navbar-nav me-auto">
+            <li class="nav-item">
+              <a class="nav-link" href="/">Home</a>
+            </li>
+            <li class="nav-item dropdown">
+              <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+                Interfaces
+              </a>
+              <ul class="dropdown-menu">
+                <li><a class="dropdown-item" href="/admin">🔧 Admin</a></li>
+                <li><a class="dropdown-item" href="/referee">👨‍⚖️ Referee</a></li>
+                <li><a class="dropdown-item" href="/athlete">🏃‍♀️ Athlete/Coach</a></li>
+                <li><a class="dropdown-item" href="/timekeeper">⏱️ Timekeeper</a></li>
+                <li><a class="dropdown-item" href="/display">📺 Display</a></li>
+              </ul>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="/wifi-qr">📱 WiFi QR</a>
+            </li>
+          </ul>
+          
+          <ul class="navbar-nav">
+            <li class="nav-item">
+              <a class="nav-link" href="/health">
+                <span class="badge bg-success">System Status</span>
+              </a>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </nav>
+
+    <!-- Flash Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="container mt-3">
+          {% for category, message in messages %}
+            <div class="alert alert-{{ 'danger' if category == 'error' else 'success' }} alert-dismissible fade show" role="alert">
+              {{ message }}
+              <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
+    <!-- Main Content -->
+    <main class="container-fluid py-4">
       {% block content %}{% endblock %}
     </main>
-    <footer class="container">
-      <hr>
-      <p>© 2025 Weightlifting App</p>
+
+    <!-- Footer -->
+    <footer class="bg-light py-4 mt-5">
+      <div class="container text-center">
+        <p class="text-muted mb-0">
+          © 2025 Small Goods Competition App | 
+          <a href="https://smallgoodsgym.com" target="_blank">Small Goods Gym</a> |
+          <span id="connection-status" class="badge bg-secondary">Connecting...</span>
+        </p>
+      </div>
     </footer>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Custom JavaScript -->
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    
+    <!-- Socket.IO Connection Management -->
+    <script>
+      // Global socket connection for real-time updates
+      const socket = io();
+      
+      socket.on('connect', function() {
+        document.getElementById('connection-status').textContent = 'Connected';
+        document.getElementById('connection-status').className = 'badge bg-success';
+      });
+      
+      socket.on('disconnect', function() {
+        document.getElementById('connection-status').textContent = 'Disconnected';
+        document.getElementById('connection-status').className = 'badge bg-danger';
+      });
+      
+      socket.on('error', function(data) {
+        console.error('Socket error:', data);
+        showAlert('Error: ' + data.msg, 'danger');
+      });
+      
+      // Utility function to show alerts
+      function showAlert(message, type = 'info') {
+        const alertHtml = `
+          <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+          </div>
+        `;
+        
+        const container = document.querySelector('.container');
+        if (container) {
+          container.insertAdjacentHTML('afterbegin', alertHtml);
+        }
+      }
+    </script>
+    
+    {% block extra_js %}{% endblock %}
   </body>
 </html>

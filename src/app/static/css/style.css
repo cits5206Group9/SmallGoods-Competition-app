@@ -1,3 +1,413 @@
-body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; line-height: 1.5; }
-.container { max-width: 900px; margin: 0 auto; padding: 1rem; }
-a { text-decoration: none; }
+/* Small Goods Competition App - Custom Styles */
+
+/* Base styles */
+body { 
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; 
+  line-height: 1.5; 
+  background-color: #f8f9fa;
+}
+
+/* Navigation */
+.navbar-brand {
+  font-weight: 700;
+}
+
+/* Hero section */
+.hero-section {
+  background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+  border-radius: 1rem;
+  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+}
+
+/* Cards */
+.card {
+  border: 1px solid #dee2e6;
+  border-radius: 0.5rem;
+  box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+  transition: box-shadow 0.3s ease;
+}
+
+.card:hover {
+  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+}
+
+.card-header {
+  background-color: #f8f9fa;
+  border-bottom: 1px solid #dee2e6;
+}
+
+/* Role selection cards */
+.card.border-primary:hover {
+  border-color: #0056b3;
+  transform: translateY(-2px);
+}
+
+.card.border-info:hover {
+  border-color: #0dcaf0;
+  transform: translateY(-2px);
+}
+
+.card.border-success:hover {
+  border-color: #198754;
+  transform: translateY(-2px);
+}
+
+.card.border-warning:hover {
+  border-color: #ffc107;
+  transform: translateY(-2px);
+}
+
+.card.border-dark:hover {
+  border-color: #212529;
+  transform: translateY(-2px);
+}
+
+.card.border-secondary:hover {
+  border-color: #6c757d;
+  transform: translateY(-2px);
+}
+
+/* Buttons */
+.btn {
+  border-radius: 0.375rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 0.25rem 0.5rem rgba(0, 0, 0, 0.1);
+}
+
+/* Tables */
+.table {
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+
+.table th {
+  background-color: #f8f9fa;
+  border-top: none;
+  font-weight: 600;
+}
+
+/* Competition specific styles */
+
+/* Timer display */
+.timer-display {
+  font-family: 'Courier New', monospace;
+  font-size: 4rem;
+  font-weight: bold;
+  text-align: center;
+  color: #007bff;
+  background-color: #f8f9fa;
+  border: 3px solid #007bff;
+  border-radius: 1rem;
+  padding: 2rem;
+  margin: 2rem 0;
+}
+
+.timer-display.running {
+  color: #198754;
+  border-color: #198754;
+  animation: pulse 1s infinite;
+}
+
+.timer-display.paused {
+  color: #ffc107;
+  border-color: #ffc107;
+}
+
+.timer-display.expired {
+  color: #dc3545;
+  border-color: #dc3545;
+  animation: blink 0.5s infinite;
+}
+
+@keyframes pulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.7; }
+  100% { opacity: 1; }
+}
+
+@keyframes blink {
+  0% { opacity: 1; }
+  50% { opacity: 0.3; }
+  100% { opacity: 1; }
+}
+
+/* Referee interface */
+.referee-buttons {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin: 2rem 0;
+}
+
+.referee-btn {
+  padding: 2rem;
+  font-size: 1.5rem;
+  font-weight: bold;
+  border-radius: 1rem;
+  border: 3px solid;
+  transition: all 0.2s ease;
+}
+
+.referee-btn.good-lift {
+  background-color: #d1e7dd;
+  border-color: #198754;
+  color: #0a3622;
+}
+
+.referee-btn.good-lift:hover {
+  background-color: #198754;
+  color: white;
+  transform: scale(1.05);
+}
+
+.referee-btn.no-lift {
+  background-color: #f8d7da;
+  border-color: #dc3545;
+  color: #58151c;
+}
+
+.referee-btn.no-lift:hover {
+  background-color: #dc3545;
+  color: white;
+  transform: scale(1.05);
+}
+
+.referee-btn.not-to-depth {
+  background-color: #fff3cd;
+  border-color: #ffc107;
+  color: #664d03;
+}
+
+.referee-btn.not-to-depth:hover {
+  background-color: #ffc107;
+  color: #000;
+  transform: scale(1.05);
+}
+
+/* Display screen styles */
+.display-screen {
+  background-color: #000;
+  color: #fff;
+  min-height: 100vh;
+  padding: 2rem;
+}
+
+.display-current-lifter {
+  text-align: center;
+  margin: 3rem 0;
+}
+
+.display-athlete-name {
+  font-size: 4rem;
+  font-weight: bold;
+  margin-bottom: 1rem;
+}
+
+.display-weight {
+  font-size: 6rem;
+  font-weight: bold;
+  color: #007bff;
+  margin: 2rem 0;
+}
+
+.display-attempt-info {
+  font-size: 2rem;
+  margin: 1rem 0;
+}
+
+.display-rankings {
+  font-size: 1.5rem;
+}
+
+.display-next-lifters {
+  background-color: #212529;
+  border-radius: 1rem;
+  padding: 2rem;
+  margin: 2rem 0;
+}
+
+/* Athlete dashboard */
+.athlete-card {
+  border-left: 4px solid #007bff;
+}
+
+.attempt-status {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  margin-right: 0.5rem;
+}
+
+.attempt-status.pending {
+  background-color: #6c757d;
+}
+
+.attempt-status.good {
+  background-color: #198754;
+}
+
+.attempt-status.failed {
+  background-color: #dc3545;
+}
+
+/* Progress indicators */
+.progress-ring {
+  width: 60px;
+  height: 60px;
+}
+
+.progress-ring__circle {
+  stroke: #007bff;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.35s;
+  transform: rotate(-90deg);
+  transform-origin: 50% 50%;
+}
+
+/* Mobile responsiveness */
+@media (max-width: 768px) {
+  .timer-display {
+    font-size: 2.5rem;
+    padding: 1rem;
+  }
+  
+  .display-athlete-name {
+    font-size: 2.5rem;
+  }
+  
+  .display-weight {
+    font-size: 3.5rem;
+  }
+  
+  .referee-buttons {
+    grid-template-columns: 1fr;
+  }
+  
+  .referee-btn {
+    padding: 1.5rem;
+    font-size: 1.25rem;
+  }
+}
+
+/* Utility classes */
+.text-shadow {
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.bg-gradient-primary {
+  background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+}
+
+.bg-gradient-success {
+  background: linear-gradient(135deg, #198754 0%, #146c43 100%);
+}
+
+.bg-gradient-danger {
+  background: linear-gradient(135deg, #dc3545 0%, #b02a37 100%);
+}
+
+/* Loading states */
+.loading {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.spinner-border-sm {
+  width: 1rem;
+  height: 1rem;
+}
+
+/* Status indicators */
+.status-indicator {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  margin-right: 0.5rem;
+}
+
+.status-indicator.online {
+  background-color: #198754;
+  animation: pulse 2s infinite;
+}
+
+.status-indicator.offline {
+  background-color: #dc3545;
+}
+
+.status-indicator.connecting {
+  background-color: #ffc107;
+  animation: blink 1s infinite;
+}
+
+/* QR Code container */
+.qr-container {
+  text-align: center;
+  padding: 2rem;
+  background-color: white;
+  border-radius: 1rem;
+  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.1);
+}
+
+/* Competition format preview */
+.format-preview {
+  background-color: #f8f9fa;
+  border-radius: 0.5rem;
+  padding: 1.5rem;
+  margin: 1rem 0;
+}
+
+/* Form enhancements */
+.form-control:focus {
+  border-color: #007bff;
+  box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+.form-select:focus {
+  border-color: #007bff;
+  box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+/* Sport configuration sections */
+.sport-config {
+  background-color: #f8f9fa;
+  border-radius: 0.5rem;
+  padding: 1rem;
+  margin: 1rem 0;
+  border-left: 4px solid #007bff;
+}
+
+/* Activity feed */
+.activity-feed-item {
+  border-left: 3px solid #007bff;
+  padding-left: 1rem;
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+}
+
+/* Responsive grid adjustments */
+@media (max-width: 576px) {
+  .container-fluid {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+  
+  .card {
+    margin-bottom: 1rem;
+  }
+  
+  .btn-group {
+    flex-direction: column;
+  }
+  
+  .btn-group .btn {
+    margin-bottom: 0.25rem;
+    border-radius: 0.375rem !important;
+  }
+}

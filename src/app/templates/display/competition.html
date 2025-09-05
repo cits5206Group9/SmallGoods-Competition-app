@@ -1,0 +1,477 @@
+{% extends "base.html" %}
+
+{% block title %}Competition Display - {{ competition.name }}{% endblock %}
+
+{% block extra_head %}
+<style>
+/* Full screen display styles */
+body {
+  background-color: #000;
+  color: #fff;
+  overflow-x: hidden;
+}
+
+.navbar, footer {
+  display: none; /* Hide navigation for clean display */
+}
+
+.display-screen {
+  min-height: 100vh;
+  padding: 2rem;
+}
+
+.current-lifter {
+  text-align: center;
+  margin: 2rem 0 4rem 0;
+}
+
+.athlete-name {
+  font-size: 4rem;
+  font-weight: bold;
+  text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+  margin-bottom: 1rem;
+}
+
+.team-name {
+  font-size: 2rem;
+  color: #ccc;
+  margin-bottom: 2rem;
+}
+
+.current-weight {
+  font-size: 8rem;
+  font-weight: bold;
+  color: #007bff;
+  text-shadow: 3px 3px 6px rgba(0,0,0,0.8);
+  margin: 2rem 0;
+}
+
+.attempt-info {
+  font-size: 2.5rem;
+  margin: 1rem 0;
+}
+
+.lift-name {
+  color: #28a745;
+  font-weight: bold;
+}
+
+.timer-large {
+  font-size: 6rem;
+  font-weight: bold;
+  text-align: center;
+  color: #28a745;
+  text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+  margin: 2rem 0;
+}
+
+.timer-large.running {
+  animation: pulse 1s infinite;
+}
+
+.timer-large.warning {
+  color: #ffc107;
+}
+
+.timer-large.expired {
+  color: #dc3545;
+  animation: blink 0.5s infinite;
+}
+
+.next-lifters {
+  background-color: #1a1a1a;
+  border-radius: 1rem;
+  padding: 2rem;
+  margin: 2rem 0;
+}
+
+.rankings-display {
+  background-color: #1a1a1a;
+  border-radius: 1rem;
+  padding: 2rem;
+}
+
+@keyframes pulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.7; }
+  100% { opacity: 1; }
+}
+
+@keyframes blink {
+  0% { opacity: 1; }
+  50% { opacity: 0.3; }
+  100% { opacity: 1; }
+}
+
+/* Responsive adjustments */
+@media (max-width: 1200px) {
+  .athlete-name { font-size: 3rem; }
+  .current-weight { font-size: 6rem; }
+  .timer-large { font-size: 4rem; }
+}
+
+@media (max-width: 768px) {
+  .athlete-name { font-size: 2rem; }
+  .current-weight { font-size: 4rem; }
+  .timer-large { font-size: 3rem; }
+  .attempt-info { font-size: 1.5rem; }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="display-screen">
+  <!-- Competition Header -->
+  <div class="row">
+    <div class="col-12 text-center">
+      <h1 class="display-3 mb-2">🏋️‍♂️ {{ competition.name }}</h1>
+      <h2 class="h3 text-muted mb-4" id="event-name">{{ competition.sport_type.value.title().replace('_', ' ') }}</h2>
+    </div>
+  </div>
+
+  <!-- Current Lifter Section -->
+  <div class="row">
+    <div class="col-lg-8">
+      <div class="current-lifter">
+        <!-- Current Athlete -->
+        <div class="athlete-name" id="current-athlete">
+          Waiting for next lifter...
+        </div>
+        
+        <div class="team-name" id="current-team">
+          <!-- Team name will appear here -->
+        </div>
+
+        <!-- Current Weight -->
+        <div class="current-weight" id="current-weight">
+          ---
+        </div>
+
+        <!-- Attempt Information -->
+        <div class="attempt-info">
+          <span class="lift-name" id="current-lift">---</span> - 
+          <span id="attempt-number">Attempt -</span>
+        </div>
+
+        <!-- Competition Timer -->
+        <div class="timer-large" id="competition-timer">
+          1:00
+        </div>
+      </div>
+    </div>
+
+    <!-- Side Panel -->
+    <div class="col-lg-4">
+      <!-- Next Lifters -->
+      <div class="next-lifters">
+        <h4 class="mb-3">🔄 Next Up</h4>
+        <div id="next-lifters-list">
+          <div class="d-flex justify-content-between mb-2">
+            <span>Loading...</span>
+            <span class="text-info">---kg</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Current Rankings -->
+      <div class="rankings-display">
+        <h4 class="mb-3">🏆 Current Rankings</h4>
+        <div id="rankings-table">
+          <table class="table table-dark table-sm">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Athlete</th>
+                <th>Total</th>
+              </tr>
+            </thead>
+            <tbody id="rankings-body">
+              <tr>
+                <td colspan="3" class="text-center">Loading rankings...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom Status Bar -->
+  <div class="row mt-4">
+    <div class="col-12">
+      <div class="bg-dark p-3 rounded">
+        <div class="row text-center">
+          <div class="col-md-3">
+            <strong>Event:</strong> <span id="status-event">{{ competition.sport_type.value.title().replace('_', ' ') }}</span>
+          </div>
+          <div class="col-md-3">
+            <strong>Status:</strong> <span id="status-state" class="text-success">LIVE</span>
+          </div>
+          <div class="col-md-3">
+            <strong>Athletes:</strong> <span id="status-athletes">{{ competition.athletes|length }}</span>
+          </div>
+          <div class="col-md-3">
+            <strong>Last Update:</strong> <span id="status-time">{{ moment().format('HH:mm:ss') }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Display Interface JavaScript
+const competitionId = {{ competition.id }};
+let timerInterval = null;
+
+document.addEventListener('DOMContentLoaded', function() {
+  // Join display room
+  socket.emit('join_competition', {
+    competition_id: competitionId,
+    role: 'display'
+  });
+
+  // Request initial data
+  socket.emit('get_display_data', {
+    competition_id: competitionId
+  });
+
+  // Auto-refresh every 30 seconds
+  setInterval(() => {
+    socket.emit('get_display_data', {
+      competition_id: competitionId
+    });
+    updateTimestamp();
+  }, 30000);
+
+  // Update timestamp every second
+  setInterval(updateTimestamp, 1000);
+});
+
+// Socket event handlers
+socket.on('display_data', function(data) {
+  updateDisplayContent(data);
+});
+
+socket.on('display_update', function(data) {
+  updateDisplayContent(data);
+});
+
+socket.on('timer_started', function(data) {
+  startDisplayTimer(data.duration, new Date(data.started_at));
+});
+
+socket.on('timer_paused', function(data) {
+  pauseDisplayTimer();
+});
+
+socket.on('timer_reset', function(data) {
+  resetDisplayTimer(data.duration);
+});
+
+socket.on('attempt_updated', function(data) {
+  if (data.is_final) {
+    showAttemptResult(data.decision);
+  }
+});
+
+// Display update functions
+function updateDisplayContent(data) {
+  // Update current lifter
+  if (data.current_athlete) {
+    document.getElementById('current-athlete').textContent = data.current_athlete.name;
+    document.getElementById('current-team').textContent = data.current_athlete.team || '';
+    document.getElementById('current-weight').textContent = `${data.current_athlete.weight}kg`;
+    document.getElementById('current-lift').textContent = data.current_athlete.lift_name;
+    document.getElementById('attempt-number').textContent = `Attempt ${data.current_athlete.attempt_number}`;
+  } else {
+    document.getElementById('current-athlete').textContent = 'Waiting for next lifter...';
+    document.getElementById('current-team').textContent = '';
+    document.getElementById('current-weight').textContent = '---';
+    document.getElementById('current-lift').textContent = '---';
+    document.getElementById('attempt-number').textContent = 'Attempt -';
+  }
+
+  // Update next lifters
+  if (data.next_athletes) {
+    updateNextLiftersDisplay(data.next_athletes);
+  }
+
+  // Update rankings
+  if (data.rankings) {
+    updateRankingsDisplay(data.rankings);
+  }
+
+  // Update event info
+  if (data.current_event) {
+    document.getElementById('event-name').textContent = data.current_event.name;
+    document.getElementById('status-event').textContent = data.current_event.name;
+  }
+}
+
+function updateNextLiftersDisplay(nextAthletes) {
+  const container = document.getElementById('next-lifters-list');
+  
+  if (nextAthletes.length === 0) {
+    container.innerHTML = '<div class="text-center text-muted">No more lifters</div>';
+    return;
+  }
+
+  container.innerHTML = nextAthletes.slice(0, 5).map(athlete => `
+    <div class="d-flex justify-content-between mb-2 p-2 bg-secondary rounded">
+      <span>${athlete.athlete_name}</span>
+      <span class="text-info">${athlete.weight}kg</span>
+    </div>
+  `).join('');
+}
+
+function updateRankingsDisplay(rankings) {
+  const tbody = document.getElementById('rankings-body');
+  
+  if (rankings.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="3" class="text-center">No rankings yet</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = rankings.slice(0, 8).map((ranking, index) => `
+    <tr>
+      <td>${index + 1}</td>
+      <td>${ranking.athlete_name}</td>
+      <td class="text-warning">${ranking.score}kg</td>
+    </tr>
+  `).join('');
+}
+
+// Timer functions
+function startDisplayTimer(duration, startTime) {
+  if (timerInterval) clearInterval(timerInterval);
+  
+  const timerElement = document.getElementById('competition-timer');
+  timerElement.classList.add('running');
+  timerElement.classList.remove('warning', 'expired');
+  
+  timerInterval = setInterval(() => {
+    const now = new Date();
+    const elapsed = Math.floor((now - startTime) / 1000);
+    const remaining = Math.max(0, duration - elapsed);
+    
+    timerElement.textContent = formatTime(remaining);
+    
+    // Visual warnings
+    if (remaining <= 10 && remaining > 0) {
+      timerElement.classList.add('warning');
+    } else if (remaining === 0) {
+      timerElement.classList.remove('running', 'warning');
+      timerElement.classList.add('expired');
+      clearInterval(timerInterval);
+      
+      // Flash the screen briefly
+      document.body.style.backgroundColor = '#dc3545';
+      setTimeout(() => {
+        document.body.style.backgroundColor = '#000';
+      }, 500);
+    }
+  }, 100);
+}
+
+function pauseDisplayTimer() {
+  if (timerInterval) {
+    clearInterval(timerInterval);
+    timerInterval = null;
+  }
+  
+  const timerElement = document.getElementById('competition-timer');
+  timerElement.classList.remove('running');
+}
+
+function resetDisplayTimer(duration) {
+  if (timerInterval) {
+    clearInterval(timerInterval);
+    timerInterval = null;
+  }
+  
+  const timerElement = document.getElementById('competition-timer');
+  timerElement.classList.remove('running', 'warning', 'expired');
+  timerElement.textContent = formatTime(duration);
+}
+
+function showAttemptResult(result) {
+  // Show attempt result overlay
+  const overlay = document.createElement('div');
+  overlay.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: ${result === 'good_lift' ? 'rgba(40, 167, 69, 0.9)' : 'rgba(220, 53, 69, 0.9)'};
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    animation: fadeOut 3s ease-out;
+  `;
+  
+  overlay.innerHTML = `
+    <div class="text-center">
+      <div style="font-size: 8rem; margin-bottom: 2rem;">
+        ${result === 'good_lift' ? '✅' : '❌'}
+      </div>
+      <div style="font-size: 4rem; font-weight: bold; text-shadow: 2px 2px 4px rgba(0,0,0,0.8);">
+        ${result === 'good_lift' ? 'GOOD LIFT' : 'NO LIFT'}
+      </div>
+    </div>
+  `;
+  
+  document.body.appendChild(overlay);
+  
+  setTimeout(() => {
+    document.body.removeChild(overlay);
+  }, 3000);
+}
+
+function formatTime(seconds) {
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return `${mins}:${secs.toString().padStart(2, '0')}`;
+}
+
+function updateTimestamp() {
+  const now = new Date();
+  document.getElementById('status-time').textContent = now.toLocaleTimeString();
+}
+
+// Keyboard shortcuts for fullscreen
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'F11' || (e.key === 'f' && e.ctrlKey)) {
+    e.preventDefault();
+    if (document.fullscreenElement) {
+      document.exitFullscreen();
+    } else {
+      document.documentElement.requestFullscreen();
+    }
+  } else if (e.key === 'Escape') {
+    if (document.fullscreenElement) {
+      document.exitFullscreen();
+    }
+  }
+});
+
+// Auto-enter fullscreen on load (with user permission)
+window.addEventListener('load', function() {
+  // Add click handler to enter fullscreen
+  document.addEventListener('click', function enterFullscreen() {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(e => {
+        console.log('Fullscreen not supported or denied');
+      });
+    }
+    document.removeEventListener('click', enterFullscreen);
+  });
+});
+
+console.log('Display interface initialized for competition:', competitionId);
+</script>
+{% endblock %}

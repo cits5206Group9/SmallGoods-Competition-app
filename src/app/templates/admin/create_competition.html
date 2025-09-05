@@ -1,0 +1,354 @@
+{% extends "base.html" %}
+
+{% block title %}Create Competition - Admin{% endblock %}
+
+{% block content %}
+<div class="row">
+  <div class="col-lg-8 mx-auto">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <h1>🏆 Create New Competition</h1>
+      <a href="/admin" class="btn btn-outline-secondary">
+        <i class="fas fa-arrow-left"></i> Back to Dashboard
+      </a>
+    </div>
+
+    <div class="card">
+      <div class="card-body">
+        <form id="competition-form">
+          <!-- Basic Information -->
+          <div class="row mb-4">
+            <div class="col-12">
+              <h5 class="border-bottom pb-2">Competition Details</h5>
+            </div>
+            
+            <div class="col-md-6 mb-3">
+              <label for="competition-name" class="form-label">Competition Name *</label>
+              <input type="text" class="form-control" id="competition-name" name="name" 
+                     placeholder="e.g., Spring Open 2025" required>
+            </div>
+            
+            <div class="col-md-6 mb-3">
+              <label for="competition-date" class="form-label">Date *</label>
+              <input type="date" class="form-control" id="competition-date" name="date" required>
+            </div>
+            
+            <div class="col-md-6 mb-3">
+              <label for="sport-type" class="form-label">Sport Type *</label>
+              <select class="form-select" id="sport-type" name="sport_type" required>
+                <option value="">Select Sport...</option>
+                {% for sport in sport_types %}
+                <option value="{{ sport.value }}">
+                  {{ sport.value.title().replace('_', ' ') }}
+                </option>
+                {% endfor %}
+              </select>
+            </div>
+            
+            <div class="col-md-6 mb-3">
+              <label for="venue" class="form-label">Venue</label>
+              <input type="text" class="form-control" id="venue" name="venue" 
+                     placeholder="Competition venue">
+            </div>
+          </div>
+
+          <!-- Sport-Specific Configuration -->
+          <div class="row mb-4">
+            <div class="col-12">
+              <h5 class="border-bottom pb-2">Competition Configuration</h5>
+            </div>
+            
+            <!-- Olympic Weightlifting Configuration -->
+            <div id="oly-config" class="sport-config" style="display: none;">
+              <div class="col-12 mb-3">
+                <h6>Olympic Weightlifting Settings</h6>
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" id="oly-masters" name="masters_division">
+                  <label class="form-check-label" for="oly-masters">
+                    Include Masters Age Divisions
+                  </label>
+                </div>
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" id="oly-youth" name="youth_division">
+                  <label class="form-check-label" for="oly-youth">
+                    Include Youth Age Divisions
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <!-- Powerlifting Configuration -->
+            <div id="pl-config" class="sport-config" style="display: none;">
+              <div class="col-12 mb-3">
+                <h6>Powerlifting Settings</h6>
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" id="pl-equipped" name="equipped_division">
+                  <label class="form-check-label" for="pl-equipped">
+                    Include Equipped Division
+                  </label>
+                </div>
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" id="pl-raw" name="raw_division" checked>
+                  <label class="form-check-label" for="pl-raw">
+                    Include Raw Division
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <!-- Timer Configuration -->
+            <div class="col-md-6 mb-3">
+              <label for="attempt-time" class="form-label">Attempt Time (seconds)</label>
+              <input type="number" class="form-control" id="attempt-time" name="attempt_time" 
+                     value="60" min="30" max="180">
+            </div>
+            
+            <div class="col-md-6 mb-3">
+              <label for="break-time" class="form-label">Break Time (seconds)</label>
+              <input type="number" class="form-control" id="break-time" name="break_time" 
+                     value="120" min="60" max="600">
+            </div>
+          </div>
+
+          <!-- Network Configuration -->
+          <div class="row mb-4">
+            <div class="col-12">
+              <h5 class="border-bottom pb-2">Network Settings</h5>
+            </div>
+            
+            <div class="col-md-6 mb-3">
+              <label for="wifi-ssid" class="form-label">WiFi Network Name</label>
+              <input type="text" class="form-control" id="wifi-ssid" name="wifi_ssid" 
+                     value="SmallGoodsComp" placeholder="Network SSID">
+            </div>
+            
+            <div class="col-md-6 mb-3">
+              <label for="wifi-password" class="form-label">WiFi Password</label>
+              <input type="password" class="form-control" id="wifi-password" name="wifi_password" 
+                     placeholder="Network password">
+            </div>
+          </div>
+
+          <!-- Competition Format Preview -->
+          <div class="row mb-4">
+            <div class="col-12">
+              <h5 class="border-bottom pb-2">Competition Format Preview</h5>
+              <div id="format-preview" class="alert alert-info">
+                Select a sport type to see the competition format preview.
+              </div>
+            </div>
+          </div>
+
+          <!-- Form Actions -->
+          <div class="row">
+            <div class="col-12">
+              <div class="d-flex justify-content-between">
+                <button type="button" class="btn btn-outline-secondary" onclick="window.history.back()">
+                  <i class="fas fa-times"></i> Cancel
+                </button>
+                <div>
+                  <button type="button" class="btn btn-info me-2" id="preview-btn">
+                    <i class="fas fa-eye"></i> Preview
+                  </button>
+                  <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-check"></i> Create Competition
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Preview Modal -->
+<div class="modal fade" id="preview-modal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Competition Preview</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" id="preview-content">
+        <!-- Preview content will be loaded here -->
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+        <button type="button" class="btn btn-primary" onclick="$('#competition-form').submit()">
+          Create Competition
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Sport type configurations
+const sportConfigs = {
+  olympic_weightlifting: {
+    lifts: ['Snatch', 'Clean & Jerk'],
+    attempts: 3,
+    scoring: 'Total (Sum of best Snatch + Clean & Jerk)',
+    categories: {
+      'Men': ['55kg', '61kg', '67kg', '73kg', '81kg', '89kg', '96kg', '102kg', '109kg', '+109kg'],
+      'Women': ['45kg', '49kg', '55kg', '59kg', '64kg', '71kg', '76kg', '81kg', '87kg', '+87kg']
+    }
+  },
+  powerlifting: {
+    lifts: ['Squat', 'Bench Press', 'Deadlift'],
+    attempts: 3,
+    scoring: 'Total (Sum of best Squat + Bench + Deadlift)',
+    categories: {
+      'Men': ['53kg', '59kg', '66kg', '74kg', '83kg', '93kg', '105kg', '120kg', '+120kg'],
+      'Women': ['43kg', '47kg', '52kg', '57kg', '63kg', '69kg', '76kg', '84kg', '+84kg']
+    }
+  },
+  crossfit: {
+    lifts: ['Workout 1', 'Workout 2', 'Workout 3'],
+    attempts: 1,
+    scoring: 'Time or Reps (depends on workout)',
+    categories: {
+      'Mixed': ['RX', 'Scaled', 'Masters', 'Teens']
+    }
+  }
+};
+
+// Handle sport type change
+document.getElementById('sport-type').addEventListener('change', function() {
+  const sportType = this.value;
+  
+  // Hide all sport configs
+  document.querySelectorAll('.sport-config').forEach(el => {
+    el.style.display = 'none';
+  });
+  
+  // Show relevant config
+  if (sportType === 'olympic_weightlifting') {
+    document.getElementById('oly-config').style.display = 'block';
+  } else if (sportType === 'powerlifting') {
+    document.getElementById('pl-config').style.display = 'block';
+  }
+  
+  // Update format preview
+  updateFormatPreview(sportType);
+});
+
+function updateFormatPreview(sportType) {
+  const preview = document.getElementById('format-preview');
+  
+  if (!sportType || !sportConfigs[sportType]) {
+    preview.innerHTML = 'Select a sport type to see the competition format preview.';
+    preview.className = 'alert alert-info';
+    return;
+  }
+  
+  const config = sportConfigs[sportType];
+  
+  let html = `
+    <h6>${sportType.replace('_', ' ').toUpperCase()} Competition Format</h6>
+    <div class="row">
+      <div class="col-md-6">
+        <strong>Lifts:</strong><br>
+        <ul class="mb-2">
+          ${config.lifts.map(lift => `<li>${lift}</li>`).join('')}
+        </ul>
+        <strong>Attempts:</strong> ${config.attempts} per lift<br>
+        <strong>Scoring:</strong> ${config.scoring}
+      </div>
+      <div class="col-md-6">
+        <strong>Weight Categories:</strong><br>
+  `;
+  
+  for (const [gender, categories] of Object.entries(config.categories)) {
+    html += `<strong>${gender}:</strong> ${categories.join(', ')}<br>`;
+  }
+  
+  html += `</div></div>`;
+  
+  preview.innerHTML = html;
+  preview.className = 'alert alert-success';
+}
+
+// Form submission
+document.getElementById('competition-form').addEventListener('submit', function(e) {
+  e.preventDefault();
+  
+  const formData = new FormData(this);
+  const data = Object.fromEntries(formData.entries());
+  
+  // Add configuration object
+  data.config = {
+    attempt_time: parseInt(data.attempt_time) || 60,
+    break_time: parseInt(data.break_time) || 120,
+    wifi_ssid: data.wifi_ssid || 'SmallGoodsComp',
+    wifi_password: data.wifi_password || ''
+  };
+  
+  // Show loading state
+  const submitBtn = this.querySelector('button[type="submit"]');
+  const originalText = submitBtn.innerHTML;
+  submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating...';
+  submitBtn.disabled = true;
+  
+  fetch('/admin/competition/new', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(data)
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      showAlert('Competition created successfully!', 'success');
+      setTimeout(() => {
+        window.location.href = `/admin/competition/${data.competition_id}`;
+      }, 1500);
+    } else {
+      showAlert('Error: ' + (data.error || 'Failed to create competition'), 'danger');
+    }
+  })
+  .catch(error => {
+    showAlert('Network error. Please try again.', 'danger');
+  })
+  .finally(() => {
+    submitBtn.innerHTML = originalText;
+    submitBtn.disabled = false;
+  });
+});
+
+// Preview functionality
+document.getElementById('preview-btn').addEventListener('click', function() {
+  const formData = new FormData(document.getElementById('competition-form'));
+  const data = Object.fromEntries(formData.entries());
+  
+  let previewHtml = `
+    <h6>Competition: ${data.name || 'Unnamed Competition'}</h6>
+    <p><strong>Date:</strong> ${data.date || 'Not set'}</p>
+    <p><strong>Sport:</strong> ${data.sport_type ? data.sport_type.replace('_', ' ').toUpperCase() : 'Not selected'}</p>
+  `;
+  
+  if (data.sport_type && sportConfigs[data.sport_type]) {
+    const config = sportConfigs[data.sport_type];
+    previewHtml += `
+      <hr>
+      <h6>Competition Structure</h6>
+      <p><strong>Lifts:</strong> ${config.lifts.join(', ')}</p>
+      <p><strong>Attempts per lift:</strong> ${config.attempts}</p>
+      <p><strong>Scoring method:</strong> ${config.scoring}</p>
+      <p><strong>Attempt time:</strong> ${data.attempt_time || 60} seconds</p>
+      <p><strong>Break time:</strong> ${data.break_time || 120} seconds</p>
+    `;
+  }
+  
+  document.getElementById('preview-content').innerHTML = previewHtml;
+  new bootstrap.Modal(document.getElementById('preview-modal')).show();
+});
+
+// Set default date to today
+document.getElementById('competition-date').valueAsDate = new Date();
+</script>
+{% endblock %}

@@ -1,0 +1,261 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Dashboard - Small Goods Competition{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h1>🔧 Admin Dashboard</h1>
+  <a href="/admin/competition/new" class="btn btn-primary">
+    <i class="fas fa-plus"></i> Create New Competition
+  </a>
+</div>
+
+<!-- Competition Overview -->
+<div class="row">
+  <div class="col-12">
+    <div class="card">
+      <div class="card-header">
+        <h5 class="mb-0">Competition Management</h5>
+      </div>
+      <div class="card-body">
+        {% if competitions %}
+        <div class="table-responsive">
+          <table class="table table-hover">
+            <thead>
+              <tr>
+                <th>Competition</th>
+                <th>Sport Type</th>
+                <th>Date</th>
+                <th>Status</th>
+                <th>Athletes</th>
+                <th>Events</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for competition in competitions %}
+              <tr>
+                <td>
+                  <strong>{{ competition.name }}</strong>
+                </td>
+                <td>
+                  <span class="badge bg-info">
+                    {{ competition.sport_type.value.title().replace('_', ' ') }}
+                  </span>
+                </td>
+                <td>{{ competition.date.strftime('%Y-%m-%d') }}</td>
+                <td>
+                  {% if competition.is_active %}
+                    <span class="badge bg-success">Active</span>
+                  {% else %}
+                    <span class="badge bg-secondary">Inactive</span>
+                  {% endif %}
+                </td>
+                <td>
+                  <span class="badge bg-primary">{{ competition.athletes|length }}</span>
+                </td>
+                <td>
+                  <span class="badge bg-warning">{{ competition.events|length }}</span>
+                </td>
+                <td>
+                  <div class="btn-group" role="group">
+                    <a href="/admin/competition/{{ competition.id }}" class="btn btn-sm btn-outline-primary">
+                      <i class="fas fa-edit"></i> Manage
+                    </a>
+                    <a href="/display/competition/{{ competition.id }}" class="btn btn-sm btn-outline-dark" target="_blank">
+                      <i class="fas fa-tv"></i> Display
+                    </a>
+                    <button class="btn btn-sm btn-outline-danger" onclick="toggleCompetition({{ competition.id }})">
+                      {% if competition.is_active %}
+                        <i class="fas fa-pause"></i> Pause
+                      {% else %}
+                        <i class="fas fa-play"></i> Start
+                      {% endif %}
+                    </button>
+                  </div>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div class="text-center py-5">
+          <div class="display-1 text-muted mb-3">🏆</div>
+          <h4>No Competitions Created</h4>
+          <p class="text-muted">Create your first competition to get started</p>
+          <a href="/admin/competition/new" class="btn btn-primary">
+            <i class="fas fa-plus"></i> Create Competition
+          </a>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="row mt-4">
+  <div class="col-md-6">
+    <div class="card">
+      <div class="card-header">
+        <h6 class="mb-0">Quick Actions</h6>
+      </div>
+      <div class="card-body">
+        <div class="list-group list-group-flush">
+          <a href="/admin/competition/new" class="list-group-item list-group-item-action">
+            <i class="fas fa-plus text-primary"></i> Create New Competition
+          </a>
+          <a href="/wifi-qr" class="list-group-item list-group-item-action">
+            <i class="fas fa-wifi text-info"></i> Generate WiFi QR Code
+          </a>
+          <a href="/admin/backup" class="list-group-item list-group-item-action">
+            <i class="fas fa-download text-success"></i> Backup Competition Data
+          </a>
+          <a href="/admin/settings" class="list-group-item list-group-item-action">
+            <i class="fas fa-cog text-warning"></i> System Settings
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <div class="col-md-6">
+    <div class="card">
+      <div class="card-header">
+        <h6 class="mb-0">System Status</h6>
+      </div>
+      <div class="card-body">
+        <div class="row text-center">
+          <div class="col-6 mb-3">
+            <div class="border rounded p-3">
+              <div class="h4 text-primary mb-1" id="total-competitions">{{ competitions|length }}</div>
+              <small class="text-muted">Total Competitions</small>
+            </div>
+          </div>
+          <div class="col-6 mb-3">
+            <div class="border rounded p-3">
+              <div class="h4 text-success mb-1" id="active-competitions">
+                {{ competitions|selectattr('is_active')|list|length }}
+              </div>
+              <small class="text-muted">Active Now</small>
+            </div>
+          </div>
+          <div class="col-6">
+            <div class="border rounded p-3">
+              <div class="h4 text-info mb-1" id="connected-devices">0</div>
+              <small class="text-muted">Connected Devices</small>
+            </div>
+          </div>
+          <div class="col-6">
+            <div class="border rounded p-3">
+              <div class="h4 text-warning mb-1" id="server-uptime">--</div>
+              <small class="text-muted">Server Uptime</small>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Recent Activity Feed -->
+<div class="row mt-4">
+  <div class="col-12">
+    <div class="card">
+      <div class="card-header">
+        <h6 class="mb-0">Recent Activity</h6>
+      </div>
+      <div class="card-body">
+        <div id="activity-feed">
+          <p class="text-muted text-center">Activity feed will appear here...</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Join admin room for real-time updates
+socket.emit('join_competition', {
+  role: 'admin'
+});
+
+// Real-time updates
+socket.on('competition_created', function(data) {
+  showAlert(`New competition "${data.name}" created successfully!`, 'success');
+  setTimeout(() => location.reload(), 1000);
+});
+
+socket.on('competition_updated', function(data) {
+  showAlert(`Competition "${data.name}" updated`, 'info');
+  updateActivityFeed(`Competition ${data.name} updated`);
+});
+
+socket.on('athlete_registered', function(data) {
+  updateActivityFeed(`Athlete ${data.athlete_name} registered`);
+});
+
+// Toggle competition active status
+function toggleCompetition(competitionId) {
+  if (confirm('Are you sure you want to change the competition status?')) {
+    fetch(`/api/competition/${competitionId}/toggle`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        location.reload();
+      } else {
+        showAlert('Failed to update competition status', 'danger');
+      }
+    })
+    .catch(error => {
+      showAlert('Error updating competition', 'danger');
+    });
+  }
+}
+
+// Update activity feed
+function updateActivityFeed(message) {
+  const feed = document.getElementById('activity-feed');
+  const timestamp = new Date().toLocaleTimeString();
+  
+  const activityItem = document.createElement('div');
+  activityItem.className = 'border-bottom pb-2 mb-2';
+  activityItem.innerHTML = `
+    <small class="text-muted">${timestamp}</small><br>
+    <span>${message}</span>
+  `;
+  
+  feed.insertBefore(activityItem, feed.firstChild);
+  
+  // Keep only last 10 items
+  while (feed.children.length > 10) {
+    feed.removeChild(feed.lastChild);
+  }
+}
+
+// Update connection count
+socket.on('device_count_update', function(data) {
+  document.getElementById('connected-devices').textContent = data.count;
+});
+
+// Initialize
+document.addEventListener('DOMContentLoaded', function() {
+  // Start server uptime counter
+  let uptime = 0;
+  setInterval(() => {
+    uptime++;
+    const hours = Math.floor(uptime / 3600);
+    const minutes = Math.floor((uptime % 3600) / 60);
+    document.getElementById('server-uptime').textContent = `${hours}h ${minutes}m`;
+  }, 1000);
+});
+</script>
+{% endblock %}

@@ -1,0 +1,268 @@
+{% extends "base.html" %}
+
+{% block title %}Referee Interface - Small Goods Competition{% endblock %}
+
+{% block content %}
+<div class="row">
+  <div class="col-12">
+    <h1>👨‍⚖️ Referee Interface</h1>
+    <p class="lead">Input lift decisions with simple button controls</p>
+  </div>
+</div>
+
+{% if competition and active_event %}
+<div class="row">
+  <div class="col-lg-8 mx-auto">
+    <div class="card">
+      <div class="card-header">
+        <h5 class="mb-0">{{ competition.name }} - {{ active_event.name }}</h5>
+      </div>
+      <div class="card-body">
+        {% if current_attempt %}
+        <!-- Current Lifter Display -->
+        <div class="text-center mb-4">
+          <div class="display-4 mb-2">{{ current_attempt.athlete.name }}</div>
+          <div class="h3 text-muted mb-2">{{ current_attempt.athlete.team or 'Individual' }}</div>
+          <div class="display-1 text-primary mb-2">{{ current_attempt.requested_weight }}kg</div>
+          <div class="h4 mb-3">
+            {{ current_attempt.lift.name }} - Attempt {{ current_attempt.attempt_number }}
+          </div>
+        </div>
+
+        <!-- Referee Decision Buttons -->
+        <div class="referee-buttons mb-4">
+          {% for result in attempt_results %}
+          <button class="btn referee-btn {{ result.value.replace('_', '-') }}" 
+                  data-attempt-id="{{ current_attempt.id }}"
+                  data-decision="{{ result.value }}">
+            <i class="fas fa-{{ 'check' if result.value == 'good_lift' else 'times' }}"></i>
+            {{ result.value.replace('_', ' ').title() }}
+          </button>
+          {% endfor %}
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="row">
+          <div class="col-md-6 mb-3">
+            <button class="btn btn-warning w-100" onclick="requestWeightChange()">
+              <i class="fas fa-edit"></i> Request Weight Change
+            </button>
+          </div>
+          <div class="col-md-6 mb-3">
+            <button class="btn btn-info w-100" onclick="callTechnicalController()">
+              <i class="fas fa-phone"></i> Call Technical Controller
+            </button>
+          </div>
+        </div>
+
+        <!-- Decision History -->
+        <div class="mt-4">
+          <h6>Recent Decisions:</h6>
+          <div id="decision-history" class="border rounded p-3 bg-light">
+            <p class="text-muted">Decision history will appear here...</p>
+          </div>
+        </div>
+
+        {% else %}
+        <div class="text-center py-5">
+          <div class="display-1 text-muted mb-3">⏸️</div>
+          <h4>No Active Attempt</h4>
+          <p class="text-muted">Waiting for next lifter...</p>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Competition Status -->
+<div class="row mt-4">
+  <div class="col-12">
+    <div class="card">
+      <div class="card-header">
+        <h6 class="mb-0">Competition Status</h6>
+      </div>
+      <div class="card-body">
+        <div class="row text-center">
+          <div class="col-md-3 mb-2">
+            <div class="border rounded p-2">
+              <div class="h5 text-primary mb-0">{{ active_event.lifts|length }}</div>
+              <small class="text-muted">Total Lifts</small>
+            </div>
+          </div>
+          <div class="col-md-3 mb-2">
+            <div class="border rounded p-2">
+              <div class="h5 text-success mb-0" id="completed-attempts">0</div>
+              <small class="text-muted">Completed</small>
+            </div>
+          </div>
+          <div class="col-md-3 mb-2">
+            <div class="border rounded p-2">
+              <div class="h5 text-warning mb-0" id="remaining-attempts">0</div>
+              <small class="text-muted">Remaining</small>
+            </div>
+          </div>
+          <div class="col-md-3 mb-2">
+            <div class="border rounded p-2">
+              <div class="h5 mb-0" id="connection-status-detailed">
+                <span class="status-indicator online"></span>
+                Connected
+              </div>
+              <small class="text-muted">Connection</small>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% else %}
+<!-- No Active Competition -->
+<div class="row">
+  <div class="col-lg-8 mx-auto">
+    <div class="alert alert-warning text-center">
+      <h4>No Active Competition</h4>
+      <p>There is currently no active competition or event. Please contact the technical controller to start an event.</p>
+      <a href="/referee" class="btn btn-primary">Back to Selection</a>
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Initialize referee interface
+document.addEventListener('DOMContentLoaded', function() {
+  if (typeof currentCompetitionId !== 'undefined' && currentCompetitionId) {
+    // Join referee room
+    socket.emit('join_competition', {
+      competition_id: currentCompetitionId,
+      role: 'referee'
+    });
+  }
+});
+
+// Referee decision handling
+document.addEventListener('click', function(e) {
+  if (e.target.classList.contains('referee-btn')) {
+    const attemptId = e.target.dataset.attemptId;
+    const decision = e.target.dataset.decision;
+    
+    if (attemptId && decision) {
+      submitRefereeDecision(attemptId, decision);
+    }
+  }
+});
+
+function submitRefereeDecision(attemptId, decision) {
+  // Visual feedback
+  const btn = document.querySelector(`[data-attempt-id="${attemptId}"][data-decision="${decision}"]`);
+  if (btn) {
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Recording...';
+    btn.disabled = true;
+  }
+  
+  // Send decision via SocketIO
+  socket.emit('referee_decision', {
+    attempt_id: parseInt(attemptId),
+    referee_id: 1, // TODO: Get from session
+    decision: decision
+  });
+}
+
+// Socket event handlers
+socket.on('decision_recorded', function(data) {
+  showAlert(`Decision recorded: ${data.decision.replace('_', ' ').toUpperCase()}`, 'success');
+  
+  // Add to decision history
+  addDecisionToHistory(data.decision);
+  
+  // Reset button states
+  setTimeout(() => {
+    document.querySelectorAll('.referee-btn').forEach(btn => {
+      btn.disabled = false;
+      btn.innerHTML = btn.innerHTML.replace('<i class="fas fa-spinner fa-spin"></i> Recording...', btn.innerHTML);
+    });
+  }, 1000);
+});
+
+socket.on('attempt_updated', function(data) {
+  if (data.is_final) {
+    showAlert(`Final decision: ${data.decision.replace('_', ' ').toUpperCase()}`, 'info');
+    // Could refresh the page or load next attempt
+    setTimeout(() => location.reload(), 2000);
+  }
+});
+
+socket.on('weight_changed', function(data) {
+  showAlert(`Weight updated for ${data.athlete_name}: ${data.new_weight}kg`, 'info');
+  // Update the display
+  document.querySelector('.display-1.text-primary').textContent = `${data.new_weight}kg`;
+});
+
+// Quick action functions
+function requestWeightChange() {
+  const currentWeight = document.querySelector('.display-1.text-primary').textContent.replace('kg', '');
+  const newWeight = prompt('Enter new weight (kg):', currentWeight);
+  
+  if (newWeight && !isNaN(newWeight)) {
+    const attemptId = document.querySelector('.referee-btn').dataset.attemptId;
+    
+    socket.emit('update_competition_model', {
+      type: 'weight_change',
+      competition_id: currentCompetitionId,
+      attempt_id: parseInt(attemptId),
+      new_weight: parseFloat(newWeight)
+    });
+  }
+}
+
+function callTechnicalController() {
+  socket.emit('notify_technical_controller', {
+    competition_id: currentCompetitionId,
+    message: 'Referee requests assistance',
+    referee_id: 1
+  });
+  
+  showAlert('Technical Controller notified', 'info');
+}
+
+function addDecisionToHistory(decision) {
+  const historyContainer = document.getElementById('decision-history');
+  const timestamp = new Date().toLocaleTimeString();
+  
+  const decisionElement = document.createElement('div');
+  decisionElement.className = 'border-bottom pb-2 mb-2';
+  decisionElement.innerHTML = `
+    <small class="text-muted">${timestamp}</small><br>
+    <span class="badge bg-${decision === 'good_lift' ? 'success' : 'danger'}">
+      ${decision.replace('_', ' ').toUpperCase()}
+    </span>
+  `;
+  
+  historyContainer.insertBefore(decisionElement, historyContainer.firstChild);
+  
+  // Keep only last 5 decisions
+  while (historyContainer.children.length > 5) {
+    historyContainer.removeChild(historyContainer.lastChild);
+  }
+}
+
+// Update attempt counters
+function updateAttemptCounters() {
+  // This would be populated by real data
+  document.getElementById('completed-attempts').textContent = '15';
+  document.getElementById('remaining-attempts').textContent = '45';
+}
+
+// Initialize
+updateAttemptCounters();
+
+// Set current competition ID for JavaScript
+{% if competition %}
+const currentCompetitionId = {{ competition.id }};
+{% endif %}
+</script>
+{% endblock %}
