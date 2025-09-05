@@ -1,0 +1,207 @@
+{% extends "base.html" %}
+
+{% block title %}Manage Athletes - {{ competition.name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1>
+                    <i class="fas fa-users"></i> Manage Athletes - {{ competition.name }}
+                </h1>
+                <div>
+                    <a href="{{ url_for('main.admin_competition', id=competition.id) }}" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left"></i> Back to Competition
+                    </a>
+                    <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addAthleteModal">
+                        <i class="fas fa-plus"></i> Add Athlete
+                    </button>
+                </div>
+            </div>
+
+            <!-- Athletes List -->
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5><i class="fas fa-list"></i> Athletes ({{ athletes|length }})</h5>
+                    <div>
+                        <button class="btn btn-sm btn-outline-primary" onclick="exportAthletes()">
+                            <i class="fas fa-download"></i> Export
+                        </button>
+                        <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#importAthletesModal">
+                            <i class="fas fa-upload"></i> Import
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if athletes %}
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover" id="athletesTable">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Registration #</th>
+                                    <th>Category</th>
+                                    <th>Team</th>
+                                    <th>Email</th>
+                                    <th>Phone</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for athlete in athletes %}
+                                <tr>
+                                    <td>
+                                        <strong>{{ athlete.name }}</strong>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-primary">{{ athlete.registration_number or 'N/A' }}</span>
+                                    </td>
+                                    <td>{{ athlete.category or '-' }}</td>
+                                    <td>{{ athlete.team or '-' }}</td>
+                                    <td>{{ athlete.email or '-' }}</td>
+                                    <td>{{ athlete.phone or '-' }}</td>
+                                    <td>
+                                        <span class="badge {{ 'bg-success' if athlete.is_active else 'bg-secondary' }}">
+                                            {{ 'Active' if athlete.is_active else 'Inactive' }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm" role="group">
+                                            <button class="btn btn-outline-primary" onclick="editAthlete({{ athlete.id }})" 
+                                                    data-bs-toggle="modal" data-bs-target="#editAthleteModal">
+                                                <i class="fas fa-edit"></i>
+                                            </button>
+                                            <a href="{{ url_for('main.athlete_dashboard', athlete_id=athlete.id) }}" 
+                                               class="btn btn-outline-info">
+                                                <i class="fas fa-eye"></i>
+                                            </a>
+                                            <button class="btn btn-outline-danger" onclick="deleteAthlete({{ athlete.id }})">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-users fa-3x text-muted mb-3"></i>
+                        <h4 class="text-muted">No Athletes Registered</h4>
+                        <p class="text-muted">Start by adding athletes to this competition.</p>
+                        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addAthleteModal">
+                            <i class="fas fa-plus"></i> Add First Athlete
+                        </button>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Athlete Modal -->
+<div class="modal fade" id="addAthleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add New Athlete</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="addAthleteForm">
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Name *</label>
+                            <input type="text" class="form-control" name="name" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Registration Number</label>
+                            <input type="text" class="form-control" name="registration_number">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Category</label>
+                            <input type="text" class="form-control" name="category">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Team</label>
+                            <input type="text" class="form-control" name="team">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Email</label>
+                            <input type="email" class="form-control" name="email">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Phone</label>
+                            <input type="tel" class="form-control" name="phone">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-success">Add Athlete</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+// Add athlete form submission
+document.getElementById('addAthleteForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    
+    fetch(`{{ url_for('main.manage_athletes', id=competition.id) }}`, {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('Error adding athlete: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error adding athlete');
+    });
+});
+
+function exportAthletes() {
+    // Implement export functionality
+    window.open(`{{ url_for('main.manage_athletes', id=competition.id) }}?export=csv`);
+}
+
+function editAthlete(athleteId) {
+    // Implement edit functionality
+    console.log('Edit athlete:', athleteId);
+}
+
+function deleteAthlete(athleteId) {
+    if (confirm('Are you sure you want to delete this athlete?')) {
+        fetch(`/admin/athlete/${athleteId}`, {
+            method: 'DELETE'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('Error deleting athlete: ' + data.error);
+            }
+        });
+    }
+}
+</script>
+{% endblock %}

@@ -1,0 +1,314 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Settings{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1>
+                    <i class="fas fa-cogs"></i> System Settings
+                </h1>
+                <a href="{{ url_for('main.admin_dashboard') }}" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left"></i> Back to Dashboard
+                </a>
+            </div>
+
+            <div class="row">
+                <!-- General Settings -->
+                <div class="col-md-6">
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h5><i class="fas fa-wrench"></i> General Settings</h5>
+                        </div>
+                        <div class="card-body">
+                            <form id="generalSettingsForm">
+                                <div class="mb-3">
+                                    <label for="appName" class="form-label">Application Name</label>
+                                    <input type="text" class="form-control" id="appName" name="app_name" 
+                                           value="SmallGoods Competition App">
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="timezone" class="form-label">Timezone</label>
+                                    <select class="form-select" id="timezone" name="timezone">
+                                        <option value="UTC" selected>UTC</option>
+                                        <option value="Australia/Perth">Australia/Perth</option>
+                                        <option value="Australia/Sydney">Australia/Sydney</option>
+                                        <option value="America/New_York">America/New_York</option>
+                                        <option value="Europe/London">Europe/London</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="maxAttempts" class="form-label">Default Max Attempts</label>
+                                    <input type="number" class="form-control" id="maxAttempts" name="max_attempts" 
+                                           value="3" min="1" max="10">
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="enableNotifications" 
+                                               name="enable_notifications" checked>
+                                        <label class="form-check-label" for="enableNotifications">
+                                            Enable Real-time Notifications
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-save"></i> Save General Settings
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Competition Settings -->
+                <div class="col-md-6">
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h5><i class="fas fa-trophy"></i> Competition Settings</h5>
+                        </div>
+                        <div class="card-body">
+                            <form id="competitionSettingsForm">
+                                <div class="mb-3">
+                                    <label for="defaultTimeLimit" class="form-label">Default Time Limit (seconds)</label>
+                                    <input type="number" class="form-control" id="defaultTimeLimit" 
+                                           name="default_time_limit" value="300" min="0">
+                                    <div class="form-text">0 for no time limit</div>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="scoringPrecision" class="form-label">Scoring Precision (decimal places)</label>
+                                    <select class="form-select" id="scoringPrecision" name="scoring_precision">
+                                        <option value="0">0 (whole numbers)</option>
+                                        <option value="1">1 (0.1)</option>
+                                        <option value="2" selected>2 (0.01)</option>
+                                        <option value="3">3 (0.001)</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="allowLateRegistration" 
+                                               name="allow_late_registration" checked>
+                                        <label class="form-check-label" for="allowLateRegistration">
+                                            Allow Late Registration
+                                        </label>
+                                    </div>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="autoAdvanceAttempts" 
+                                               name="auto_advance_attempts">
+                                        <label class="form-check-label" for="autoAdvanceAttempts">
+                                            Auto-advance to Next Attempt
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-save"></i> Save Competition Settings
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Display Settings -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5><i class="fas fa-tv"></i> Display Settings</h5>
+                </div>
+                <div class="card-body">
+                    <form id="displaySettingsForm">
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label for="refreshInterval" class="form-label">Refresh Interval (seconds)</label>
+                                    <input type="number" class="form-control" id="refreshInterval" 
+                                           name="refresh_interval" value="5" min="1" max="60">
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label for="displayTheme" class="form-label">Display Theme</label>
+                                    <select class="form-select" id="displayTheme" name="display_theme">
+                                        <option value="light" selected>Light</option>
+                                        <option value="dark">Dark</option>
+                                        <option value="high-contrast">High Contrast</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label for="leaderboardSize" class="form-label">Leaderboard Size</label>
+                                    <select class="form-select" id="leaderboardSize" name="leaderboard_size">
+                                        <option value="10">Top 10</option>
+                                        <option value="15">Top 15</option>
+                                        <option value="20" selected>Top 20</option>
+                                        <option value="all">All Athletes</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-check mb-3">
+                                    <input class="form-check-input" type="checkbox" id="showTimer" 
+                                           name="show_timer" checked>
+                                    <label class="form-check-label" for="showTimer">
+                                        Show Timer on Display
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-check mb-3">
+                                    <input class="form-check-input" type="checkbox" id="showRecords" 
+                                           name="show_records" checked>
+                                    <label class="form-check-label" for="showRecords">
+                                        Show Records/Best Scores
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save"></i> Save Display Settings
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- System Information -->
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-info-circle"></i> System Information</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <dl class="row">
+                                <dt class="col-sm-4">Version:</dt>
+                                <dd class="col-sm-8">1.0.0</dd>
+                                
+                                <dt class="col-sm-4">Database:</dt>
+                                <dd class="col-sm-8">SQLite</dd>
+                                
+                                <dt class="col-sm-4">Python Version:</dt>
+                                <dd class="col-sm-8" id="pythonVersion">{{ python_version() if python_version else 'Unknown' }}</dd>
+                                
+                                <dt class="col-sm-4">Flask Version:</dt>
+                                <dd class="col-sm-8">{{ flask_version() if flask_version else 'Unknown' }}</dd>
+                            </dl>
+                        </div>
+                        <div class="col-md-6">
+                            <dl class="row">
+                                <dt class="col-sm-4">Uptime:</dt>
+                                <dd class="col-sm-8" id="uptime">Unknown</dd>
+                                
+                                <dt class="col-sm-4">Database Size:</dt>
+                                <dd class="col-sm-8" id="dbSize">Calculating...</dd>
+                                
+                                <dt class="col-sm-4">Active Competitions:</dt>
+                                <dd class="col-sm-8" id="activeCompetitions">{{ active_competitions_count() if active_competitions_count else 0 }}</dd>
+                                
+                                <dt class="col-sm-4">Total Athletes:</dt>
+                                <dd class="col-sm-8" id="totalAthletes">{{ total_athletes_count() if total_athletes_count else 0 }}</dd>
+                            </dl>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Form submission handlers
+document.getElementById('generalSettingsForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    saveSettings('general', this);
+});
+
+document.getElementById('competitionSettingsForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    saveSettings('competition', this);
+});
+
+document.getElementById('displaySettingsForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    saveSettings('display', this);
+});
+
+function saveSettings(category, form) {
+    const formData = new FormData(form);
+    const data = Object.fromEntries(formData);
+    data.category = category;
+    
+    fetch('{{ url_for("main.admin_settings") }}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Show success message
+            const alert = document.createElement('div');
+            alert.className = 'alert alert-success alert-dismissible fade show';
+            alert.innerHTML = `
+                <strong>Success!</strong> ${data.message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            form.parentNode.insertBefore(alert, form);
+            
+            // Auto-dismiss after 3 seconds
+            setTimeout(() => {
+                if (alert.parentNode) {
+                    alert.remove();
+                }
+            }, 3000);
+        } else {
+            throw new Error(data.error || 'Unknown error occurred');
+        }
+    })
+    .catch(error => {
+        // Show error message
+        const alert = document.createElement('div');
+        alert.className = 'alert alert-danger alert-dismissible fade show';
+        alert.innerHTML = `
+            <strong>Error!</strong> ${error.message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        form.parentNode.insertBefore(alert, form);
+    });
+}
+
+// Calculate database size
+function calculateDbSize() {
+    fetch('/api/system/db-size')
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            document.getElementById('dbSize').textContent = data.size;
+        }
+    })
+    .catch(() => {
+        document.getElementById('dbSize').textContent = 'Unknown';
+    });
+}
+
+// Initialize
+document.addEventListener('DOMContentLoaded', function() {
+    calculateDbSize();
+});
+</script>
+{% endblock %}

@@ -1,0 +1,597 @@
+{% extends "base.html" %}
+
+{% block title %}Athlete Dashboard - {{ athlete.name }}{% endblock %}
+
+{% block extra_head %}
+<style>
+.athlete-header {
+  background: linear-gradient(135deg, #007bff, #0056b3);
+  color: white;
+  padding: 2rem;
+  border-radius: 0.75rem;
+  margin-bottom: 2rem;
+}
+
+.stats-card {
+  background: linear-gradient(135deg, #28a745, #1e7e34);
+  color: white;
+  padding: 1.5rem;
+  border-radius: 0.5rem;
+  text-align: center;
+  margin-bottom: 1rem;
+}
+
+.attempt-card {
+  transition: all 0.3s ease;
+  margin-bottom: 1rem;
+}
+
+.attempt-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.attempt-success {
+  border-left: 5px solid #28a745;
+  background-color: #f8fff9;
+}
+
+.attempt-failed {
+  border-left: 5px solid #dc3545;
+  background-color: #fff5f5;
+}
+
+.attempt-pending {
+  border-left: 5px solid #ffc107;
+  background-color: #fffdf5;
+}
+
+.weight-display {
+  font-size: 2rem;
+  font-weight: bold;
+  color: #007bff;
+}
+
+.timer-display {
+  font-size: 1.5rem;
+  font-weight: bold;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  text-align: center;
+  margin: 1rem 0;
+}
+
+.timer-running {
+  background-color: #28a745;
+  color: white;
+}
+
+.timer-warning {
+  background-color: #ffc107;
+  color: black;
+}
+
+.timer-expired {
+  background-color: #dc3545;
+  color: white;
+  animation: pulse 0.5s infinite;
+}
+
+.next-attempt-alert {
+  background: linear-gradient(45deg, #ff9a00, #ff6b00);
+  color: white;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  font-weight: bold;
+  text-align: center;
+  animation: glow 2s infinite;
+}
+
+@keyframes pulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.7; }
+  100% { opacity: 1; }
+}
+
+@keyframes glow {
+  0% { box-shadow: 0 0 5px rgba(255, 154, 0, 0.5); }
+  50% { box-shadow: 0 0 20px rgba(255, 154, 0, 0.8); }
+  100% { box-shadow: 0 0 5px rgba(255, 154, 0, 0.5); }
+}
+
+.rankings-position {
+  font-size: 1.2rem;
+  font-weight: bold;
+}
+
+.position-1 { color: #ffd700; }
+.position-2 { color: #c0c0c0; }
+.position-3 { color: #cd7f32; }
+
+.notification-toast {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 1050;
+  min-width: 300px;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+  <!-- Athlete Header -->
+  <div class="athlete-header">
+    <div class="row align-items-center">
+      <div class="col-md-8">
+        <h1 class="mb-2">🏋️‍♂️ {{ athlete.name }}</h1>
+        <p class="mb-1"><strong>Team:</strong> {{ athlete.team or 'Individual' }}</p>
+        <p class="mb-1"><strong>Weight Class:</strong> {{ athlete.weight_class }}kg</p>
+        <p class="mb-0"><strong>Competition:</strong> {{ competition.name }}</p>
+      </div>
+      <div class="col-md-4 text-md-end">
+        <div class="d-inline-block me-3">
+          <div class="rankings-position position-{{ current_ranking or 'unranked' }}">
+            {% if current_ranking %}
+              #{{ current_ranking }}
+            {% else %}
+              Not Ranked
+            {% endif %}
+          </div>
+          <small class="text-light">Current Position</small>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row">
+    <!-- Main Content -->
+    <div class="col-lg-8">
+      <!-- Next Attempt Alert -->
+      <div id="next-attempt-alert" class="next-attempt-alert mb-3" style="display: none;">
+        <div class="row align-items-center">
+          <div class="col-md-8">
+            <span id="alert-message">You're up next!</span>
+          </div>
+          <div class="col-md-4 text-end">
+            <span id="alert-timer" class="fs-4">--:--</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Competition Timer -->
+      <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <h5 class="mb-0">⏱️ Competition Timer</h5>
+          <span id="timer-status" class="badge bg-secondary">Stopped</span>
+        </div>
+        <div class="card-body text-center">
+          <div id="competition-timer" class="timer-display">1:00</div>
+          <p class="text-muted mb-0">Official competition timer</p>
+        </div>
+      </div>
+
+      <!-- Current Attempts -->
+      <div class="card mb-4">
+        <div class="card-header">
+          <h5 class="mb-0">🎯 My Attempts</h5>
+        </div>
+        <div class="card-body">
+          <div id="attempts-container">
+            {% for lift in competition.lifts %}
+              <div class="lift-section mb-4">
+                <h6 class="fw-bold text-primary">{{ lift.name }}</h6>
+                <div class="row">
+                  {% for attempt_num in [1, 2, 3] %}
+                    {% set attempt = attempts[lift.id][attempt_num] if lift.id in attempts and attempt_num in attempts[lift.id] else None %}
+                    <div class="col-md-4">
+                      <div class="card attempt-card {% if attempt %}{% if attempt.is_successful %}attempt-success{% else %}attempt-failed{% endif %}{% else %}attempt-pending{% endif %}">
+                        <div class="card-body p-3 text-center">
+                          <div class="attempt-number mb-2">
+                            <strong>Attempt {{ attempt_num }}</strong>
+                          </div>
+                          {% if attempt %}
+                            <div class="weight-display">{{ attempt.weight }}kg</div>
+                            <div class="mt-2">
+                              {% if attempt.is_successful %}
+                                <span class="badge bg-success">✅ Good Lift</span>
+                              {% else %}
+                                <span class="badge bg-danger">❌ No Lift</span>
+                              {% endif %}
+                            </div>
+                          {% else %}
+                            <div class="text-muted">
+                              <div class="weight-display">---</div>
+                              <div class="mt-2">
+                                <span class="badge bg-secondary">Pending</span>
+                              </div>
+                            </div>
+                          {% endif %}
+                        </div>
+                      </div>
+                    </div>
+                  {% endfor %}
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+
+      <!-- Competition Progress -->
+      <div class="card">
+        <div class="card-header">
+          <h5 class="mb-0">📊 Competition Progress</h5>
+        </div>
+        <div class="card-body">
+          <div class="row">
+            <div class="col-md-4">
+              <div class="text-center">
+                <h4 class="text-primary" id="completed-attempts">{{ total_attempts }}</h4>
+                <p class="text-muted mb-0">Completed</p>
+              </div>
+            </div>
+            <div class="col-md-4">
+              <div class="text-center">
+                <h4 class="text-warning" id="remaining-attempts">{{ remaining_attempts }}</h4>
+                <p class="text-muted mb-0">Remaining</p>
+              </div>
+            </div>
+            <div class="col-md-4">
+              <div class="text-center">
+                <h4 class="text-success" id="best-total">{{ best_total }}kg</h4>
+                <p class="text-muted mb-0">Best Total</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sidebar -->
+    <div class="col-lg-4">
+      <!-- Personal Stats -->
+      <div class="stats-card mb-4">
+        <h6 class="mb-3">📈 Personal Stats</h6>
+        <div class="row text-center">
+          <div class="col-6">
+            <div class="h4 mb-1" id="personal-best">{{ personal_best }}kg</div>
+            <small>Personal Best</small>
+          </div>
+          <div class="col-6">
+            <div class="h4 mb-1" id="success-rate">{{ success_rate }}%</div>
+            <small>Success Rate</small>
+          </div>
+        </div>
+      </div>
+
+      <!-- Rankings -->
+      <div class="card mb-4">
+        <div class="card-header">
+          <h6 class="mb-0">🏆 Current Rankings</h6>
+        </div>
+        <div class="card-body">
+          <div id="rankings-list">
+            {% for ranking in rankings[:5] %}
+              <div class="d-flex justify-content-between align-items-center mb-2 {% if ranking.athlete_id == athlete.id %}bg-light p-2 rounded{% endif %}">
+                <div>
+                  <span class="rankings-position position-{{ loop.index }}">{{ loop.index }}.</span>
+                  {{ ranking.athlete_name }}
+                  {% if ranking.athlete_id == athlete.id %}<strong>(You)</strong>{% endif %}
+                </div>
+                <span class="fw-bold">{{ ranking.score }}kg</span>
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+
+      <!-- Upcoming Athletes -->
+      <div class="card mb-4">
+        <div class="card-header">
+          <h6 class="mb-0">🔄 Next Up</h6>
+        </div>
+        <div class="card-body">
+          <div id="next-athletes-list">
+            {% for next_athlete in next_athletes[:3] %}
+              <div class="mb-2 {% if next_athlete.athlete_id == athlete.id %}bg-warning p-2 rounded text-dark{% endif %}">
+                <div class="d-flex justify-content-between">
+                  <span>{{ next_athlete.athlete_name }}</span>
+                  <span class="fw-bold">{{ next_athlete.weight }}kg</span>
+                </div>
+                <small class="text-muted">{{ next_athlete.lift_name }} - Attempt {{ next_athlete.attempt_number }}</small>
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Actions -->
+      <div class="card">
+        <div class="card-header">
+          <h6 class="mb-0">⚡ Quick Actions</h6>
+        </div>
+        <div class="card-body">
+          <button class="btn btn-outline-primary btn-sm w-100 mb-2" onclick="refreshDashboard()">
+            🔄 Refresh Data
+          </button>
+          <button class="btn btn-outline-success btn-sm w-100 mb-2" onclick="toggleNotifications()">
+            🔔 <span id="notifications-text">Enable</span> Notifications
+          </button>
+          <button class="btn btn-outline-info btn-sm w-100" onclick="goFullscreen()">
+            📺 Fullscreen Mode
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Toast Notifications -->
+<div class="toast-container position-fixed top-0 end-0 p-3">
+  <div id="notification-toast" class="toast" role="alert">
+    <div class="toast-header">
+      <strong class="me-auto">Competition Update</strong>
+      <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
+    </div>
+    <div class="toast-body" id="toast-message">
+      <!-- Toast message will be inserted here -->
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Athlete Dashboard JavaScript
+const athleteId = {{ athlete.id }};
+const competitionId = {{ competition.id }};
+let timerInterval = null;
+let notificationsEnabled = false;
+
+document.addEventListener('DOMContentLoaded', function() {
+  // Join athlete room
+  socket.emit('join_competition', {
+    competition_id: competitionId,
+    role: 'athlete',
+    athlete_id: athleteId
+  });
+
+  // Request initial data
+  socket.emit('get_athlete_data', {
+    competition_id: competitionId,
+    athlete_id: athleteId
+  });
+
+  // Auto-refresh every 30 seconds
+  setInterval(() => {
+    socket.emit('get_athlete_data', {
+      competition_id: competitionId,
+      athlete_id: athleteId
+    });
+  }, 30000);
+});
+
+// Socket event handlers
+socket.on('athlete_data', function(data) {
+  updateDashboard(data);
+});
+
+socket.on('athlete_up_next', function(data) {
+  if (data.athlete_id === athleteId) {
+    showUpNextAlert(data);
+    showNotification('🎯 You\'re up next!', `${data.lift_name} - ${data.weight}kg`);
+  }
+});
+
+socket.on('timer_started', function(data) {
+  startTimer(data.duration, new Date(data.started_at));
+  document.getElementById('timer-status').textContent = 'Running';
+  document.getElementById('timer-status').className = 'badge bg-success';
+});
+
+socket.on('timer_paused', function(data) {
+  pauseTimer();
+  document.getElementById('timer-status').textContent = 'Paused';
+  document.getElementById('timer-status').className = 'badge bg-warning';
+});
+
+socket.on('timer_reset', function(data) {
+  resetTimer(data.duration);
+  document.getElementById('timer-status').textContent = 'Reset';
+  document.getElementById('timer-status').className = 'badge bg-secondary';
+});
+
+socket.on('attempt_updated', function(data) {
+  if (data.athlete_id === athleteId) {
+    updateAttemptDisplay(data);
+    
+    if (data.is_final) {
+      const message = data.decision === 'good_lift' ? 'Great job! ✅' : 'Better luck next time ❌';
+      showNotification('Attempt Result', message);
+    }
+  }
+});
+
+socket.on('rankings_updated', function(data) {
+  updateRankings(data.rankings);
+});
+
+// Dashboard update functions
+function updateDashboard(data) {
+  // Update attempts
+  if (data.attempts) {
+    updateAttemptsList(data.attempts);
+  }
+
+  // Update stats
+  if (data.stats) {
+    document.getElementById('completed-attempts').textContent = data.stats.completed;
+    document.getElementById('remaining-attempts').textContent = data.stats.remaining;
+    document.getElementById('best-total').textContent = `${data.stats.best_total}kg`;
+    document.getElementById('personal-best').textContent = `${data.stats.personal_best}kg`;
+    document.getElementById('success-rate').textContent = `${data.stats.success_rate}%`;
+  }
+
+  // Update next athletes
+  if (data.next_athletes) {
+    updateNextAthletesList(data.next_athletes);
+  }
+
+  // Update rankings
+  if (data.rankings) {
+    updateRankings(data.rankings);
+  }
+}
+
+function updateAttemptsList(attempts) {
+  // This would update the attempts display
+  // Implementation depends on the data structure
+  console.log('Updating attempts:', attempts);
+}
+
+function updateNextAthletesList(nextAthletes) {
+  const container = document.getElementById('next-athletes-list');
+  
+  if (nextAthletes.length === 0) {
+    container.innerHTML = '<div class="text-muted text-center">No upcoming athletes</div>';
+    return;
+  }
+
+  container.innerHTML = nextAthletes.slice(0, 3).map(athlete => `
+    <div class="mb-2 ${athlete.athlete_id === athleteId ? 'bg-warning p-2 rounded text-dark' : ''}">
+      <div class="d-flex justify-content-between">
+        <span>${athlete.athlete_name}</span>
+        <span class="fw-bold">${athlete.weight}kg</span>
+      </div>
+      <small class="text-muted">${athlete.lift_name} - Attempt ${athlete.attempt_number}</small>
+    </div>
+  `).join('');
+}
+
+function updateRankings(rankings) {
+  const container = document.getElementById('rankings-list');
+  
+  if (rankings.length === 0) {
+    container.innerHTML = '<div class="text-muted text-center">No rankings yet</div>';
+    return;
+  }
+
+  container.innerHTML = rankings.slice(0, 5).map((ranking, index) => `
+    <div class="d-flex justify-content-between align-items-center mb-2 ${ranking.athlete_id === athleteId ? 'bg-light p-2 rounded' : ''}">
+      <div>
+        <span class="rankings-position position-${index + 1}">${index + 1}.</span>
+        ${ranking.athlete_name}
+        ${ranking.athlete_id === athleteId ? '<strong>(You)</strong>' : ''}
+      </div>
+      <span class="fw-bold">${ranking.score}kg</span>
+    </div>
+  `).join('');
+}
+
+function showUpNextAlert(data) {
+  const alert = document.getElementById('next-attempt-alert');
+  const message = document.getElementById('alert-message');
+  const timer = document.getElementById('alert-timer');
+  
+  message.textContent = `You're up next! ${data.lift_name} - ${data.weight}kg`;
+  alert.style.display = 'block';
+  
+  // Scroll to top to ensure visibility
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// Timer functions
+function startTimer(duration, startTime) {
+  if (timerInterval) clearInterval(timerInterval);
+  
+  const timerElement = document.getElementById('competition-timer');
+  timerElement.className = 'timer-display timer-running';
+  
+  timerInterval = setInterval(() => {
+    const now = new Date();
+    const elapsed = Math.floor((now - startTime) / 1000);
+    const remaining = Math.max(0, duration - elapsed);
+    
+    timerElement.textContent = formatTime(remaining);
+    document.getElementById('alert-timer').textContent = formatTime(remaining);
+    
+    if (remaining <= 10 && remaining > 0) {
+      timerElement.className = 'timer-display timer-warning';
+    } else if (remaining === 0) {
+      timerElement.className = 'timer-display timer-expired';
+      clearInterval(timerInterval);
+    }
+  }, 100);
+}
+
+function pauseTimer() {
+  if (timerInterval) {
+    clearInterval(timerInterval);
+    timerInterval = null;
+  }
+}
+
+function resetTimer(duration) {
+  if (timerInterval) {
+    clearInterval(timerInterval);
+    timerInterval = null;
+  }
+  
+  const timerElement = document.getElementById('competition-timer');
+  timerElement.className = 'timer-display';
+  timerElement.textContent = formatTime(duration);
+}
+
+// Utility functions
+function formatTime(seconds) {
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return `${mins}:${secs.toString().padStart(2, '0')}`;
+}
+
+function showNotification(title, message) {
+  if (!notificationsEnabled) return;
+  
+  const toast = document.getElementById('notification-toast');
+  const toastMessage = document.getElementById('toast-message');
+  
+  toast.querySelector('.toast-header strong').textContent = title;
+  toastMessage.textContent = message;
+  
+  const bsToast = new bootstrap.Toast(toast);
+  bsToast.show();
+}
+
+// Action handlers
+function refreshDashboard() {
+  socket.emit('get_athlete_data', {
+    competition_id: competitionId,
+    athlete_id: athleteId
+  });
+  
+  showNotification('Dashboard', 'Data refreshed successfully!');
+}
+
+function toggleNotifications() {
+  notificationsEnabled = !notificationsEnabled;
+  document.getElementById('notifications-text').textContent = 
+    notificationsEnabled ? 'Disable' : 'Enable';
+  
+  const message = notificationsEnabled ? 'Notifications enabled' : 'Notifications disabled';
+  showNotification('Settings', message);
+}
+
+function goFullscreen() {
+  if (document.fullscreenElement) {
+    document.exitFullscreen();
+  } else {
+    document.documentElement.requestFullscreen().catch(e => {
+      showNotification('Error', 'Fullscreen mode not supported');
+    });
+  }
+}
+
+console.log('Athlete dashboard initialized for athlete:', athleteId);
+</script>
+{% endblock %}

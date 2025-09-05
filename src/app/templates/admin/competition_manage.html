@@ -1,0 +1,748 @@
+{% extends "base.html" %}
+
+{% block title %}Manage Competition - {{ competition.name }}{% endblock %}
+
+{% block extra_head %}
+<style>
+.competition-header {
+  background: linear-gradient(135deg, #dc3545, #b02a37);
+  color: white;
+  padding: 2rem;
+  border-radius: 0.75rem;
+  margin-bottom: 2rem;
+}
+
+.management-section {
+  background: #f8f9fa;
+  border-radius: 0.5rem;
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.athlete-row {
+  transition: all 0.3s ease;
+  border-radius: 0.25rem;
+  margin-bottom: 0.5rem;
+}
+
+.athlete-row:hover {
+  background-color: #f8f9fa;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.quick-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.stat-card {
+  background: white;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  border-left: 4px solid #007bff;
+  text-align: center;
+}
+
+.stat-card.success { border-left-color: #28a745; }
+.stat-card.warning { border-left-color: #ffc107; }
+.stat-card.danger { border-left-color: #dc3545; }
+.stat-card.info { border-left-color: #17a2b8; }
+
+.event-management {
+  background: white;
+  border-radius: 0.5rem;
+  padding: 1.5rem;
+  margin-bottom: 1rem;
+  border: 1px solid #dee2e6;
+}
+
+.event-active {
+  border-left: 5px solid #28a745;
+  background-color: #f8fff9;
+}
+
+.drag-handle {
+  cursor: move;
+  color: #6c757d;
+}
+
+.sortable-ghost {
+  opacity: 0.4;
+}
+
+.sortable-chosen {
+  background-color: #e3f2fd;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+  <!-- Competition Header -->
+  <div class="competition-header">
+    <div class="row align-items-center">
+      <div class="col-md-8">
+        <h1 class="mb-2">⚙️ Manage Competition</h1>
+        <h3 class="mb-3">{{ competition.name }}</h3>
+        <p class="mb-1"><strong>Sport:</strong> {{ competition.sport_type.value.title().replace('_', ' ') }}</p>
+        <p class="mb-1"><strong>Scoring:</strong> {{ competition.scoring_method.value.upper() }}</p>
+        <p class="mb-0"><strong>Created:</strong> {{ competition.created_at.strftime('%Y-%m-%d %H:%M') }}</p>
+      </div>
+      <div class="col-md-4 text-md-end">
+        <div class="action-buttons">
+          <button class="btn btn-success" onclick="startCompetition()">
+            ▶️ Start Competition
+          </button>
+          <button class="btn btn-warning" onclick="pauseCompetition()">
+            ⏸️ Pause
+          </button>
+          <button class="btn btn-danger" onclick="resetCompetition()">
+            🔄 Reset
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Quick Stats -->
+  <div class="quick-stats">
+    <div class="stat-card success">
+      <h4 class="mb-1" id="total-athletes">{{ competition.athletes|length }}</h4>
+      <p class="mb-0 text-muted">Total Athletes</p>
+    </div>
+    <div class="stat-card info">
+      <h4 class="mb-1" id="total-events">{{ competition.events|length }}</h4>
+      <p class="mb-0 text-muted">Events</p>
+    </div>
+    <div class="stat-card warning">
+      <h4 class="mb-1" id="pending-attempts">{{ pending_attempts or 0 }}</h4>
+      <p class="mb-0 text-muted">Pending Attempts</p>
+    </div>
+    <div class="stat-card danger">
+      <h4 class="mb-1" id="active-timers">{{ active_timers or 0 }}</h4>
+      <p class="mb-0 text-muted">Active Timers</p>
+    </div>
+  </div>
+
+  <div class="row">
+    <!-- Main Management Area -->
+    <div class="col-lg-8">
+      <!-- Event Management -->
+      <div class="management-section">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h5 class="mb-0">🏆 Event Management</h5>
+          <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addEventModal">
+            ➕ Add Event
+          </button>
+        </div>
+
+        <div id="events-container">
+          {% for event in competition.events %}
+            <div class="event-management {% if event.is_active %}event-active{% endif %}" data-event-id="{{ event.id }}">
+              <div class="row align-items-center">
+                <div class="col-md-1 text-center">
+                  <span class="drag-handle">⋮⋮</span>
+                </div>
+                <div class="col-md-6">
+                  <h6 class="mb-1">{{ event.name }}</h6>
+                  <small class="text-muted">Order: {{ event.order }} | Athletes: {{ event.athletes|length }}</small>
+                </div>
+                <div class="col-md-3">
+                  {% if event.is_active %}
+                    <span class="badge bg-success">Active</span>
+                  {% else %}
+                    <span class="badge bg-secondary">Inactive</span>
+                  {% endif %}
+                </div>
+                <div class="col-md-2 text-end">
+                  <div class="btn-group btn-group-sm">
+                    <button class="btn btn-outline-success" onclick="activateEvent({{ event.id }})">
+                      ✓
+                    </button>
+                    <button class="btn btn-outline-primary" onclick="editEvent({{ event.id }})">
+                      ✏️
+                    </button>
+                    <button class="btn btn-outline-danger" onclick="deleteEvent({{ event.id }})">
+                      🗑️
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <!-- Athlete Management -->
+      <div class="management-section">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h5 class="mb-0">👥 Athlete Management</h5>
+          <div class="action-buttons">
+            <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addAthleteModal">
+              ➕ Add Athlete
+            </button>
+            <button class="btn btn-success btn-sm" onclick="bulkImport()">
+              📊 Import CSV
+            </button>
+          </div>
+        </div>
+
+        <div class="table-responsive">
+          <table class="table table-hover">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Team</th>
+                <th>Weight Class</th>
+                <th>Attempts</th>
+                <th>Best</th>
+                <th>Rank</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="athletes-table">
+              {% for athlete in competition.athletes %}
+                <tr class="athlete-row" data-athlete-id="{{ athlete.id }}">
+                  <td>
+                    <strong>{{ athlete.name }}</strong>
+                    <br><small class="text-muted">ID: {{ athlete.id }}</small>
+                  </td>
+                  <td>{{ athlete.team or 'Individual' }}</td>
+                  <td>{{ athlete.weight_class }}kg</td>
+                  <td>
+                    <small class="text-success">{{ athlete.successful_attempts or 0 }} ✓</small> /
+                    <small class="text-danger">{{ athlete.failed_attempts or 0 }} ✗</small>
+                  </td>
+                  <td class="fw-bold text-primary">{{ athlete.best_total or 0 }}kg</td>
+                  <td>
+                    {% if athlete.current_rank %}
+                      <span class="badge bg-warning">#{{ athlete.current_rank }}</span>
+                    {% else %}
+                      <span class="badge bg-secondary">-</span>
+                    {% endif %}
+                  </td>
+                  <td>
+                    <div class="btn-group btn-group-sm">
+                      <button class="btn btn-outline-info" onclick="viewAthlete({{ athlete.id }})">
+                        👁️
+                      </button>
+                      <button class="btn btn-outline-primary" onclick="editAthlete({{ athlete.id }})">
+                        ✏️
+                      </button>
+                      <button class="btn btn-outline-danger" onclick="removeAthlete({{ athlete.id }})">
+                        🗑️
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sidebar -->
+    <div class="col-lg-4">
+      <!-- Live Control Panel -->
+      <div class="card mb-4">
+        <div class="card-header">
+          <h6 class="mb-0">⚡ Live Controls</h6>
+        </div>
+        <div class="card-body">
+          <div class="mb-3">
+            <label class="form-label">Current Event:</label>
+            <select class="form-select" id="active-event-select">
+              {% for event in competition.events %}
+                <option value="{{ event.id }}" {% if event.is_active %}selected{% endif %}>
+                  {{ event.name }}
+                </option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">Competition Status:</label>
+            <select class="form-select" id="competition-status">
+              <option value="setup">Setup</option>
+              <option value="active" selected>Active</option>
+              <option value="paused">Paused</option>
+              <option value="completed">Completed</option>
+            </select>
+          </div>
+
+          <div class="d-grid gap-2">
+            <button class="btn btn-success" onclick="broadcastUpdate()">
+              📡 Broadcast Update
+            </button>
+            <button class="btn btn-warning" onclick="pauseAllTimers()">
+              ⏸️ Pause All Timers
+            </button>
+            <button class="btn btn-info" onclick="refreshData()">
+              🔄 Refresh Data
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Recent Activity -->
+      <div class="card mb-4">
+        <div class="card-header">
+          <h6 class="mb-0">📈 Recent Activity</h6>
+        </div>
+        <div class="card-body">
+          <div id="recent-activity">
+            <div class="text-muted text-center">Loading activity...</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Actions -->
+      <div class="card">
+        <div class="card-header">
+          <h6 class="mb-0">🛠️ Quick Actions</h6>
+        </div>
+        <div class="card-body">
+          <div class="d-grid gap-2">
+            <button class="btn btn-outline-primary" onclick="exportResults()">
+              📊 Export Results
+            </button>
+            <button class="btn btn-outline-info" onclick="generateReports()">
+              📋 Generate Reports
+            </button>
+            <button class="btn btn-outline-success" onclick="backupCompetition()">
+              💾 Backup Competition
+            </button>
+            <button class="btn btn-outline-warning" onclick="clearCache()">
+              🗑️ Clear Cache
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Add Event Modal -->
+<div class="modal fade" id="addEventModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Add New Event</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <form id="addEventForm">
+          <div class="mb-3">
+            <label class="form-label">Event Name</label>
+            <input type="text" class="form-control" id="event-name" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Order</label>
+            <input type="number" class="form-control" id="event-order" min="1" value="{{ competition.events|length + 1 }}">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Associated Lift</label>
+            <select class="form-select" id="event-lift">
+              {% for lift in competition.lifts %}
+                <option value="{{ lift.id }}">{{ lift.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-primary" onclick="saveEvent()">Save Event</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Add Athlete Modal -->
+<div class="modal fade" id="addAthleteModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Add New Athlete</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <form id="addAthleteForm">
+          <div class="mb-3">
+            <label class="form-label">Athlete Name</label>
+            <input type="text" class="form-control" id="athlete-name" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Team (Optional)</label>
+            <input type="text" class="form-control" id="athlete-team">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Weight Class (kg)</label>
+            <input type="number" class="form-control" id="athlete-weight-class" min="1" step="0.1" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Body Weight (kg)</label>
+            <input type="number" class="form-control" id="athlete-body-weight" min="1" step="0.1">
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-primary" onclick="saveAthlete()">Save Athlete</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Admin Competition Management JavaScript
+const competitionId = {{ competition.id }};
+
+document.addEventListener('DOMContentLoaded', function() {
+  // Join admin room
+  socket.emit('join_competition', {
+    competition_id: competitionId,
+    role: 'admin'
+  });
+
+  // Load initial data
+  loadRecentActivity();
+  
+  // Make events sortable
+  initializeSortable();
+
+  // Auto-refresh every 30 seconds
+  setInterval(refreshData, 30000);
+});
+
+// Socket event handlers
+socket.on('competition_updated', function(data) {
+  refreshData();
+});
+
+socket.on('athlete_added', function(data) {
+  addAthleteRow(data.athlete);
+  updateStats();
+});
+
+socket.on('event_updated', function(data) {
+  updateEventDisplay(data.event);
+});
+
+socket.on('activity_logged', function(data) {
+  addActivityEntry(data);
+});
+
+// Competition control functions
+function startCompetition() {
+  socket.emit('update_competition_status', {
+    competition_id: competitionId,
+    status: 'active'
+  });
+  
+  showNotification('Competition started successfully!', 'success');
+  addActivityEntry({
+    action: 'Competition Started',
+    timestamp: new Date(),
+    details: 'Competition is now active'
+  });
+}
+
+function pauseCompetition() {
+  socket.emit('update_competition_status', {
+    competition_id: competitionId,
+    status: 'paused'
+  });
+  
+  showNotification('Competition paused', 'warning');
+  addActivityEntry({
+    action: 'Competition Paused',
+    timestamp: new Date()
+  });
+}
+
+function resetCompetition() {
+  if (confirm('Are you sure you want to reset the competition? This will clear all current progress.')) {
+    socket.emit('reset_competition', {
+      competition_id: competitionId
+    });
+    
+    showNotification('Competition reset', 'info');
+    addActivityEntry({
+      action: 'Competition Reset',
+      timestamp: new Date(),
+      details: 'All progress cleared'
+    });
+  }
+}
+
+// Event management functions
+function activateEvent(eventId) {
+  socket.emit('activate_event', {
+    competition_id: competitionId,
+    event_id: eventId
+  });
+}
+
+function editEvent(eventId) {
+  // Load event data and populate edit form
+  showNotification('Edit event functionality coming soon!', 'info');
+}
+
+function deleteEvent(eventId) {
+  if (confirm('Are you sure you want to delete this event?')) {
+    socket.emit('delete_event', {
+      competition_id: competitionId,
+      event_id: eventId
+    });
+  }
+}
+
+function saveEvent() {
+  const form = document.getElementById('addEventForm');
+  const formData = new FormData(form);
+  
+  const eventData = {
+    competition_id: competitionId,
+    name: document.getElementById('event-name').value,
+    order: parseInt(document.getElementById('event-order').value),
+    lift_id: document.getElementById('event-lift').value
+  };
+
+  socket.emit('add_event', eventData);
+  
+  // Close modal and reset form
+  bootstrap.Modal.getInstance(document.getElementById('addEventModal')).hide();
+  form.reset();
+}
+
+// Athlete management functions
+function viewAthlete(athleteId) {
+  window.open(`/athlete/${athleteId}/dashboard`, '_blank');
+}
+
+function editAthlete(athleteId) {
+  showNotification('Edit athlete functionality coming soon!', 'info');
+}
+
+function removeAthlete(athleteId) {
+  if (confirm('Are you sure you want to remove this athlete?')) {
+    socket.emit('remove_athlete', {
+      competition_id: competitionId,
+      athlete_id: athleteId
+    });
+  }
+}
+
+function saveAthlete() {
+  const athleteData = {
+    competition_id: competitionId,
+    name: document.getElementById('athlete-name').value,
+    team: document.getElementById('athlete-team').value,
+    weight_class: parseFloat(document.getElementById('athlete-weight-class').value),
+    body_weight: parseFloat(document.getElementById('athlete-body-weight').value)
+  };
+
+  socket.emit('add_athlete', athleteData);
+  
+  // Close modal and reset form
+  bootstrap.Modal.getInstance(document.getElementById('addAthleteModal')).hide();
+  document.getElementById('addAthleteForm').reset();
+}
+
+function addAthleteRow(athlete) {
+  const tbody = document.getElementById('athletes-table');
+  const row = document.createElement('tr');
+  row.className = 'athlete-row';
+  row.dataset.athleteId = athlete.id;
+  
+  row.innerHTML = `
+    <td>
+      <strong>${athlete.name}</strong>
+      <br><small class="text-muted">ID: ${athlete.id}</small>
+    </td>
+    <td>${athlete.team || 'Individual'}</td>
+    <td>${athlete.weight_class}kg</td>
+    <td>
+      <small class="text-success">0 ✓</small> /
+      <small class="text-danger">0 ✗</small>
+    </td>
+    <td class="fw-bold text-primary">0kg</td>
+    <td><span class="badge bg-secondary">-</span></td>
+    <td>
+      <div class="btn-group btn-group-sm">
+        <button class="btn btn-outline-info" onclick="viewAthlete(${athlete.id})">👁️</button>
+        <button class="btn btn-outline-primary" onclick="editAthlete(${athlete.id})">✏️</button>
+        <button class="btn btn-outline-danger" onclick="removeAthlete(${athlete.id})">🗑️</button>
+      </div>
+    </td>
+  `;
+  
+  tbody.appendChild(row);
+}
+
+// Live control functions
+function broadcastUpdate() {
+  socket.emit('broadcast_update', {
+    competition_id: competitionId,
+    message: 'Competition data updated'
+  });
+  
+  showNotification('Update broadcasted to all clients', 'success');
+}
+
+function pauseAllTimers() {
+  socket.emit('pause_all_timers', {
+    competition_id: competitionId
+  });
+  
+  showNotification('All timers paused', 'warning');
+}
+
+function refreshData() {
+  socket.emit('get_admin_data', {
+    competition_id: competitionId
+  });
+  
+  loadRecentActivity();
+}
+
+// Quick action functions
+function exportResults() {
+  window.open(`/admin/competition/${competitionId}/export`, '_blank');
+}
+
+function generateReports() {
+  window.open(`/admin/competition/${competitionId}/reports`, '_blank');
+}
+
+function backupCompetition() {
+  socket.emit('backup_competition', {
+    competition_id: competitionId
+  });
+  
+  showNotification('Competition backup initiated', 'info');
+}
+
+function clearCache() {
+  socket.emit('clear_cache', {
+    competition_id: competitionId
+  });
+  
+  showNotification('Cache cleared', 'success');
+}
+
+function bulkImport() {
+  showNotification('Bulk import functionality coming soon!', 'info');
+}
+
+// Utility functions
+function loadRecentActivity() {
+  socket.emit('get_recent_activity', {
+    competition_id: competitionId,
+    limit: 10
+  });
+}
+
+function addActivityEntry(activity) {
+  const container = document.getElementById('recent-activity');
+  
+  if (container.querySelector('.text-muted')) {
+    container.innerHTML = '';
+  }
+  
+  const entry = document.createElement('div');
+  entry.className = 'mb-2 p-2 bg-light rounded';
+  entry.innerHTML = `
+    <div class="d-flex justify-content-between">
+      <small class="fw-bold">${activity.action}</small>
+      <small class="text-muted">${new Date(activity.timestamp).toLocaleTimeString()}</small>
+    </div>
+    ${activity.details ? `<small class="text-muted">${activity.details}</small>` : ''}
+  `;
+  
+  container.insertBefore(entry, container.firstChild);
+  
+  // Keep only last 10 entries
+  while (container.children.length > 10) {
+    container.removeChild(container.lastChild);
+  }
+}
+
+function updateStats() {
+  // Update the quick stats display
+  socket.emit('get_competition_stats', {
+    competition_id: competitionId
+  });
+}
+
+function showNotification(message, type = 'info') {
+  // Create and show a Bootstrap toast notification
+  const toastContainer = document.querySelector('.toast-container') || createToastContainer();
+  
+  const toast = document.createElement('div');
+  toast.className = `toast align-items-center text-white bg-${type === 'success' ? 'success' : type === 'warning' ? 'warning' : type === 'danger' ? 'danger' : 'info'} border-0`;
+  toast.setAttribute('role', 'alert');
+  
+  toast.innerHTML = `
+    <div class="d-flex">
+      <div class="toast-body">${message}</div>
+      <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+    </div>
+  `;
+  
+  toastContainer.appendChild(toast);
+  
+  const bsToast = new bootstrap.Toast(toast);
+  bsToast.show();
+  
+  toast.addEventListener('hidden.bs.toast', () => {
+    toast.remove();
+  });
+}
+
+function createToastContainer() {
+  const container = document.createElement('div');
+  container.className = 'toast-container position-fixed top-0 end-0 p-3';
+  document.body.appendChild(container);
+  return container;
+}
+
+function initializeSortable() {
+  const eventsContainer = document.getElementById('events-container');
+  
+  // Note: This would require the SortableJS library to be included
+  // For now, we'll just add the visual feedback
+  if (typeof Sortable !== 'undefined') {
+    new Sortable(eventsContainer, {
+      handle: '.drag-handle',
+      ghostClass: 'sortable-ghost',
+      chosenClass: 'sortable-chosen',
+      onEnd: function(evt) {
+        // Update event order
+        const eventId = evt.item.dataset.eventId;
+        const newIndex = evt.newIndex;
+        
+        socket.emit('update_event_order', {
+          competition_id: competitionId,
+          event_id: eventId,
+          new_order: newIndex + 1
+        });
+      }
+    });
+  }
+}
+
+console.log('Admin competition management initialized for competition:', competitionId);
+</script>
+{% endblock %}

@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+
+{% block title %}Referee Dashboard{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <h1 class="mb-4">
+                <i class="fas fa-user-tie"></i> Referee Dashboard
+            </h1>
+
+            <!-- Active Competitions -->
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-trophy"></i> Available Competitions</h5>
+                </div>
+                <div class="card-body">
+                    {% if competitions %}
+                    <div class="row">
+                        {% for competition in competitions %}
+                        <div class="col-md-6 col-lg-4 mb-3">
+                            <div class="card h-100">
+                                <div class="card-body">
+                                    <h5 class="card-title">{{ competition.name }}</h5>
+                                    <p class="card-text">
+                                        <small class="text-muted">
+                                            <i class="fas fa-calendar"></i> {{ competition.start_date }}
+                                        </small>
+                                    </p>
+                                    {% if competition.location %}
+                                    <p class="card-text">
+                                        <small class="text-muted">
+                                            <i class="fas fa-map-marker-alt"></i> {{ competition.location }}
+                                        </small>
+                                    </p>
+                                    {% endif %}
+                                    <p class="card-text">{{ competition.description or 'No description available.' }}</p>
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <span class="badge {{ 'bg-success' if competition.is_active else 'bg-secondary' }}">
+                                            {{ 'Active' if competition.is_active else 'Inactive' }}
+                                        </span>
+                                        <a href="{{ url_for('main.referee_competition', id=competition.id) }}" 
+                                           class="btn btn-primary btn-sm">
+                                            <i class="fas fa-eye"></i> View Competition
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-5">
+                        <i class="fas fa-trophy fa-3x text-muted mb-3"></i>
+                        <h4 class="text-muted">No competitions available</h4>
+                        <p class="text-muted">There are currently no active competitions to referee.</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h5><i class="fas fa-bolt"></i> Quick Actions</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <div class="card bg-primary text-white">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-clock fa-2x mb-2"></i>
+                                    <h5>Live Scoring</h5>
+                                    <p>Score ongoing attempts in real-time</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <div class="card bg-info text-white">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-clipboard-check fa-2x mb-2"></i>
+                                    <h5>Review Results</h5>
+                                    <p>Review and verify competition results</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <div class="card bg-success text-white">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-chart-line fa-2x mb-2"></i>
+                                    <h5>Statistics</h5>
+                                    <p>View competition statistics and reports</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

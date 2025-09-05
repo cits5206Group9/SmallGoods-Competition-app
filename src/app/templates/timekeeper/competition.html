@@ -1,0 +1,314 @@
+{% extends "base.html" %}
+
+{% block title %}Timekeeper - {{ competition.name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1>
+                    <i class="fas fa-stopwatch"></i> Timekeeper - {{ competition.name }}
+                </h1>
+                <a href="{{ url_for('main.timekeeper_dashboard') }}" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left"></i> Back to Dashboard
+                </a>
+            </div>
+
+            <!-- Timer Display -->
+            <div class="row mb-4">
+                <div class="col-md-8">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5><i class="fas fa-clock"></i> Timer Control</h5>
+                        </div>
+                        <div class="card-body text-center">
+                            <!-- Main Timer Display -->
+                            <div class="mb-4">
+                                <h1 class="display-1 text-primary font-monospace" id="mainTimer">00:00.00</h1>
+                                <p class="text-muted">Current Timer</p>
+                            </div>
+
+                            <!-- Timer Controls -->
+                            <div class="btn-group btn-group-lg mb-3" role="group">
+                                <button type="button" class="btn btn-success" id="startBtn" onclick="startTimer()">
+                                    <i class="fas fa-play"></i> Start
+                                </button>
+                                <button type="button" class="btn btn-warning" id="pauseBtn" onclick="pauseTimer()" disabled>
+                                    <i class="fas fa-pause"></i> Pause
+                                </button>
+                                <button type="button" class="btn btn-danger" id="stopBtn" onclick="stopTimer()" disabled>
+                                    <i class="fas fa-stop"></i> Stop
+                                </button>
+                                <button type="button" class="btn btn-info" id="resetBtn" onclick="resetTimer()">
+                                    <i class="fas fa-redo"></i> Reset
+                                </button>
+                            </div>
+
+                            <!-- Status -->
+                            <div class="mb-3">
+                                <span class="badge bg-secondary fs-6" id="timerStatus">Ready</span>
+                            </div>
+
+                            <!-- Split/Lap Times -->
+                            <div class="text-center">
+                                <button type="button" class="btn btn-outline-primary" onclick="recordSplit()" id="splitBtn" disabled>
+                                    <i class="fas fa-flag"></i> Split Time
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Current Event/Athlete Info -->
+                <div class="col-md-4">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5><i class="fas fa-info-circle"></i> Current Attempt</h5>
+                        </div>
+                        <div class="card-body">
+                            <div id="currentAttemptInfo">
+                                <p class="text-muted text-center">No active attempt</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Event Selection -->
+                    <div class="card mt-3">
+                        <div class="card-header">
+                            <h5><i class="fas fa-trophy"></i> Event Selection</h5>
+                        </div>
+                        <div class="card-body">
+                            {% if events %}
+                            <select class="form-select" id="eventSelect" onchange="selectEvent(this.value)">
+                                <option value="">Select an event...</option>
+                                {% for event in events %}
+                                <option value="{{ event.id }}">{{ event.name }}</option>
+                                {% endfor %}
+                            </select>
+                            {% else %}
+                            <p class="text-muted">No events available</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Split Times -->
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between">
+                    <h5><i class="fas fa-list"></i> Split Times</h5>
+                    <button class="btn btn-sm btn-outline-secondary" onclick="clearSplits()">
+                        <i class="fas fa-trash"></i> Clear
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped" id="splitsTable">
+                            <thead>
+                                <tr>
+                                    <th>Split #</th>
+                                    <th>Time</th>
+                                    <th>Total Time</th>
+                                    <th>Notes</th>
+                                </tr>
+                            </thead>
+                            <tbody id="splitsBody">
+                                <!-- Split times will be added here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Sessions -->
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-history"></i> Recent Sessions</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Event</th>
+                                    <th>Athlete</th>
+                                    <th>Duration</th>
+                                    <th>Status</th>
+                                    <th>Time</th>
+                                </tr>
+                            </thead>
+                            <tbody id="recentSessions">
+                                <tr>
+                                    <td colspan="5" class="text-muted text-center">No recent sessions</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let timer = {
+    startTime: null,
+    elapsedTime: 0,
+    isRunning: false,
+    isPaused: false,
+    interval: null,
+    splits: []
+};
+
+function updateDisplay() {
+    const totalMs = timer.elapsedTime + (timer.isRunning ? Date.now() - timer.startTime : 0);
+    const minutes = Math.floor(totalMs / 60000);
+    const seconds = Math.floor((totalMs % 60000) / 1000);
+    const milliseconds = Math.floor((totalMs % 1000) / 10);
+    
+    const display = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}.${milliseconds.toString().padStart(2, '0')}`;
+    document.getElementById('mainTimer').textContent = display;
+}
+
+function startTimer() {
+    if (timer.isPaused) {
+        // Resume from pause
+        timer.startTime = Date.now();
+        timer.isPaused = false;
+    } else {
+        // Start fresh
+        timer.startTime = Date.now();
+        timer.elapsedTime = 0;
+        timer.splits = [];
+    }
+    
+    timer.isRunning = true;
+    timer.interval = setInterval(updateDisplay, 10);
+    
+    updateButtons();
+    updateStatus('Running');
+}
+
+function pauseTimer() {
+    if (timer.isRunning) {
+        timer.elapsedTime += Date.now() - timer.startTime;
+        timer.isRunning = false;
+        timer.isPaused = true;
+        clearInterval(timer.interval);
+        
+        updateButtons();
+        updateStatus('Paused');
+    }
+}
+
+function stopTimer() {
+    if (timer.isRunning) {
+        timer.elapsedTime += Date.now() - timer.startTime;
+    }
+    
+    timer.isRunning = false;
+    timer.isPaused = false;
+    clearInterval(timer.interval);
+    
+    updateButtons();
+    updateStatus('Stopped');
+    
+    // Save to recent sessions
+    addToRecentSessions();
+}
+
+function resetTimer() {
+    timer.isRunning = false;
+    timer.isPaused = false;
+    timer.elapsedTime = 0;
+    timer.splits = [];
+    clearInterval(timer.interval);
+    
+    updateDisplay();
+    updateButtons();
+    updateStatus('Ready');
+    clearSplits();
+}
+
+function recordSplit() {
+    if (timer.isRunning) {
+        const splitTime = timer.elapsedTime + (Date.now() - timer.startTime);
+        timer.splits.push(splitTime);
+        addSplitToTable(timer.splits.length, splitTime);
+    }
+}
+
+function updateButtons() {
+    document.getElementById('startBtn').disabled = timer.isRunning;
+    document.getElementById('pauseBtn').disabled = !timer.isRunning;
+    document.getElementById('stopBtn').disabled = !timer.isRunning && !timer.isPaused;
+    document.getElementById('splitBtn').disabled = !timer.isRunning;
+}
+
+function updateStatus(status) {
+    const statusElement = document.getElementById('timerStatus');
+    statusElement.textContent = status;
+    statusElement.className = `badge fs-6 ${getStatusClass(status)}`;
+}
+
+function getStatusClass(status) {
+    switch(status) {
+        case 'Running': return 'bg-success';
+        case 'Paused': return 'bg-warning';
+        case 'Stopped': return 'bg-danger';
+        default: return 'bg-secondary';
+    }
+}
+
+function addSplitToTable(splitNumber, time) {
+    const tbody = document.getElementById('splitsBody');
+    const row = tbody.insertRow();
+    
+    const minutes = Math.floor(time / 60000);
+    const seconds = Math.floor((time % 60000) / 1000);
+    const milliseconds = Math.floor((time % 1000) / 10);
+    const timeDisplay = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}.${milliseconds.toString().padStart(2, '0')}`;
+    
+    row.innerHTML = `
+        <td>${splitNumber}</td>
+        <td class="font-monospace">${timeDisplay}</td>
+        <td class="font-monospace">${timeDisplay}</td>
+        <td><input type="text" class="form-control form-control-sm" placeholder="Add notes..."></td>
+    `;
+}
+
+function clearSplits() {
+    document.getElementById('splitsBody').innerHTML = '';
+}
+
+function selectEvent(eventId) {
+    if (eventId) {
+        // Load event details and update current attempt info
+        // This would typically make an AJAX call to get event details
+        updateCurrentAttemptInfo(`Event ${eventId} selected`);
+    } else {
+        updateCurrentAttemptInfo('No active attempt');
+    }
+}
+
+function updateCurrentAttemptInfo(info) {
+    document.getElementById('currentAttemptInfo').innerHTML = `<p class="text-muted text-center">${info}</p>`;
+}
+
+function addToRecentSessions() {
+    // Add current session to recent sessions table
+    // This would typically save to backend
+}
+
+// Initialize display
+updateDisplay();
+updateButtons();
+
+// WebSocket connection for real-time updates (when implemented)
+// const socket = io();
+// socket.on('timer_update', function(data) {
+//     // Handle real-time timer updates
+// });
+</script>
+{% endblock %}

@@ -1,6 +1,231 @@
 {% extends "base.html" %}
+
+{% block title %}Small Goods Competition App - Home{% endblock %}
+
 {% block content %}
-  <h2>Welcome!</h2>
-  <p>Your Flask app is running. Edit this page at
-    <code>src/app/templates/index.html</code>.</p>
+<div class="row">
+  <div class="col-12">
+    <div class="hero-section text-center py-5 mb-5 bg-primary text-white rounded">
+      <h1 class="display-4">🏋️‍♂️ Small Goods Competition App</h1>
+      <p class="lead">Professional competition management for Olympic Weightlifting, Powerlifting, and more</p>
+      <p class="mb-4">Offline-capable • Real-time updates • Multi-sport support</p>
+    </div>
+  </div>
+</div>
+
+<div class="row">
+  <!-- Role Selection Cards -->
+  <div class="col-md-6 col-lg-4 mb-4">
+    <div class="card h-100 border-primary">
+      <div class="card-body text-center">
+        <div class="display-1 mb-3">🔧</div>
+        <h5 class="card-title">Admin Interface</h5>
+        <p class="card-text">Setup competitions, manage athletes, live editing, and overall control</p>
+        <a href="/admin" class="btn btn-primary">Access Admin Panel</a>
+      </div>
+    </div>
+  </div>
+  
+  <div class="col-md-6 col-lg-4 mb-4">
+    <div class="card h-100 border-info">
+      <div class="card-body text-center">
+        <div class="display-1 mb-3">👨‍⚖️</div>
+        <h5 class="card-title">Referee Interface</h5>
+        <p class="card-text">Input lift decisions with simple button interface</p>
+        <a href="/referee" class="btn btn-info text-white">Referee Panel</a>
+      </div>
+    </div>
+  </div>
+  
+  <div class="col-md-6 col-lg-4 mb-4">
+    <div class="card h-100 border-success">
+      <div class="card-body text-center">
+        <div class="display-1 mb-3">🏃‍♀️</div>
+        <h5 class="card-title">Athlete/Coach</h5>
+        <p class="card-text">View attempts, get notifications, track progress</p>
+        <a href="/athlete" class="btn btn-success">Athlete Dashboard</a>
+      </div>
+    </div>
+  </div>
+  
+  <div class="col-md-6 col-lg-4 mb-4">
+    <div class="card h-100 border-warning">
+      <div class="card-body text-center">
+        <div class="display-1 mb-3">⏱️</div>
+        <h5 class="card-title">Timekeeper</h5>
+        <p class="card-text">Control competition timers and breaks</p>
+        <a href="/timekeeper" class="btn btn-warning">Timer Control</a>
+      </div>
+    </div>
+  </div>
+  
+  <div class="col-md-6 col-lg-4 mb-4">
+    <div class="card h-100 border-dark">
+      <div class="card-body text-center">
+        <div class="display-1 mb-3">📺</div>
+        <h5 class="card-title">Public Display</h5>
+        <p class="card-text">Large screen display for audience and participants</p>
+        <a href="/display" class="btn btn-dark">Display Screen</a>
+      </div>
+    </div>
+  </div>
+  
+  <div class="col-md-6 col-lg-4 mb-4">
+    <div class="card h-100 border-secondary">
+      <div class="card-body text-center">
+        <div class="display-1 mb-3">📱</div>
+        <h5 class="card-title">WiFi Access</h5>
+        <p class="card-text">Generate QR codes for easy network connection</p>
+        <a href="/wifi-qr" class="btn btn-secondary">Get QR Code</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Active Competitions -->
+{% if competitions %}
+<div class="row mt-5">
+  <div class="col-12">
+    <h2>🏆 Active Competitions</h2>
+    <div class="row">
+      {% for competition in competitions %}
+      <div class="col-md-6 col-lg-4 mb-3">
+        <div class="card">
+          <div class="card-body">
+            <h5 class="card-title">{{ competition.name }}</h5>
+            <p class="card-text">
+              <small class="text-muted">
+                <strong>Sport:</strong> {{ competition.sport_type.value.title().replace('_', ' ') }}<br>
+                <strong>Date:</strong> {{ competition.date.strftime('%B %d, %Y') }}
+              </small>
+            </p>
+            <div class="btn-group w-100" role="group">
+              <a href="/admin/competition/{{ competition.id }}" class="btn btn-sm btn-outline-primary">Manage</a>
+              <a href="/display/competition/{{ competition.id }}" class="btn btn-sm btn-outline-dark">Display</a>
+            </div>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% else %}
+<div class="row mt-5">
+  <div class="col-12">
+    <div class="alert alert-info text-center">
+      <h4>No Active Competitions</h4>
+      <p>Create your first competition through the Admin interface to get started!</p>
+      <a href="/admin" class="btn btn-primary">Create Competition</a>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- Features Overview -->
+<div class="row mt-5">
+  <div class="col-12">
+    <h2>✨ Key Features</h2>
+    <div class="row">
+      <div class="col-md-6 mb-3">
+        <div class="d-flex">
+          <div class="flex-shrink-0">
+            <span class="badge bg-primary rounded-pill">FR1-3</span>
+          </div>
+          <div class="flex-grow-1 ms-3">
+            <h6>Competition Management</h6>
+            <p class="text-muted">Define competitions, manage athletes, live editing during events</p>
+          </div>
+        </div>
+      </div>
+      
+      <div class="col-md-6 mb-3">
+        <div class="d-flex">
+          <div class="flex-shrink-0">
+            <span class="badge bg-success rounded-pill">FR4-5</span>
+          </div>
+          <div class="flex-grow-1 ms-3">
+            <h6>Real-time Scoring</h6>
+            <p class="text-muted">Referee inputs, automatic calculations, live score updates</p>
+          </div>
+        </div>
+      </div>
+      
+      <div class="col-md-6 mb-3">
+        <div class="d-flex">
+          <div class="flex-shrink-0">
+            <span class="badge bg-info rounded-pill">FR6-7</span>
+          </div>
+          <div class="flex-grow-1 ms-3">
+            <h6>Athlete Flow</h6>
+            <p class="text-muted">Automatic ordering, timer management, attempt progression</p>
+          </div>
+        </div>
+      </div>
+      
+      <div class="col-md-6 mb-3">
+        <div class="d-flex">
+          <div class="flex-shrink-0">
+            <span class="badge bg-warning rounded-pill">FR8-11</span>
+          </div>
+          <div class="flex-grow-1 ms-3">
+            <h6>Multi-device Support</h6>
+            <p class="text-muted">WiFi QR codes, notifications, public displays, offline operation</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- System Status -->
+<div class="row mt-4">
+  <div class="col-12">
+    <div class="card bg-light">
+      <div class="card-body">
+        <h6 class="card-title">System Status</h6>
+        <div class="row text-center">
+          <div class="col-md-3">
+            <div class="text-success">
+              <i class="fas fa-check-circle"></i>
+              <small class="d-block">Database Connected</small>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="text-success">
+              <i class="fas fa-wifi"></i>
+              <small class="d-block">Real-time Updates</small>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="text-success">
+              <i class="fas fa-mobile-alt"></i>
+              <small class="d-block">Mobile Responsive</small>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="text-success">
+              <i class="fas fa-cloud-download-alt"></i>
+              <small class="d-block">Offline Capable</small>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Real-time competition updates
+socket.on('competition_created', function(data) {
+  showAlert(`New competition "${data.name}" has been created!`, 'success');
+  setTimeout(() => location.reload(), 2000);
+});
+
+socket.on('competition_started', function(data) {
+  showAlert(`Competition "${data.name}" has started!`, 'info');
+});
+</script>
 {% endblock %}
