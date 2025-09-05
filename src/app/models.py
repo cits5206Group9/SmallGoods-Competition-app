@@ -22,6 +22,19 @@ class AttemptResult(Enum):
     MISSED = "missed"
     DNF = "dnf"  # Did Not Finish
 
+class AthleteEvent(db.Model):
+    """Association table for athletes and events"""
+    __tablename__ = 'athlete_event'
+
+    id = db.Column(db.Integer, primary_key=True)
+    athlete_id = db.Column(db.Integer, db.ForeignKey('athlete.id'), nullable=False)
+    event_id = db.Column(db.Integer, db.ForeignKey('event.id'), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    # Relationships
+    athlete = db.relationship('Athlete', backref=db.backref('athlete_events', lazy=True))
+    event = db.relationship('Event', backref=db.backref('athlete_events', lazy=True))
+
 class Competition(db.Model):
     """Main competition entity - defines the overall event"""
     id = db.Column(db.Integer, primary_key=True)

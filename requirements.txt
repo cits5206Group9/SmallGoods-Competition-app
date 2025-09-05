@@ -6,8 +6,8 @@ python-dotenv==1.0.1
 SQLAlchemy==2.0.31
 
 # Additional dependencies for competition app
-qrcode==7.4.2
-Pillow==10.0.0
+qrcode
+Pillow
 python-socketio==5.8.0
 
 # Dev

@@ -95,10 +95,6 @@ def run_migrations_online():
         conf_args["process_revision_directives"] = process_revision_directives
 
     connectable = get_engine()
-    
-    # Debug: Print connection info
-    logger.info(f"Database URL: {get_engine_url()}")
-    logger.info(f"Trying to connect to database...")
 
     with connectable.connect() as connection:
         context.configure(
