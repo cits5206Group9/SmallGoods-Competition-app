@@ -208,10 +208,10 @@ body {
             <strong>Status:</strong> <span id="status-state" class="text-success">LIVE</span>
           </div>
           <div class="col-md-3">
-            <strong>Athletes:</strong> <span id="status-athletes">{{ competition.athletes|length }}</span>
+            <strong>Athletes:</strong> <span id="status-athletes">{{ competition.athletes|length if competition.athletes else 0 }}</span>
           </div>
           <div class="col-md-3">
-            <strong>Last Update:</strong> <span id="status-time">{{ moment().format('HH:mm:ss') }}</span>
+            <strong>Last Update:</strong> <span id="status-time">--:--:--</span>
           </div>
         </div>
       </div>
@@ -226,7 +226,23 @@ body {
 const competitionId = {{ competition.id }};
 let timerInterval = null;
 
+// Update status time
+function updateStatusTime() {
+  const now = new Date();
+  const timeString = now.toLocaleTimeString('en-US', { 
+    hour12: false, 
+    hour: '2-digit', 
+    minute: '2-digit', 
+    second: '2-digit' 
+  });
+  document.getElementById('status-time').textContent = timeString;
+}
+
 document.addEventListener('DOMContentLoaded', function() {
+  // Update time every second
+  updateStatusTime();
+  setInterval(updateStatusTime, 1000);
+
   // Join display room
   socket.emit('join_competition', {
     competition_id: competitionId,

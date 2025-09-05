@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+
+{% block title %}Athlete Portal{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="text-center mb-4">
+                <h1>
+                    <i class="fas fa-running"></i> Athlete Portal
+                </h1>
+                <p class="lead">Select a competition to view details and track your performance</p>
+            </div>
+
+            <!-- Competition Selection -->
+            <div class="row justify-content-center">
+                <div class="col-lg-8">
+                    {% if competitions %}
+                    <div class="row">
+                        {% for competition in competitions %}
+                        <div class="col-md-6 mb-4">
+                            <div class="card h-100 competition-card">
+                                <div class="card-body text-center">
+                                    <div class="mb-3">
+                                        <i class="fas fa-trophy fa-3x text-primary"></i>
+                                    </div>
+                                    <h4 class="card-title">{{ competition.name }}</h4>
+                                    <p class="card-text">
+                                        <i class="fas fa-calendar"></i> {{ competition.start_date }}
+                                    </p>
+                                    {% if competition.location %}
+                                    <p class="card-text">
+                                        <i class="fas fa-map-marker-alt"></i> {{ competition.location }}
+                                    </p>
+                                    {% endif %}
+                                    <div class="mt-3">
+                                        <span class="badge {{ 'bg-success' if competition.is_active else 'bg-secondary' }} fs-6">
+                                            {{ 'Active' if competition.is_active else 'Inactive' }}
+                                        </span>
+                                    </div>
+                                    <div class="mt-3">
+                                        <a href="{{ url_for('main.athlete_competition', id=competition.id) }}" 
+                                           class="btn btn-primary btn-lg">
+                                            <i class="fas fa-eye"></i> View Competition
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-5">
+                        <i class="fas fa-trophy fa-4x text-muted mb-4"></i>
+                        <h3 class="text-muted">No Competitions Available</h3>
+                        <p class="text-muted">There are currently no active competitions to participate in.</p>
+                        <p class="text-muted">Please check back later or contact the administrator.</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="row justify-content-center mt-5">
+                <div class="col-lg-8">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5><i class="fas fa-bolt"></i> Quick Actions</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-4 mb-3">
+                                    <div class="card bg-primary text-white">
+                                        <div class="card-body text-center">
+                                            <i class="fas fa-user-plus fa-2x mb-2"></i>
+                                            <h6>Register</h6>
+                                            <p class="small">Register for upcoming competitions</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <div class="card bg-info text-white">
+                                        <div class="card-body text-center">
+                                            <i class="fas fa-chart-line fa-2x mb-2"></i>
+                                            <h6>Track Progress</h6>
+                                            <p class="small">View your performance and statistics</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <div class="card bg-success text-white">
+                                        <div class="card-body text-center">
+                                            <i class="fas fa-calendar-check fa-2x mb-2"></i>
+                                            <h6>Schedule</h6>
+                                            <p class="small">Check your upcoming attempts and events</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Help Section -->
+            <div class="row justify-content-center mt-4">
+                <div class="col-lg-8">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5><i class="fas fa-question-circle"></i> Getting Started</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <h6>For New Athletes:</h6>
+                                    <ul class="list-unstyled">
+                                        <li><i class="fas fa-check text-success"></i> Contact the competition administrator to register</li>
+                                        <li><i class="fas fa-check text-success"></i> Ensure you meet competition requirements</li>
+                                        <li><i class="fas fa-check text-success"></i> Review competition rules and regulations</li>
+                                        <li><i class="fas fa-check text-success"></i> Prepare your equipment and documentation</li>
+                                    </ul>
+                                </div>
+                                <div class="col-md-6">
+                                    <h6>Competition Day:</h6>
+                                    <ul class="list-unstyled">
+                                        <li><i class="fas fa-clock text-warning"></i> Arrive early for check-in</li>
+                                        <li><i class="fas fa-clipboard text-info"></i> Verify your registration details</li>
+                                        <li><i class="fas fa-users text-primary"></i> Follow instructions from officials</li>
+                                        <li><i class="fas fa-medal text-success"></i> Track your performance in real-time</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.competition-card {
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.competition-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+}
+</style>
+{% endblock %}

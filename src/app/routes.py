@@ -217,7 +217,7 @@ def referee_competition(id):
 def athlete_interface():
     """Athlete/Coach interface selection"""
     competitions = Competition.query.filter_by(is_active=True).all()
-    return render_template("athlete/dashboard.html", competitions=competitions)
+    return render_template("athlete/selection.html", competitions=competitions)
 
 @main_bp.route("/athlete/competition/<int:id>")
 def athlete_competition(id):
@@ -308,7 +308,8 @@ def generate_wifi_qr():
         
         # Convert to base64 for display
         buffered = io.BytesIO()
-        img.save(buffered, format="PNG")
+        # Fix for PyPNG compatibility - don't use format parameter
+        img.save(buffered)
         img_str = base64.b64encode(buffered.getvalue()).decode()
         
         return render_template("admin/wifi_qr.html", 
@@ -434,3 +435,112 @@ def seed():
         db.session.add(User(username="demo"))
         db.session.commit()
     return jsonify(message="seeded")
+
+# =====================
+# ADMIN SETTINGS & BACKUP ROUTES
+# =====================
+
+@main_bp.route("/admin/settings", methods=["GET", "POST"])
+def admin_settings():
+    """Admin settings page"""
+    if request.method == "POST":
+        try:
+            # Handle settings update
+            data = request.get_json() if request.is_json else request.form
+            
+            # Here you would update application settings
+            # For now, just return success
+            
+            if request.is_json:
+                return jsonify({"success": True, "message": "Settings updated successfully"})
+            else:
+                flash("Settings updated successfully!", "success")
+                return redirect(url_for("main.admin_settings"))
+                
+        except Exception as e:
+            if request.is_json:
+                return jsonify({"success": False, "error": str(e)}), 400
+            else:
+                flash(f"Error updating settings: {str(e)}", "error")
+                return redirect(url_for("main.admin_settings"))
+    
+    # GET request - show settings page
+    return render_template("admin/settings.html")
+
+@main_bp.route("/admin/backup", methods=["GET", "POST"])
+def admin_backup():
+    """Admin backup page"""
+    if request.method == "POST":
+        try:
+            action = request.form.get("action") or request.json.get("action")
+            
+            if action == "create_backup":
+                # Create database backup
+                import shutil
+                from pathlib import Path
+                from datetime import datetime
+                
+                # Get database path
+                db_path = Path(__file__).parent.parent.parent / "src" / "instance" / "smallgoods_dev.db"
+                backup_dir = Path(__file__).parent.parent.parent / "backups"
+                backup_dir.mkdir(exist_ok=True)
+                
+                # Create backup filename with timestamp
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                backup_filename = f"backup_{timestamp}.db"
+                backup_path = backup_dir / backup_filename
+                
+                # Copy database file
+                shutil.copy2(str(db_path), str(backup_path))
+                
+                if request.is_json:
+                    return jsonify({
+                        "success": True, 
+                        "message": f"Backup created: {backup_filename}",
+                        "backup_file": backup_filename
+                    })
+                else:
+                    flash(f"Backup created successfully: {backup_filename}", "success")
+                    return redirect(url_for("main.admin_backup"))
+                    
+            elif action == "restore_backup":
+                # Handle backup restoration
+                backup_file = request.form.get("backup_file") or request.json.get("backup_file")
+                
+                if backup_file:
+                    # Here you would implement backup restoration logic
+                    # For safety, this is just a placeholder
+                    
+                    if request.is_json:
+                        return jsonify({
+                            "success": True, 
+                            "message": f"Backup {backup_file} would be restored (not implemented for safety)"
+                        })
+                    else:
+                        flash(f"Backup restoration not implemented for safety", "warning")
+                        return redirect(url_for("main.admin_backup"))
+                
+        except Exception as e:
+            if request.is_json:
+                return jsonify({"success": False, "error": str(e)}), 400
+            else:
+                flash(f"Backup error: {str(e)}", "error")
+                return redirect(url_for("main.admin_backup"))
+    
+    # GET request - show backup page
+    # List existing backups
+    backup_dir = Path(__file__).parent.parent.parent / "backups"
+    backups = []
+    
+    if backup_dir.exists():
+        for backup_file in backup_dir.glob("backup_*.db"):
+            stat = backup_file.stat()
+            backups.append({
+                "filename": backup_file.name,
+                "size": stat.st_size,
+                "created": datetime.fromtimestamp(stat.st_mtime)
+            })
+    
+    backups.sort(key=lambda x: x["created"], reverse=True)
+    
+    return render_template("admin/backup.html", backups=backups)

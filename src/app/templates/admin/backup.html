@@ -1,0 +1,311 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Backup{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1>
+                    <i class="fas fa-database"></i> Database Backup & Restore
+                </h1>
+                <a href="{{ url_for('main.admin_dashboard') }}" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left"></i> Back to Dashboard
+                </a>
+            </div>
+
+            <!-- Create Backup Section -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5><i class="fas fa-plus-circle"></i> Create New Backup</h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted">Create a backup of the current database. This will include all competitions, athletes, attempts, and scores.</p>
+                    
+                    <form id="createBackupForm">
+                        <div class="row align-items-end">
+                            <div class="col-md-8">
+                                <label for="backupNote" class="form-label">Backup Note (Optional)</label>
+                                <input type="text" class="form-control" id="backupNote" name="note" 
+                                       placeholder="e.g., Before championship event, Weekly backup, etc.">
+                            </div>
+                            <div class="col-md-4">
+                                <button type="submit" class="btn btn-success">
+                                    <i class="fas fa-download"></i> Create Backup
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Existing Backups -->
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5><i class="fas fa-list"></i> Existing Backups ({{ backups|length }})</h5>
+                    <button class="btn btn-sm btn-outline-danger" onclick="cleanupOldBackups()" id="cleanupBtn">
+                        <i class="fas fa-broom"></i> Cleanup Old Backups
+                    </button>
+                </div>
+                <div class="card-body">
+                    {% if backups %}
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Backup File</th>
+                                    <th>Created</th>
+                                    <th>Size</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for backup in backups %}
+                                <tr>
+                                    <td>
+                                        <strong>{{ backup.filename }}</strong>
+                                    </td>
+                                    <td>
+                                        <small class="text-muted">
+                                            {{ backup.created.strftime('%Y-%m-%d %H:%M:%S') }}
+                                        </small>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-info">
+                                            {{ "%.2f"|format(backup.size / 1024 / 1024) }} MB
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm" role="group">
+                                            <button class="btn btn-outline-primary" 
+                                                    onclick="downloadBackup('{{ backup.filename }}')"
+                                                    title="Download Backup">
+                                                <i class="fas fa-download"></i>
+                                            </button>
+                                            <button class="btn btn-outline-warning" 
+                                                    onclick="restoreBackup('{{ backup.filename }}')"
+                                                    title="Restore Backup (Not Implemented)">
+                                                <i class="fas fa-upload"></i>
+                                            </button>
+                                            <button class="btn btn-outline-danger" 
+                                                    onclick="deleteBackup('{{ backup.filename }}')"
+                                                    title="Delete Backup">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-database fa-3x text-muted mb-3"></i>
+                        <h4 class="text-muted">No Backups Found</h4>
+                        <p class="text-muted">Create your first backup to protect your competition data.</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Backup Information -->
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5><i class="fas fa-info-circle"></i> Backup Information</h5>
+                        </div>
+                        <div class="card-body">
+                            <h6>What's included in backups:</h6>
+                            <ul class="list-unstyled">
+                                <li><i class="fas fa-check text-success"></i> All competition data</li>
+                                <li><i class="fas fa-check text-success"></i> Athlete registrations</li>
+                                <li><i class="fas fa-check text-success"></i> Attempt records and scores</li>
+                                <li><i class="fas fa-check text-success"></i> Timer and event configurations</li>
+                                <li><i class="fas fa-check text-success"></i> System settings</li>
+                            </ul>
+                            
+                            <h6 class="mt-3">Backup recommendations:</h6>
+                            <ul class="list-unstyled">
+                                <li><i class="fas fa-lightbulb text-warning"></i> Create backups before major events</li>
+                                <li><i class="fas fa-lightbulb text-warning"></i> Keep at least 3 recent backups</li>
+                                <li><i class="fas fa-lightbulb text-warning"></i> Store important backups offline</li>
+                                <li><i class="fas fa-lightbulb text-warning"></i> Test backup restoration periodically</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5><i class="fas fa-exclamation-triangle"></i> Important Notes</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="alert alert-warning">
+                                <h6><i class="fas fa-exclamation-triangle"></i> Restore Warning</h6>
+                                <p class="mb-0">Backup restoration is currently disabled for safety. Restoring a backup will completely replace the current database and cannot be undone.</p>
+                            </div>
+                            
+                            <div class="alert alert-info">
+                                <h6><i class="fas fa-info-circle"></i> Backup Storage</h6>
+                                <p class="mb-0">Backups are stored in the application's backup directory. For production use, consider storing backups in a separate, secure location.</p>
+                            </div>
+                            
+                            <div class="alert alert-success">
+                                <h6><i class="fas fa-shield-alt"></i> Data Safety</h6>
+                                <p class="mb-0">The application automatically prevents data corruption by validating backup files before any operations.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Create backup form submission
+document.getElementById('createBackupForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const submitBtn = this.querySelector('button[type="submit"]');
+    const originalText = submitBtn.innerHTML;
+    
+    // Show loading state
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creating...';
+    submitBtn.disabled = true;
+    
+    const formData = new FormData(this);
+    formData.append('action', 'create_backup');
+    
+    fetch('{{ url_for("main.admin_backup") }}', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Show success message
+            showAlert('success', data.message);
+            
+            // Reload page to show new backup
+            setTimeout(() => {
+                location.reload();
+            }, 1500);
+        } else {
+            throw new Error(data.error || 'Unknown error occurred');
+        }
+    })
+    .catch(error => {
+        showAlert('danger', 'Error creating backup: ' + error.message);
+    })
+    .finally(() => {
+        // Restore button state
+        submitBtn.innerHTML = originalText;
+        submitBtn.disabled = false;
+    });
+});
+
+function downloadBackup(filename) {
+    // Create a temporary link to download the backup
+    const link = document.createElement('a');
+    link.href = `/admin/backup/download/${filename}`;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+function restoreBackup(filename) {
+    if (confirm(`⚠️ WARNING: This will completely replace your current database with the backup "${filename}". This action cannot be undone!\n\nAre you absolutely sure you want to continue?`)) {
+        showAlert('warning', 'Backup restoration is currently disabled for safety reasons.');
+        
+        // Uncomment to enable restoration (with additional safety checks)
+        /*
+        const formData = new FormData();
+        formData.append('action', 'restore_backup');
+        formData.append('backup_file', filename);
+        
+        fetch('{{ url_for("main.admin_backup") }}', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showAlert('success', data.message);
+                setTimeout(() => location.reload(), 2000);
+            } else {
+                showAlert('danger', 'Error restoring backup: ' + data.error);
+            }
+        })
+        .catch(error => {
+            showAlert('danger', 'Error restoring backup: ' + error.message);
+        });
+        */
+    }
+}
+
+function deleteBackup(filename) {
+    if (confirm(`Are you sure you want to delete the backup "${filename}"? This action cannot be undone.`)) {
+        fetch(`/admin/backup/delete/${filename}`, {
+            method: 'DELETE'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showAlert('success', 'Backup deleted successfully');
+                setTimeout(() => location.reload(), 1000);
+            } else {
+                showAlert('danger', 'Error deleting backup: ' + data.error);
+            }
+        })
+        .catch(error => {
+            showAlert('danger', 'Error deleting backup: ' + error.message);
+        });
+    }
+}
+
+function cleanupOldBackups() {
+    if (confirm('This will delete backups older than 30 days. Are you sure?')) {
+        fetch('/admin/backup/cleanup', {
+            method: 'POST'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showAlert('success', `Cleanup completed: ${data.deleted_count} old backups removed`);
+                setTimeout(() => location.reload(), 1500);
+            } else {
+                showAlert('warning', 'No old backups found to cleanup');
+            }
+        })
+        .catch(error => {
+            showAlert('danger', 'Error during cleanup: ' + error.message);
+        });
+    }
+}
+
+function showAlert(type, message) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+    alertDiv.innerHTML = `
+        <strong>${type === 'success' ? 'Success!' : type === 'danger' ? 'Error!' : 'Notice:'}</strong> ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    const container = document.querySelector('.container-fluid');
+    container.insertBefore(alertDiv, container.firstChild);
+    
+    // Auto-dismiss after 5 seconds
+    setTimeout(() => {
+        if (alertDiv.parentNode) {
+            alertDiv.remove();
+        }
+    }, 5000);
+}
+</script>
+{% endblock %}

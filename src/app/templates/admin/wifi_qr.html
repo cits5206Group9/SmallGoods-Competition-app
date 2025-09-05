@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+
+{% block title %}WiFi QR Code{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-lg-6 col-md-8">
+            <div class="card">
+                <div class="card-header text-center">
+                    <h3><i class="fas fa-wifi"></i> WiFi Connection</h3>
+                </div>
+                <div class="card-body text-center">
+                    <h4 class="mb-3">{{ ssid }}</h4>
+                    <div class="mb-4">
+                        <img src="data:image/png;base64,{{ qr_code }}" alt="WiFi QR Code" class="img-fluid" style="max-width: 300px;">
+                    </div>
+                    <p class="text-muted">
+                        Scan this QR code with your mobile device to automatically connect to the WiFi network.
+                    </p>
+                    <div class="mt-4">
+                        <button onclick="window.print()" class="btn btn-primary">
+                            <i class="fas fa-print"></i> Print QR Code
+                        </button>
+                        <a href="{{ url_for('main.admin_dashboard') }}" class="btn btn-secondary ms-2">
+                            <i class="fas fa-arrow-left"></i> Back to Dashboard
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+@media print {
+    .btn, .card-header {
+        display: none !important;
+    }
+    .card {
+        border: none !important;
+        box-shadow: none !important;
+    }
+}
+</style>
+{% endblock %}
