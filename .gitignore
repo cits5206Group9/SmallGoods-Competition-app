@@ -23,3 +23,9 @@ Thumbs.db
 # Editors
 .vscode/
 .idea/
+
+# Claude Code
+.claude/
+claude.md
+CLAUDE.md
+projectplan.md
