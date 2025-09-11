@@ -6,6 +6,7 @@ from flask import Flask
 from .config import get_config
 from .extensions import db, migrate
 from .routes import main_bp
+from .routes import admin_bp
 from . import models  # Import models so they are registered with SQLAlchemy
 
 
@@ -100,7 +101,7 @@ def create_app(config_name: str | None = None) -> Flask:
 
     # Register blueprints
     app.register_blueprint(main_bp)
-    logger.debug("Blueprints registered")
+    app.register_blueprint(admin_bp)
     
     logger.info("Flask app created successfully")
     return app
