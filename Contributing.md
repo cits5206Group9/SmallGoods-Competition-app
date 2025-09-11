@@ -14,6 +14,8 @@
    - You need to do database migration operations
    - flask db migrate -m "what have been changed"
    - flask db upgrade
+   - flask db current
+   - flask db history
    - if new data inserted, backup your data under backend/app directory
    - sqlite3 app.db .dump > app.dump.sql
 
