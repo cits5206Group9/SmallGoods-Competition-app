@@ -1,0 +1,627 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="auth-container">
+  <div class="auth-card registration-card">
+    <h2>Create your account</h2>
+    <p class="auth-subtitle">Join the competition platform</p>
+    
+    {% if error %}
+      <div class="alert alert-error">{{ error }}</div>
+    {% endif %}
+    
+    <form method="POST" class="auth-form" id="registerForm">
+      <!-- Role Selection -->
+      <div class="form-group">
+        <label class="form-label-main">Choose your role</label>
+        <div class="radio-group">
+          <label class="radio-option">
+            <input type="radio" name="role" value="athlete" id="roleAthlete" checked>
+            <span class="radio-custom"></span>
+            <div class="radio-content">
+              <strong>Athlete</strong>
+              <small>Participate in competitions</small>
+            </div>
+          </label>
+          <label class="radio-option">
+            <input type="radio" name="role" value="referee" id="roleReferee">
+            <span class="radio-custom"></span>
+            <div class="radio-content">
+              <strong>Referee</strong>
+              <small>Judge competitions</small>
+            </div>
+          </label>
+          <label class="radio-option">
+            <input type="radio" name="role" value="admin" id="roleAdmin">
+            <span class="radio-custom"></span>
+            <div class="radio-content">
+              <strong>Admin</strong>
+              <small>Manage competitions</small>
+            </div>
+          </label>
+        </div>
+      </div>
+      
+      <!-- Required Fields -->
+      <div class="form-group">
+        <label for="fullName">Full Name</label>
+        <input 
+          type="text" 
+          id="fullName" 
+          name="full_name" 
+          required 
+          placeholder="Enter your full name"
+          value="{{ request.form.get('full_name', '') }}"
+        >
+        <div class="error-message" id="fullNameError"></div>
+      </div>
+      
+      <div class="form-group">
+        <label for="password">Password</label>
+        <input 
+          type="password" 
+          id="password" 
+          name="password" 
+          required 
+          placeholder="Create a strong password"
+        >
+        <div class="password-requirements" id="passwordRequirements">
+          <small>Password must be at least 8 characters with mixed case and a number</small>
+        </div>
+        <div class="error-message" id="passwordError"></div>
+      </div>
+      
+      <!-- Contact Information -->
+      <div class="form-section">
+        <h3>How can we reach you?</h3>
+        <p class="section-subtitle" id="contactSubtitle">Provide a phone or an email. Admins must provide both.</p>
+        
+        <div class="form-group">
+          <label for="phone">Phone</label>
+          <input 
+            type="tel" 
+            id="phone" 
+            name="phone" 
+            placeholder="+1 (555) 123-4567"
+            value="{{ request.form.get('phone', '') }}"
+          >
+          <div class="error-message" id="phoneError"></div>
+        </div>
+        
+        <div class="form-group">
+          <label for="email">Email</label>
+          <input 
+            type="email" 
+            id="email" 
+            name="email" 
+            placeholder="your.email@example.com"
+            value="{{ request.form.get('email', '') }}"
+          >
+          <div class="error-message" id="emailError"></div>
+        </div>
+      </div>
+      
+      <!-- Admin-specific fields -->
+      <div class="form-section" id="adminFields" style="display: none;">
+        <div class="form-group">
+          <label for="gender">Gender <span class="required">*</span></label>
+          <select id="gender" name="gender">
+            <option value="">Select your gender</option>
+            <option value="male">Male</option>
+            <option value="female">Female</option>
+            <option value="non-binary">Non-binary</option>
+          </select>
+          <div class="error-message" id="genderError"></div>
+        </div>
+        
+        <div class="form-group">
+          <label for="adminCode">Admin Invite Code <span class="required">*</span></label>
+          <input 
+            type="text" 
+            id="adminCode" 
+            name="admin_code" 
+            placeholder="8-character code (letters and numbers)"
+            maxlength="12"
+          >
+          <div class="error-message" id="adminCodeError"></div>
+        </div>
+      </div>
+      
+      <!-- Athlete-specific optional fields -->
+      <div class="form-section" id="athleteFields">
+        <h3>Optional (you can skip)</h3>
+        
+        <div class="form-group">
+          <label for="nickname">Nickname</label>
+          <input 
+            type="text" 
+            id="nickname" 
+            name="nickname" 
+            placeholder="How others will see you"
+            value="{{ request.form.get('nickname', '') }}"
+          >
+        </div>
+        
+        <div class="form-group">
+          <label for="athleteGender">Gender</label>
+          <select id="athleteGender" name="athlete_gender">
+            <option value="">Select your gender</option>
+            <option value="male">Male</option>
+            <option value="female">Female</option>
+            <option value="non-binary">Non-binary</option>
+          </select>
+        </div>
+        
+        <div class="form-group" id="nonBinaryDescription" style="display: none;">
+          <label for="genderDescription">Describe your identity</label>
+          <input 
+            type="text" 
+            id="genderDescription" 
+            name="gender_description" 
+            placeholder="(Optional) Describe your identity"
+          >
+        </div>
+        
+        <div class="form-group">
+          <label for="competitionPrefs">Competition Preferences</label>
+          <textarea 
+            id="competitionPrefs" 
+            name="competition_preferences" 
+            rows="3"
+            placeholder="e.g., deadlift, super total..."
+          >{{ request.form.get('competition_preferences', '') }}</textarea>
+        </div>
+      </div>
+      
+      <!-- Terms Agreement -->
+      <div class="form-group checkbox-group">
+        <label class="checkbox-label">
+          <input type="checkbox" id="agreement" name="agreement" required>
+          <span class="checkbox-custom"></span>
+          <span>I agree to the <a href="/terms" target="_blank" class="link-primary">Terms of Service</a> and <a href="/privacy" target="_blank" class="link-primary">Privacy Policy</a></span>
+        </label>
+        <div class="error-message" id="agreementError"></div>
+      </div>
+      
+      <button type="submit" class="btn btn-primary" id="registerBtn">
+        <span class="btn-text">Create Account</span>
+        <span class="btn-loading" style="display: none;">Creating account...</span>
+      </button>
+    </form>
+    
+    <div class="auth-links">
+      <p>Already have an account? <a href="/login" class="link-primary">Sign in</a></p>
+    </div>
+  </div>
+</div>
+
+<style>
+.registration-card {
+  max-width: 500px;
+}
+
+.form-section {
+  margin: 2rem 0;
+  padding: 1.5rem;
+  background: #f9fafb;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+}
+
+.form-section h3 {
+  margin: 0 0 0.5rem 0;
+  color: #1f2937;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.section-subtitle {
+  color: #6b7280;
+  font-size: 0.9rem;
+  margin-bottom: 1.5rem;
+}
+
+.form-label-main {
+  font-weight: 600;
+  color: #1f2937;
+  margin-bottom: 1rem;
+  display: block;
+}
+
+.radio-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.radio-option {
+  display: flex;
+  align-items: center;
+  padding: 1rem;
+  border: 2px solid #e5e7eb;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.radio-option:hover {
+  border-color: #d1d5db;
+  background-color: #f9fafb;
+}
+
+.radio-option input[type="radio"] {
+  display: none;
+}
+
+.radio-option input[type="radio"]:checked + .radio-custom {
+  border-color: #3b82f6;
+  background-color: #3b82f6;
+}
+
+.radio-option input[type="radio"]:checked + .radio-custom::after {
+  opacity: 1;
+}
+
+.radio-option input[type="radio"]:checked ~ .radio-content {
+  color: #1f2937;
+}
+
+.radio-custom {
+  width: 20px;
+  height: 20px;
+  border: 2px solid #d1d5db;
+  border-radius: 50%;
+  margin-right: 1rem;
+  position: relative;
+  background: white;
+  transition: all 0.2s ease;
+}
+
+.radio-custom::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 8px;
+  height: 8px;
+  background: white;
+  border-radius: 50%;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.radio-content {
+  flex: 1;
+}
+
+.radio-content strong {
+  display: block;
+  font-weight: 600;
+  color: #374151;
+}
+
+.radio-content small {
+  color: #6b7280;
+  font-size: 0.85rem;
+}
+
+.form-group select {
+  padding: 0.75rem;
+  border: 2px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 1rem;
+  background: white;
+  transition: border-color 0.2s ease;
+}
+
+.form-group select:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.form-group textarea {
+  padding: 0.75rem;
+  border: 2px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-family: inherit;
+  resize: vertical;
+  transition: border-color 0.2s ease;
+}
+
+.form-group textarea:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.checkbox-group {
+  margin: 2rem 0;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: flex-start;
+  cursor: pointer;
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.checkbox-label input[type="checkbox"] {
+  display: none;
+}
+
+.checkbox-custom {
+  width: 20px;
+  height: 20px;
+  border: 2px solid #d1d5db;
+  border-radius: 4px;
+  margin-right: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.checkbox-label input[type="checkbox"]:checked + .checkbox-custom {
+  border-color: #3b82f6;
+  background-color: #3b82f6;
+}
+
+.checkbox-label input[type="checkbox"]:checked + .checkbox-custom::after {
+  content: '✓';
+  color: white;
+  font-size: 14px;
+  font-weight: bold;
+}
+
+.required {
+  color: #ef4444;
+}
+
+.password-requirements {
+  margin-top: 0.25rem;
+}
+
+.password-requirements small {
+  color: #6b7280;
+  font-size: 0.8rem;
+}
+
+@media (max-width: 480px) {
+  .radio-group {
+    gap: 0.5rem;
+  }
+  
+  .radio-option {
+    padding: 0.75rem;
+  }
+  
+  .form-section {
+    margin: 1rem 0;
+    padding: 1rem;
+  }
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const form = document.getElementById('registerForm');
+  const roleInputs = document.querySelectorAll('input[name="role"]');
+  const adminFields = document.getElementById('adminFields');
+  const athleteFields = document.getElementById('athleteFields');
+  const contactSubtitle = document.getElementById('contactSubtitle');
+  const athleteGenderSelect = document.getElementById('athleteGender');
+  const nonBinaryDescription = document.getElementById('nonBinaryDescription');
+  
+  // Role-based field visibility
+  function updateFieldsForRole() {
+    const selectedRole = document.querySelector('input[name="role"]:checked').value;
+    
+    if (selectedRole === 'admin') {
+      adminFields.style.display = 'block';
+      athleteFields.style.display = 'none';
+      contactSubtitle.textContent = 'Admins must provide both phone and email.';
+      // Make fields required for admin
+      document.getElementById('phone').required = true;
+      document.getElementById('email').required = true;
+      document.getElementById('gender').required = true;
+      document.getElementById('adminCode').required = true;
+    } else {
+      adminFields.style.display = 'none';
+      document.getElementById('phone').required = false;
+      document.getElementById('email').required = false;
+      document.getElementById('gender').required = false;
+      document.getElementById('adminCode').required = false;
+      
+      if (selectedRole === 'athlete') {
+        athleteFields.style.display = 'block';
+        contactSubtitle.textContent = 'Provide a phone or an email.';
+      } else {
+        athleteFields.style.display = 'none';
+        contactSubtitle.textContent = 'Provide a phone or an email.';
+      }
+    }
+  }
+  
+  // Handle non-binary gender description field
+  athleteGenderSelect.addEventListener('change', function() {
+    if (this.value === 'non-binary') {
+      nonBinaryDescription.style.display = 'block';
+    } else {
+      nonBinaryDescription.style.display = 'none';
+    }
+  });
+  
+  // Role change handlers
+  roleInputs.forEach(input => {
+    input.addEventListener('change', updateFieldsForRole);
+  });
+  
+  // Initialize field visibility
+  updateFieldsForRole();
+  
+  // Validation functions
+  function validateFullName(value) {
+    if (!value.trim()) {
+      return 'Please enter your full name';
+    }
+    return '';
+  }
+  
+  function validatePassword(value) {
+    if (!value) {
+      return 'Please enter a password';
+    }
+    if (value.length < 8) {
+      return 'Password must be at least 8 characters';
+    }
+    if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(value)) {
+      return 'Password must contain uppercase, lowercase, and a number';
+    }
+    return '';
+  }
+  
+  function validateContact() {
+    const role = document.querySelector('input[name="role"]:checked').value;
+    const phone = document.getElementById('phone').value.trim();
+    const email = document.getElementById('email').value.trim();
+    
+    if (role === 'admin') {
+      if (!phone) return { phone: 'Phone is required for admins' };
+      if (!email) return { email: 'Email is required for admins' };
+    } else {
+      if (!phone && !email) {
+        return { 
+          phone: 'Provide at least one contact method',
+          email: 'Provide at least one contact method'
+        };
+      }
+    }
+    
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return { email: 'Please enter a valid email address' };
+    }
+    
+    return {};
+  }
+  
+  function validateAdminFields() {
+    const role = document.querySelector('input[name="role"]:checked').value;
+    if (role !== 'admin') return {};
+    
+    const errors = {};
+    const gender = document.getElementById('gender').value;
+    const adminCode = document.getElementById('adminCode').value.trim();
+    
+    if (!gender) {
+      errors.gender = 'Please select your gender';
+    }
+    
+    if (!adminCode) {
+      errors.adminCode = 'Please enter your admin invite code';
+    } else if (adminCode !== 'smallgoods888' && !/^[A-Za-z0-9]{8}$/.test(adminCode)) {
+      errors.adminCode = 'Admin code must be 8 alphanumeric characters';
+    }
+    
+    return errors;
+  }
+  
+  function showError(fieldId, message) {
+    const errorElement = document.getElementById(fieldId + 'Error');
+    const inputElement = document.getElementById(fieldId);
+    
+    errorElement.textContent = message || '';
+    if (message) {
+      inputElement.classList.add('error');
+    } else {
+      inputElement.classList.remove('error');
+    }
+  }
+  
+  // Real-time validation
+  document.getElementById('fullName').addEventListener('blur', function() {
+    showError('fullName', validateFullName(this.value));
+  });
+  
+  document.getElementById('password').addEventListener('blur', function() {
+    showError('password', validatePassword(this.value));
+  });
+  
+  document.getElementById('phone').addEventListener('blur', function() {
+    const errors = validateContact();
+    showError('phone', errors.phone || '');
+  });
+  
+  document.getElementById('email').addEventListener('blur', function() {
+    const errors = validateContact();
+    showError('email', errors.email || '');
+  });
+  
+  document.getElementById('gender').addEventListener('change', function() {
+    const errors = validateAdminFields();
+    showError('gender', errors.gender || '');
+  });
+  
+  document.getElementById('adminCode').addEventListener('blur', function() {
+    const errors = validateAdminFields();
+    showError('adminCode', errors.adminCode || '');
+  });
+  
+  // Form submission
+  form.addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    // Validate all fields
+    const fullNameError = validateFullName(document.getElementById('fullName').value);
+    const passwordError = validatePassword(document.getElementById('password').value);
+    const contactErrors = validateContact();
+    const adminErrors = validateAdminFields();
+    const agreement = document.getElementById('agreement').checked;
+    
+    // Show errors
+    showError('fullName', fullNameError);
+    showError('password', passwordError);
+    showError('phone', contactErrors.phone || '');
+    showError('email', contactErrors.email || '');
+    showError('gender', adminErrors.gender || '');
+    showError('adminCode', adminErrors.adminCode || '');
+    showError('agreement', agreement ? '' : 'You must agree to the terms');
+    
+    // Check if form is valid
+    const hasErrors = fullNameError || passwordError || 
+                     Object.keys(contactErrors).length > 0 ||
+                     Object.keys(adminErrors).length > 0 ||
+                     !agreement;
+    
+    if (!hasErrors) {
+      // Show loading state
+      const btn = document.getElementById('registerBtn');
+      const btnText = btn.querySelector('.btn-text');
+      const btnLoading = btn.querySelector('.btn-loading');
+      
+      btn.disabled = true;
+      btnText.style.display = 'none';
+      btnLoading.style.display = 'inline';
+      
+      // Submit the form
+      this.submit();
+    }
+  });
+  
+  // Clear errors on input
+  document.querySelectorAll('input, select, textarea').forEach(element => {
+    element.addEventListener('input', function() {
+      if (this.classList.contains('error')) {
+        const fieldId = this.id;
+        showError(fieldId, '');
+      }
+    });
+  });
+});
+</script>
+{% endblock %}
