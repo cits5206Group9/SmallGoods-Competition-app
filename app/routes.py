@@ -23,9 +23,14 @@ def live_event():
 def data():
     return render_template('admin/data.html')
 
-@admin_bp.route('/timer')
-def timer():
-    return render_template('admin/timer.html')
+@admin_bp.route("/timer",endpoint="timer")
+def timer_page():
+    # Defaults for MVP: 60s attempt, 10 min break
+    return render_template(
+        "admin/timer.html",
+        default_attempt_seconds=60,
+        default_break_seconds=600
+    )
 
 @admin_bp.route('/referee')
 def referee():
