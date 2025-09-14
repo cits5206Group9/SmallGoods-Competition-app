@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+{% block title %}Timekeeper{% endblock %}
+
+{% block content %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/timekeeper.css') }}">
+
+<!-- Fixed Mobile Control Dock (proxied buttons) -->
+<div class="control-dock" aria-label="Timer controls">
+  <button class="dock-btn start"  onclick="document.getElementById('btnStart').click()">▶</button>
+  <button class="dock-btn pause"  onclick="document.getElementById('btnPause').click()">⏸</button>
+  <button class="dock-btn stop"   onclick="document.getElementById('btnBarLeft').click()">■</button>
+  <button class="dock-btn reset"  onclick="document.getElementById('btnReset').click()">↺</button>
+</div>
+
+<div class="container-fluid tk-v1">
+  <div class="row">
+    <div class="col-12">
+      <h1 class="mb-4">
+        <span class="ico"></span> Timekeeper Dashboard
+      </h1>
+
+      <!-- Available Competitions (static shell for now; swap in real data later) -->
+      <div class="card">
+        <div class="card-header">
+          <h5><span class="ico"></span> Available Competitions</h5>
+        </div>
+        <div class="card-body">
+          <div class="text-center py-5" id="tk-competitions-empty">
+            <div class="muted-ico"></div>
+            <h4 class="text-muted">No competitions available</h4>
+            <p class="text-muted">There are currently no active competitions requiring timekeeping.</p>
+          </div>
+          <!-- If you pass competitions from Flask later, render them here -->
+        </div>
+      </div>
+
+
+      <!-- Timer Controls -->
+      <div class="card mt-4">
+        <div class="card-header">
+          <h5><span class="ico"></span> Timer Controls</h5>
+        </div>
+
+        <div class="card-body">
+          <!-- Compact 4-up grid, stacks on mobile -->
+          <div class="tc-grid">
+            <button class="tile tile--start" id="btnStart" aria-label="Start Timer">
+              <span class="tile-ico">▶</span>
+              <span class="tile-title">Start</span>
+              <!--<span class="tile-sub">Begin timing an attempt</span>-->
+            </button>
+
+            <button class="tile tile--pause" id="btnPause" aria-label="Pause Timer">
+              <span class="tile-ico">⏸</span>
+              <span class="tile-title">Pause</span>
+              <!--<span class="tile-sub">Temporarily pause the timer</span>-->
+            </button>
+
+            <button class="tile tile--stop" id="btnBarLeft" aria-label="Stop Timer">
+              <span class="tile-ico">■</span>
+              <span class="tile-title">Stop</span>
+              <!--<span class="tile-sub">End the current attempt</span>-->
+            </button>
+
+            <button class="tile tile--reset" id="btnReset" aria-label="Reset Timer">
+              <span class="tile-ico">↺</span>
+              <span class="tile-title">Reset</span>
+              <!--<span class="tile-sub">Reset to initial state</span>-->
+            </button>
+          </div>
+        </div>
+      </div>
+
+
+          <!-- Hidden “small” buttons exist for JS compatibility (kept off-screen) -->
+          <div class="visually-hidden">
+            <button id="btnResume"></button>
+            <button id="btnAdd10"></button>
+            <button id="btnSub10"></button>
+            <button id="btn60"></button>
+            <button id="btn120"></button>
+            <input type="number" id="attemptSetSec" value="{{ default_attempt_seconds or 60 }}">
+            <button id="btnApplyAttempt"></button>
+            <input type="number" id="breakSetSec" value="{{ default_break_seconds or 600 }}">
+            <button id="btnApplyBreak"></button>
+            <button id="btnBreakStart"></button>
+            <button id="btnBreakPause"></button>
+            <button id="btnBreakResume"></button>
+            <button id="btnBreakReset"></button>
+            <label><input type="checkbox" id="chkAnn">Ann</label>
+            <label><input type="checkbox" id="chkLoaded">Load</label>
+          </div>
+        </div>
+      </div>
+
+
+      <!-- Current Status -->
+      <!-- Current Status -->
+      <div class="card mt-4">
+        <div class="card-header">
+          <h5>Current Status</h5>
+        </div>
+
+        <div class="card-body status-wrap">
+          <!-- BIG TIMER ONLY -->
+          <div class="status-top only-timer">
+            <div class="status-top__timer">
+              <div class="display-time display-time--hero" id="attemptClock">00:00:00</div>
+              <div class="muted-sub">Current Timer</div>
+            </div>
+          </div>
+
+          <!-- BREAK / BLOCK BELOW -->
+          <div class="status-bottom one-col">
+            <div class="panel">
+              <h5>Break</h5>
+              <div class="display-time small" id="breakClock">10:00</div>
+              <div class="btn-row">
+                <button class="btn primary" id="btnBreakStart">Start</button>
+                <button class="btn" id="btnBreakPause">Pause</button>
+                <button class="btn" id="btnBreakResume">Resume</button>
+                <button class="btn danger" id="btnBreakReset">Reset</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+
+      <!-- Event Log -->
+      <div class="card mt-4">
+        <div class="card-header">
+          <h5>Event Log</h5>
+        </div>
+        <div class="card-body">
+          <table class="tk-table" id="logTable">
+            <thead><tr><th>Time</th><th>Action</th><th>Detail</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+  window.TK_DEFAULT_ATTEMPT = {{ default_attempt_seconds or 60 }};
+  window.TK_DEFAULT_BREAK   = {{ default_break_seconds or 600 }};
+</script>
+<script src="{{ url_for('static', filename='js/timekeeper.js') }}"></script>
+{% endblock %}
