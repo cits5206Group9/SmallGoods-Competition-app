@@ -22,7 +22,7 @@ source .venv/bin/activate  # Windows: .venv\Scripts\activate
 # 2) Install dependencies
 pip install -r requirements.txt
 
-# 4) Initialize DB
+# 4) Check Database consistency
 flask db upgrade  # first run will create SQLite file
 flask db current # check current migration version
 flask db history # view all migrations
@@ -45,6 +45,15 @@ run.bat           # Production mode
 run.bat INFO      # Custom INFO logging
 run.bat DEBUG     # Custom DEBUG logging
 # visit http://127.0.0.1:5000
+```
+## DB migrations
+
+```bash
+# If you need to change the database schema: app/models.py
+# save the current database version
+flask db current
+flask db migrate -m "describe changes"
+flask db upgrade
 ```
 
 ### Run tests
