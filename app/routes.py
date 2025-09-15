@@ -34,4 +34,3 @@ def referee():
 @admin_bp.route('/display')
 def display():
     return render_template('admin/display.html')
-
