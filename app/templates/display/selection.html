@@ -1,4 +1,91 @@
-{% extends "base.html" %}
-{% block title %}Display{% endblock %}
-{% block css %}{% endblock %}
-{% block content %}{% endblock %}
+{% extends "base.html" %} {% block title %}Display{% endblock %} {% block css %}
+<style>
+  table {
+    border-collapse: collapse;
+  }
+  th,
+  td {
+    border: 1px solid #ccc;
+  }
+  th,
+  td {
+    padding: 8px;
+  }
+  th {
+    background-color: #f2f2f2;
+    font-weight: bold;
+    text-align: center;
+  }
+  tbody tr:nth-child(even) {
+    background-color: #f9f9f9;
+  }
+  tbody tr:hover {
+    background-color: #e0e0e0;
+  }
+  .centered-container {
+    text-align: center;
+    margin: auto;
+    width: 50%;
+  }
+  .data-table {
+    width: 100%;
+    margin-top: 20px;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    margin-left: auto;
+    margin-right: auto;
+  }
+  .data-table .name-column {
+    text-align: center;
+    max-width: 200px;
+    word-wrap: break-word;
+    white-space: normal;
+    overflow-wrap: break-word;
+  }
+  .data-table .date-column {
+    width: 120px;
+  }
+</style>
+{% endblock %} {% block content %}
+<div class="centered-container">
+  <h1>Selection Display</h1>
+</div>
+<table class="data-table">
+  <thead>
+    <tr>
+      <th class="name-column">Name</th>
+      <th class="date-column">Date</th>
+    </tr>
+  </thead>
+  <tbody>
+  </tbody>
+</table>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const tableBody = document.querySelector('.data-table tbody');
+    const numberOfRows = 15;
+
+    tableBody.innerHTML = '';
+
+    for (let i = 0; i < numberOfRows; i++) {
+      const row = tableBody.insertRow();
+      const nameCell = row.insertCell();
+      const dateCell = row.insertCell();
+
+      nameCell.classList.add('name-column');
+      dateCell.classList.add('date-column');
+
+      nameCell.textContent = `Generated Name ${i + 1}`;
+
+      const randomDate = new Date();
+      randomDate.setDate(randomDate.getDate() - i);
+      const month = String(randomDate.getMonth() + 1).padStart(2, '0');
+      const day = String(randomDate.getDate()).padStart(2, '0');
+      const year = randomDate.getFullYear();
+      dateCell.textContent = `${month}/${day}/${year}`;
+    }
+  });
+</script>
+{% endblock %}
