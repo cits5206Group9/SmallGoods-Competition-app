@@ -36,7 +36,7 @@
 
 
       <!-- Timer Controls -->
-      <div class="card mt-4">
+      <div class="card mt-4 hide-on-mobile">
         <div class="card-header">
           <h5><span class="ico"></span> Timer Controls</h5>
         </div>
@@ -93,6 +93,7 @@
         </div>
       </div>
 
+      
 
       <!-- Current Status -->
       <!-- Current Status -->
@@ -110,14 +111,28 @@
             </div>
           </div>
 
+          <!-- Countdown toggle + (hidden) set-time row for the main attempt timer -->
+          <div class="attempt-controls">
+            <button id="btnAttemptToggle" class="btn" type="button">Countdown: Off</button>
+
+            <div class="timer-set attempt-set" id="attemptSetRow" style="display:none">
+              <label for="attemptHMS"><strong>Set</strong></label>
+              <input id="attemptHMS" class="input-hms" type="text" inputmode="numeric"
+                    placeholder="HH:MM:SS" value="00:01:00">
+              <button class="btn" id="btnAttemptApply">Apply</button>
+            </div>
+          </div>
+
+
+
           <!-- BREAK / BLOCK BELOW -->
           <div class="status-bottom one-col">
             <div class="panel">
               <h5>Break</h5>
               <div class="display-time small" id="breakClock">10:00</div>
               <!-- new timer set -->
-              <div class="timer-set">
-                <label for="breakHMS"><strong>Set</strong></label>
+              <div class="timer-set break-set">
+                <label for="breakHMS">Set Time :</label>
                 <input id="breakHMS" type="text" inputmode="numeric" placeholder="HH:MM:SS" value="00:10:00" class="input-hms">
                 <button class="btn" id="btnBreakApply">Apply</button>
               </div>
@@ -142,7 +157,7 @@
         </div>
         <div class="card-body">
           <table class="tk-table" id="logTable">
-            <thead><tr><th>Time</th><th>Action</th><th>Detail</th></tr></thead>
+            <thead><tr><th>Start time</th><th>Stop time</th><th>Action</th><th>Duration</th></tr></thead>
             <tbody></tbody>
           </table>
         </div>
