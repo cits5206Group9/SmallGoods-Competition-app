@@ -133,55 +133,6 @@
       </div>
 
 
-      <!-- Context (Now / Next / Avg / Notes) -->
-      <div class="card mt-4">
-        <div class="card-header">
-          <h5>Context</h5>
-        </div>
-        <div class="card-body">
-          <div class="ctx-grid">
-            <div class="ctx-item">
-              <div class="ctx-label">Now</div>
-              <div class="ctx-value" id="ctx-now">
-                {% if context and context.now %}
-                  {{ context.now.athlete }} — Attempt {{ context.now.attempt }} — {{ context.now.lift }} — {{ context.now.declared }} kg
-                {% else %}
-                  —
-                {% endif %}
-              </div>
-            </div>
-
-            <div class="ctx-item">
-              <div class="ctx-label">Next</div>
-              <div class="ctx-value" id="ctx-next">
-                {% if context and context.next %}
-                  {{ context.next.athlete }} — Attempt {{ context.next.attempt }} — {{ context.next.lift }} — {{ context.next.declared }} kg
-                {% else %}
-                  TBD
-                {% endif %}
-              </div>
-            </div>
-
-            <div class="ctx-item">
-              <div class="ctx-label">Avg / lift</div>
-              <div class="ctx-value" id="ctx-avg">
-                {% if context and context.avg_sec_per_lift %}
-                  ~{{ context.avg_sec_per_lift }}s
-                {% else %}
-                  —
-                {% endif %}
-              </div>
-            </div>
-
-            <div class="ctx-item ctx-notes">
-              <div class="ctx-label">Notes</div>
-              <div class="ctx-value" id="ctx-notes">
-                {% if context and context.notes %}{{ context.notes }}{% else %}—{% endif %}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
 
 
       <!-- Event Log -->
