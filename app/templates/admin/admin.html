@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Dashboard - SmallGoods{% endblock %}
+
+{% block css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="admin-dashboard">
+    <h1>Admin Dashboard</h1>
+    
+    <div class="admin-grid">
+        <div class="admin-card">
+            <h2>Competition Model Editor</h2>
+            <p>Configure competition rules and settings</p>
+            <a href="{{ url_for('admin.competition_model') }}" class="admin-link">Manage</a>
+        </div>
+
+        <div class="admin-card">
+            <h2>Live Event Control</h2>
+            <p>Manage ongoing competitions</p>
+            <a href="{{ url_for('admin.live_event') }}" class="admin-link">Control</a>
+        </div>
+
+        <div class="admin-card">
+            <h2>Data Management</h2>
+            <p>Manage athletes, teams, and results</p>
+            <a href="{{ url_for('admin.data') }}" class="admin-link">Manage Data</a>
+        </div>
+
+        <div class="admin-card">
+            <h2>Timer Control</h2>
+            <p>Control competition timers</p>
+            <a href="{{ url_for('admin.timer') }}" class="admin-link">Timer</a>
+        </div>
+
+        <div class="admin-card">
+            <h2>Referee Interface</h2>
+            <p>Manage referee controls and scoring</p>
+            <a href="{{ url_for('admin.referee') }}" class="admin-link">Referee Panel</a>
+        </div>
+
+        <div class="admin-card">
+            <h2>Display & Scoreboard</h2>
+            <p>Control public displays and scoreboards</p>
+            <a href="{{ url_for('admin.display') }}" class="admin-link">Display Control</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

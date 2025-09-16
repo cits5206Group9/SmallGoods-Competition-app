@@ -1,6 +1,29 @@
 {% extends "base.html" %}
+
+{% block title %}Welcome to SmallGoods{% endblock %}
+
 {% block content %}
-  <h2>Welcome!</h2>
-  <p>Your Flask app is running. Edit this page at
-    <code>src/app/templates/index.html</code>.</p>
+<div class="welcome-container">
+    <h1>Welcome to SmallGoods Competition App</h1>
+    </div>
+{% endblock %}
+
+{% block css %}
+<style>
+    .welcome-container {
+        text-align: center;
+        padding: 2rem;
+        margin-top: 2rem;
+    }
+
+    h1 {
+        color: #333;
+        margin-bottom: 1rem;
+    }
+
+    p {
+        color: #666;
+        font-size: 1.1rem;
+    }
+</style>
 {% endblock %}
