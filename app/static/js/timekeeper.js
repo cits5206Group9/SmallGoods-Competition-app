@@ -169,6 +169,51 @@
   bindClickAll("btnBreakResume", () => { breakClock.resume(); addLog("Break", "Resume"); });
   bindClickAll("btnBreakReset",  () => { breakClock.reset();  addLog("Break", "Reset");  });
 
+
+  // --- helper to parse "HH:MM:SS" or "MM:SS" or "SS" into seconds
+function parseHMS(str) {
+  if (!str) return NaN;
+  const parts = str.trim().split(":").map(s => s.trim());
+  if (parts.some(p => p === "")) return NaN;
+  if (parts.length === 3) {
+    const [hh, mm, ss] = parts.map(Number);
+    if ([hh,mm,ss].some(n => Number.isNaN(n) || n < 0)) return NaN;
+    return hh*3600 + mm*60 + ss;
+  } else if (parts.length === 2) {
+    const [mm, ss] = parts.map(Number);
+    if ([mm,ss].some(n => Number.isNaN(n) || n < 0)) return NaN;
+    return mm*60 + ss;
+  } else if (parts.length === 1) {
+    const ss = Number(parts[0]);
+    if (Number.isNaN(ss) || ss < 0) return NaN;
+    return ss;
+  }
+  return NaN;
+}
+
+// Pre-fill the input with the default break value in HH:MM:SS
+const breakHMSInput = document.getElementById("breakHMS");
+if (breakHMSInput) {
+  breakHMSInput.value = fmtHMS(window.TK_DEFAULT_BREAK || 600);
+}
+
+// Apply -> set countdown to entered time
+const btnBreakApply = document.getElementById("btnBreakApply");
+if (btnBreakApply && breakHMSInput) {
+  btnBreakApply.onclick = () => {
+    const secs = parseHMS(breakHMSInput.value);
+    if (!Number.isNaN(secs)) {
+      breakClock.set(secs);
+      addLog("Break", `Set ${fmtHMS(secs)}`);
+    } else {
+      // optional: quick visual shake
+      btnBreakApply.classList.add("invalid");
+      setTimeout(() => btnBreakApply.classList.remove("invalid"), 300);
+    }
+  };
+}
+
+
   // ---------- Keyboard shortcuts ----------
   document.addEventListener("keydown", (e) => {
     if (e.repeat) return;

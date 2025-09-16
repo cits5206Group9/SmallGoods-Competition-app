@@ -115,11 +115,68 @@
             <div class="panel">
               <h5>Break</h5>
               <div class="display-time small" id="breakClock">10:00</div>
+              <!-- new timer set -->
+              <div class="timer-set">
+                <label for="breakHMS"><strong>Set</strong></label>
+                <input id="breakHMS" type="text" inputmode="numeric" placeholder="HH:MM:SS" value="00:10:00" class="input-hms">
+                <button class="btn" id="btnBreakApply">Apply</button>
+              </div>
               <div class="btn-row">
                 <button class="btn primary" id="btnBreakStart">Start</button>
                 <button class="btn" id="btnBreakPause">Pause</button>
                 <button class="btn" id="btnBreakResume">Resume</button>
                 <button class="btn danger" id="btnBreakReset">Reset</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+
+      <!-- Context (Now / Next / Avg / Notes) -->
+      <div class="card mt-4">
+        <div class="card-header">
+          <h5>Context</h5>
+        </div>
+        <div class="card-body">
+          <div class="ctx-grid">
+            <div class="ctx-item">
+              <div class="ctx-label">Now</div>
+              <div class="ctx-value" id="ctx-now">
+                {% if context and context.now %}
+                  {{ context.now.athlete }} — Attempt {{ context.now.attempt }} — {{ context.now.lift }} — {{ context.now.declared }} kg
+                {% else %}
+                  —
+                {% endif %}
+              </div>
+            </div>
+
+            <div class="ctx-item">
+              <div class="ctx-label">Next</div>
+              <div class="ctx-value" id="ctx-next">
+                {% if context and context.next %}
+                  {{ context.next.athlete }} — Attempt {{ context.next.attempt }} — {{ context.next.lift }} — {{ context.next.declared }} kg
+                {% else %}
+                  TBD
+                {% endif %}
+              </div>
+            </div>
+
+            <div class="ctx-item">
+              <div class="ctx-label">Avg / lift</div>
+              <div class="ctx-value" id="ctx-avg">
+                {% if context and context.avg_sec_per_lift %}
+                  ~{{ context.avg_sec_per_lift }}s
+                {% else %}
+                  —
+                {% endif %}
+              </div>
+            </div>
+
+            <div class="ctx-item ctx-notes">
+              <div class="ctx-label">Notes</div>
+              <div class="ctx-value" id="ctx-notes">
+                {% if context and context.notes %}{{ context.notes }}{% else %}—{% endif %}
               </div>
             </div>
           </div>
