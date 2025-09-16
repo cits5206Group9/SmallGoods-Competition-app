@@ -1,0 +1,53 @@
+.admin-dashboard {
+    padding: 2rem;
+}
+
+.admin-dashboard h1 {
+    text-align: center;
+    margin-bottom: 2rem;
+    color: #333;
+}
+
+.admin-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 2rem;
+    padding: 1rem;
+}
+
+.admin-card {
+    background: white;
+    border-radius: 8px;
+    padding: 1.5rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.admin-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+
+.admin-card h2 {
+    color: #2c3e50;
+    margin-bottom: 1rem;
+}
+
+.admin-card p {
+    color: #666;
+    margin-bottom: 1.5rem;
+}
+
+.admin-link {
+    display: inline-block;
+    padding: 0.5rem 1rem;
+    background-color: #3498db;
+    color: white;
+    text-decoration: none;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+}
+
+.admin-link:hover {
+    background-color: #2980b9;
+}

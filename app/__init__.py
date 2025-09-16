@@ -1,24 +1,142 @@
+import logging
+import os
+import sys
+from pathlib import Path
 from flask import Flask
 from .config import get_config
 from .extensions import db, migrate
 from .routes import main_bp
+from .routes import admin_bp
+from . import models  # Import models so they are registered with SQLAlchemy
+
+
+class ColoredFormatter(logging.Formatter):
+    """Custom formatter with colors for different log levels."""
+    
+    # ANSI color codes
+    COLORS = {
+        'DEBUG': '\033[36m',     # Cyan
+        'INFO': '\033[32m',      # Green
+        'WARNING': '\033[33m',   # Yellow
+        'ERROR': '\033[31m',     # Red
+        'CRITICAL': '\033[35m',  # Magenta
+    }
+    RESET = '\033[0m'
+    
+    def format(self, record):
+        # Get the original formatted message
+        formatted = super().format(record)
+        
+        # Add color if outputting to terminal
+        if sys.stderr.isatty():
+            color = self.COLORS.get(record.levelname, '')
+            return f"{color}{formatted}{self.RESET}"
+        return formatted
+
+
+def setup_logging(log_level: str = None) -> None:
+    """Setup colored logging with detailed format."""
+    # Get log level from environment variable or parameter
+    level_name = (
+        log_level or 
+        os.environ.get('FLASK_LOG_LEVEL', 'INFO')
+    ).upper()
+    
+    # Convert string to logging level
+    level = getattr(logging, level_name, logging.WARNING)
+    
+    # Create formatter with detailed information
+    formatter = ColoredFormatter(
+        fmt='%(asctime)s - %(name)s:%(lineno)d - %(levelname)s - %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
+    
+    # Setup root logger
+    root_logger = logging.getLogger()
+    root_logger.setLevel(level)
+    
+    # Remove existing handlers to avoid duplicates
+    for handler in root_logger.handlers[:]:
+        root_logger.removeHandler(handler)
+    
+    # Create console handler
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setLevel(level)
+    console_handler.setFormatter(formatter)
+    
+    # Add handler to root logger
+    root_logger.addHandler(console_handler)
+    
+    logging.info(f"Logging configured at {level_name} level")
+
+
+logger = logging.getLogger(__name__)
 
 def create_app(config_name: str | None = None) -> Flask:
     app = Flask(__name__, instance_relative_config=True)
-    app.config.from_object(get_config(config_name))
+    config = get_config(config_name)
+    app.config.from_object(config)
 
-    # Ensure instance folder for SQLite
-    try:
-        from pathlib import Path
-        Path(app.instance_path).mkdir(parents=True, exist_ok=True)
-    except Exception:
-        pass
+    # Custom logging setup logic:
+    # - Only setup custom logging if FLASK_LOG_LEVEL environment variable is set
+    # - If no FLASK_LOG_LEVEL, run in production mode with Flask's default minimal logging
+    flask_log_level = os.environ.get('FLASK_LOG_LEVEL')
+    
+    if flask_log_level:
+        setup_logging(flask_log_level)
+        print(f"🔧 Custom logging enabled with level: {flask_log_level}")
+    else:
+        print(f"🚀 Production mode - using Flask's default logging")
+    
+    logger.info(f"Starting Flask app with config: {config.__name__}")
 
     # Init extensions
     db.init_app(app)
     migrate.init_app(app, db)
+    logger.debug("Database extensions initialized")
+    
+    # Handle database initialization
+    with app.app_context():
+        _initialize_database(config, app.instance_path)
 
     # Register blueprints
     app.register_blueprint(main_bp)
-
+    app.register_blueprint(admin_bp)
+    
+    logger.info("Flask app created successfully")
     return app
+
+def _initialize_database(config, instance_path: str) -> None:
+    """Initialize the database if it doesn't exist."""
+    try:
+        if config.is_sqlite():
+            db_path = config.get_db_path(instance_path)
+            logger.info(f"Checking database at: {db_path}")
+
+            if config.needs_db_creation(instance_path):
+                logger.info(f"Database not found at {db_path}. Creating new database...")
+                # Ensure the directory exists
+                db_dir = os.path.dirname(db_path)
+                if db_dir:
+                    Path(db_dir).mkdir(parents=True, exist_ok=True)
+                db.create_all()
+                logger.info("Database created successfully!")
+            else:
+                logger.info(f"Database already exists at {db_path}")
+        else:
+            # For other databases, check if tables exist
+            inspector = db.inspect(db.engine)
+            if not inspector.get_table_names():
+                logger.info("No tables found. Creating database tables...")
+                db.create_all()
+                logger.info("Database tables created successfully!")
+            else:
+                logger.info("Database tables already exist")
+    except Exception as e:
+        logger.error(f"Error during database initialization: {e}")
+        logger.error(f"Database URI: {config.SQLALCHEMY_DATABASE_URI}")
+        logger.error(f"Instance path: {instance_path}")
+        if config.is_sqlite():
+            db_path = config.get_db_path(instance_path)
+            logger.error(f"Computed DB path: {db_path}")
+        raise

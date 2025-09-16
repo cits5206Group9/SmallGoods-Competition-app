@@ -2,15 +2,16 @@ from flask import Blueprint, render_template, jsonify, request, flash, redirect,
 from .extensions import db
 from .models import User
 
-main_bp = Blueprint("main", __name__)
+main_bp = Blueprint('main', __name__)
+admin_bp = Blueprint('admin', __name__, url_prefix='/admin')
 
-@main_bp.get("/")
+@main_bp.route('/')
 def index():
-    return render_template("index.html")
+    return render_template('index.html')
 
-@main_bp.get("/health")
-def health():
-    return jsonify(status="ok")
+@admin_bp.route('/')
+def admin_dashboard():
+    return render_template('admin/admin.html')
 
 @main_bp.get("/seed")
 def seed():
@@ -26,41 +27,39 @@ def login():
     if request.method == "POST":
         contact = request.form.get("contact")
         password = request.form.get("password")
-        
+
         # TODO: Implement actual authentication logic
         # For now, just show the form data
         flash(f"Login attempt for: {contact}", "info")
         return redirect(url_for("main.login"))
-    
+
     return render_template("login.html")
 
-# Registration routes
-@main_bp.route("/register", methods=["GET", "POST"])
-def register():
-    if request.method == "POST":
-        # Get form data
-        role = request.form.get("role")
-        full_name = request.form.get("full_name")
-        password = request.form.get("password")
-        phone = request.form.get("phone")
-        email = request.form.get("email")
-        
-        # TODO: Implement actual registration logic
-        # For now, just show the form data
-        flash(f"Registration attempt for: {full_name} as {role}", "info")
-        return redirect(url_for("main.register"))
-    
-    return render_template("register.html")
-
 # Placeholder routes for links
-@main_bp.get("/terms")
-def terms():
-    return "<h1>Terms of Service</h1><p>Terms content will go here...</p>"
-
-@main_bp.get("/privacy")
-def privacy():
-    return "<h1>Privacy Policy</h1><p>Privacy policy content will go here...</p>"
-
 @main_bp.get("/forgot-password")
 def forgot_password():
     return "<h1>Forgot Password</h1><p>Password reset functionality will go here...</p>"
+
+@admin_bp.route('/competition-model')
+def competition_model():
+    return render_template('admin/competition_model.html')
+
+@admin_bp.route('/live-event')
+def live_event():
+    return render_template('admin/live_event.html')
+
+@admin_bp.route('/data')
+def data():
+    return render_template('admin/data.html')
+
+@admin_bp.route('/timer')
+def timer():
+    return render_template('admin/timer.html')
+
+@admin_bp.route('/referee')
+def referee():
+    return render_template('admin/referee.html')
+
+@admin_bp.route('/display')
+def display():
+    return render_template('admin/display.html')
