@@ -2,73 +2,29 @@
 <html lang="en">
   <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no, viewport-fit=cover">
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <meta name="theme-color" content="#3b82f6">
-    <title>Weightlifting App</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}{% endblock %}</title>
+
+    <!-- Base CSS -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-    <style>
-      /* Touch-specific optimizations */
-      * {
-        -webkit-tap-highlight-color: rgba(59, 130, 246, 0.2);
-        -webkit-touch-callout: none;
-      }
-      
-      /* Improve scrolling on iOS */
-      body {
-        -webkit-overflow-scrolling: touch;
-        overflow-scrolling: touch;
-      }
-      
-      /* Better input focus for mobile */
-      input, select, textarea {
-        -webkit-appearance: none;
-        -moz-appearance: none;
-        appearance: none;
-      }
-      
-      /* Prevent zoom on input focus for iOS */
-      @media screen and (max-width: 480px) {
-        input[type="text"],
-        input[type="email"], 
-        input[type="tel"],
-        input[type="password"],
-        select,
-        textarea {
-          font-size: 16px !important;
-        }
-      }
-    </style>
+    {% block css %}{% endblock %}
   </head>
   <body>
-    <header class="container">
-      <h1>Weightlifting App</h1>
-      <nav>
-        <a href="/">Home</a> ·
-        <a href="/login">Login</a> ·
-        <a href="/register">Register</a> ·
-        <a href="/health">Health</a>
-      </nav>
-      <hr>
-    </header>
     <main class="container">
-      {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-          <div class="flash-messages">
-            {% for category, message in messages %}
-              <div class="alert alert-{{ category }}">{{ message }}</div>
-            {% endfor %}
-          </div>
-        {% endif %}
-      {% endwith %}
-      {% block content %}{% endblock %}
+        {% block content %}{% endblock %}
     </main>
-    <footer class="container">
-      <hr>
-      <p>© 2025 Weightlifting App</p>
+
+    <footer class="footer">
+        <div class="footer-content container">
+            <div class="footer-info">
+                <p>© 2025 Small Goods Gym</p>
+                <p>All rights reserved</p>
+            </div>
+        </div>
     </footer>
+
+    <!-- Base JavaScript -->
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    {% block scripts %}{% endblock %}
   </body>
 </html>
