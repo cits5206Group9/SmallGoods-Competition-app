@@ -15,6 +15,7 @@ from .models import (
 
 main_bp = Blueprint('main', __name__)
 admin_bp = Blueprint('admin', __name__, url_prefix='/admin')
+display_bp = Blueprint('display', __name__, url_prefix='/display' )
 athlete_bp = Blueprint('athlete', __name__, url_prefix='/athlete')
 
 @main_bp.route('/')
@@ -48,6 +49,18 @@ def referee():
 @admin_bp.route('/display')
 def display():
     return render_template('admin/display.html')
+
+@display_bp.route('/')
+def display_index():
+    return render_template('display/selection.html')
+
+@display_bp.route('/competition')
+def display_competition():
+    return render_template('display/competition.html')
+
+@display_bp.route('/datatable')
+def display_datatable():
+    return render_template('display/datatable.html')
 
 # --- Athlete Routes --- #
 
