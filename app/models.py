@@ -104,10 +104,6 @@ class Athlete(db.Model):
     phone = db.Column(db.String(20))
 
     # Competition details
-    team = db.Column(db.String(100))
-    weight_category = db.Column(db.String(50))
-    bodyweight = db.Column(db.Float)
-    age = db.Column(db.Integer)
     gender = db.Column(db.String(10))
 
     is_active = db.Column(db.Boolean, default=True)
