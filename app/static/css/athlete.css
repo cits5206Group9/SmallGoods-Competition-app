@@ -18,18 +18,7 @@
     align-items: stretch;
 }
 
-/* Responsive layout */
-@media screen and (max-width: 768px) {
-    .dashboard-grid {
-        grid-template-columns: 1fr;
-    }
-    
-    .athlete-dashboard {
-        padding: 10px;
-    }
-}
-
-/* Left Column - Profile and Timer */
+/* Left Column - Profile, Timer, Rankings */
 .left-column {
     display: flex;
     flex-direction: column;
@@ -71,12 +60,6 @@
     color: #dc3545;
 }
 
-@keyframes pulse {
-    0% { opacity: 1; }
-    50% { opacity: 0.5; }
-    100% { opacity: 1; }
-}
-
 .next-attempt-info {
     background: #f8f9fa;
     padding: 10px;
@@ -84,7 +67,7 @@
     margin-top: 10px;
 }
 
-/* Rankings at bottom */
+/* Rankings display */
 .rankings-card {
     text-align: center;
 }
@@ -111,6 +94,7 @@
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
+/* Event display */
 .event-buttons {
     display: flex;
     gap: 10px;
@@ -143,11 +127,19 @@
     border-radius: 8px;
     padding: 20px;
     margin-top: 15px;
+    transition: all 0.3s ease;
 }
 
 .event-details.active {
     display: block;
 }
+
+#event-details-container {
+    margin-top: 20px;
+    transition: all 0.3s ease;
+}
+
+/* Attempt detail display */
 
 .attempts-section {
     margin-top: 20px;
@@ -158,23 +150,170 @@
     padding: 15px;
     background: white;
     border-radius: 8px;
-    display: flex;
-    justify-content: space-between;
+    display: grid;
+    grid-template-columns: 100px minmax(80px, auto) 80px 80px;
     align-items: center;
+    gap: 15px;
 }
 
-.next-attempt {
-    border-left: 4px solid #007bff;
+/* Weight Display */
+
+.weight-display {
+    width: fit-content;
+    min-width: 60px;
 }
 
-.not-registered-message {
+.weight-value {
+    color: #007bff;
+    cursor: pointer;
+    padding: 2px 4px;
+}
+
+.weight-value:hover {
+    background-color: #f8f9fa;
+    border-radius: 4px;
+}
+
+.weight-form {
+    display: none;
+    align-items: center;
+    gap: 4px;
+    width: fit-content;
+}
+
+.weight-form input[type="number"] {
+    width: 50px;
+    padding: 2px 4px;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.submit-weight {
+    padding: 2px 8px;
+    background-color: #a9a9a9;
+    color: white;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    line-height: 1.5;
     text-align: center;
-    padding: 2rem;
-    background: #f8f9fa;
-    border-radius: 8px;
-    margin-top: 1rem;
-    color: #6c757d;
-    font-style: italic;
+    white-space: nowrap;
+    min-width: fit-content;
+}
+
+.submit-weight:hover {
+    background-color: #d3d3d3;
+}
+
+.status, .result {
+    text-align: center;
+}
+
+.status {
+    justify-self: start;
+}
+
+/* Responsive layout */
+@media screen and (max-width: 768px) {
+    .dashboard-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .athlete-dashboard {
+        padding: 10px;
+    }
+
+    .attempt {
+        grid-template-columns: 1fr;  /* Stack elements vertically on mobile */
+        gap: 8px;
+        padding: 10px;
+    }
+
+    .weight-display {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        width: 100%;
+    }
+
+    .weight-form {
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    .weight-form input[type="number"] {
+        width: calc(100% - 80px);  /* Leave space for 'kg' and button */
+    }
+
+    .status, .result {
+        text-align: left;
+        justify-self: start;
+    }
+}
+
+/* Add tablet breakpoint */
+@media screen and (min-width: 769px) and (max-width: 1024px) {
+    .attempt {
+        grid-template-columns: 80px 1fr 80px 80px;
+        gap: 10px;
+    }
+
+    .weight-form input[type="number"] {
+        width: 45px;
+    }
+
+    .submit-weight {
+        padding: 2px 6px;
+        font-size: 11px;
+    }
+}
+
+/* Add small mobile breakpoint */
+@media screen and (max-width: 480px) {
+    .event-buttons {
+        flex-direction: column;
+    }
+
+    .event-button {
+        width: 100%;
+        text-align: center;
+    }
+
+    .weight-form {
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .weight-form input[type="number"] {
+        width: calc(100% - 40px);  /* Leave space for 'kg' */
+    }
+
+    .submit-weight {
+        width: 100%;
+        margin-top: 8px;
+    }
+}
+
+/* Add print media query */
+@media print {
+    .athlete-dashboard {
+        padding: 0;
+    }
+
+    .timer-card, .event-buttons {
+        display: none;
+    }
+
+    .attempt {
+        break-inside: avoid;
+    }
+
+    .weight-value {
+        color: black;
+        cursor: default;
+    }
 }
 
 
