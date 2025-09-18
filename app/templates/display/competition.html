@@ -1,0 +1,435 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Competition Display</title>
+
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        background-color: #000;
+        color: #fff;
+        overflow-x: hidden;
+      }
+
+      .container-fluid {
+        padding: 2rem;
+        min-height: 100vh;
+      }
+
+      .row {
+        display: flex;
+        flex-wrap: wrap;
+        margin: 0 -1rem;
+      }
+
+      .col-12,
+      .col-lg-8,
+      .col-lg-4,
+      .col-md-3 {
+        padding: 0 1rem;
+        width: 100%;
+      }
+
+      .competition-header {
+        text-align: center;
+        margin-bottom: 2rem;
+      }
+
+      .competition-title {
+        font-size: 3rem;
+        margin-bottom: 0.5rem;
+      }
+
+      .event-name {
+        font-size: 1.5rem;
+        color: #aaa;
+        margin-bottom: 2rem;
+      }
+
+      .current-lifter {
+        text-align: center;
+        margin: 2rem 0 4rem 0;
+      }
+
+      .athlete-name {
+        font-size: 4rem;
+        font-weight: bold;
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+        margin-bottom: 1rem;
+      }
+
+      .team-name {
+        font-size: 2rem;
+        color: #ccc;
+        margin-bottom: 2rem;
+      }
+
+      .current-weight {
+        font-size: 8rem;
+        font-weight: bold;
+        color: #007bff;
+        text-shadow: 3px 3px 6px rgba(0, 0, 0, 0.8);
+        margin: 2rem 0;
+      }
+
+      .attempt-info {
+        font-size: 2.5rem;
+        margin: 1rem 0;
+      }
+
+      .lift-name {
+        color: #28a745;
+        font-weight: bold;
+      }
+
+      .timer-large {
+        font-size: 6rem;
+        font-weight: bold;
+        text-align: center;
+        color: #28a745;
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+        margin: 2rem 0;
+      }
+
+      .timer-large.running {
+        animation: pulse 1s infinite;
+      }
+
+      .timer-large.warning {
+        color: #ffc107;
+      }
+
+      .timer-large.expired {
+        color: #dc3545;
+        animation: blink 0.5s infinite;
+      }
+
+      .side-panel > div {
+        background-color: #1a1a1a;
+        border-radius: 1rem;
+        padding: 2rem;
+        margin-bottom: 2rem;
+      }
+
+      .side-panel h4 {
+        margin-bottom: 1rem;
+      }
+
+      .next-lifter-item {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 0.5rem;
+        padding: 0.5rem;
+        background-color: #333;
+        border-radius: 0.5rem;
+      }
+
+      .next-lifter-item .weight {
+        color: #17a2b8;
+        font-weight: bold;
+      }
+
+      .rankings-table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+
+      .rankings-table th,
+      .rankings-table td {
+        padding: 0.5rem;
+        text-align: left;
+      }
+
+      .rankings-table thead {
+        border-bottom: 2px solid #444;
+      }
+
+      .rankings-table .total-score {
+        color: #ffc107;
+        font-weight: bold;
+      }
+
+      .status-bar {
+        background-color: #212529;
+        padding: 1rem;
+        border-radius: 0.5rem;
+        text-align: center;
+      }
+
+      .status-bar .row {
+        align-items: center;
+      }
+
+      .status-bar strong {
+        margin-right: 0.5rem;
+      }
+
+      .status-live {
+        color: #28a745;
+        font-weight: bold;
+      }
+
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.7;
+        }
+      }
+
+      @keyframes blink {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.3;
+        }
+      }
+
+      @media (min-width: 992px) {
+        .col-lg-8 {
+          width: 66.666667%;
+        }
+        .col-lg-4 {
+          width: 33.333333%;
+        }
+      }
+
+      @media (min-width: 768px) {
+        .col-md-3 {
+          width: 25%;
+        }
+      }
+
+      @media (max-width: 1200px) {
+        .athlete-name {
+          font-size: 3rem;
+        }
+        .current-weight {
+          font-size: 6rem;
+        }
+        .timer-large {
+          font-size: 4rem;
+        }
+      }
+
+      @media (max-width: 768px) {
+        .athlete-name {
+          font-size: 2rem;
+        }
+        .current-weight {
+          font-size: 4rem;
+        }
+        .timer-large {
+          font-size: 3rem;
+        }
+        .attempt-info {
+          font-size: 1.5rem;
+        }
+        .status-bar .col-md-3 {
+          margin-bottom: 1rem;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="container-fluid">
+      <div class="row">
+        <div class="col-12 competition-header">
+          <h1 class="competition-title">🏋️‍♂️ CompetitionName</h1>
+          <h2 class="event-name" id="event-name">Olympic Weightlifting</h2>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col-lg-8">
+          <div class="current-lifter">
+            <div class="athlete-name" id="current-athlete">John Doe</div>
+            <div class="team-name" id="current-team">Team Power</div>
+            <div class="current-weight" id="current-weight">150kg</div>
+            <div class="attempt-info">
+              <span class="lift-name" id="current-lift">Clean & Jerk</span> -
+              <span id="attempt-number">Attempt 2</span>
+            </div>
+            <div class="timer-large" id="competition-timer">1:00</div>
+          </div>
+        </div>
+
+        <div class="col-lg-4 side-panel">
+          <div class="next-lifters">
+            <h4>🔄 Next Up</h4>
+            <div id="next-lifters-list">
+              <div class="next-lifter-item">
+                <span>Jane Smith</span><span class="weight">145kg</span>
+              </div>
+              <div class="next-lifter-item">
+                <span>Peter Jones</span><span class="weight">140kg</span>
+              </div>
+              <div class="next-lifter-item">
+                <span>Mary Williams</span><span class="weight">135kg</span>
+              </div>
+              <div class="next-lifter-item">
+                <span>David Brown</span><span class="weight">130kg</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="rankings-display">
+            <h4>🏆 Current Rankings</h4>
+            <table class="rankings-table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Athlete</th>
+                  <th>Total</th>
+                </tr>
+              </thead>
+              <tbody id="rankings-body">
+                <tr>
+                  <td>1</td>
+                  <td>John Doe</td>
+                  <td class="total-score">280kg</td>
+                </tr>
+                <tr>
+                  <td>2</td>
+                  <td>Jane Smith</td>
+                  <td class="total-score">275kg</td>
+                </tr>
+                <tr>
+                  <td>3</td>
+                  <td>Peter Jones</td>
+                  <td class="total-score">270kg</td>
+                </tr>
+                <tr>
+                  <td>4</td>
+                  <td>Mary Williams</td>
+                  <td class="total-score">265kg</td>
+                </tr>
+                <tr>
+                  <td>5</td>
+                  <td>David Brown</td>
+                  <td class="total-score">260kg</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col-12">
+          <div class="status-bar">
+            <div class="row">
+              <div class="col-md-3">
+                <strong>Event:</strong>
+                <span id="status-event">Olympic Weightlifting</span>
+              </div>
+              <div class="col-md-3">
+                <strong>Status:</strong>
+                <span id="status-state" class="status-live">LIVE</span>
+              </div>
+              <div class="col-md-3">
+                <strong>Athletes:</strong> <span id="status-athletes">12</span>
+              </div>
+              <div class="col-md-3">
+                <strong>Last Update:</strong>
+                <span id="status-time">--:--:--</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        let timerInterval = null;
+
+        const statusTimeEl = document.getElementById("status-time");
+        function updateStatusTime() {
+          const now = new Date();
+          statusTimeEl.textContent = now.toLocaleTimeString("en-US", {
+            hour12: false,
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+          });
+        }
+        updateStatusTime();
+        setInterval(updateStatusTime, 1000);
+
+        const timerElement = document.getElementById("competition-timer");
+        let duration = 60; // Default duration
+
+        function formatTime(seconds) {
+          const mins = Math.floor(seconds / 60);
+          const secs = seconds % 60;
+          return `${mins}:${secs.toString().padStart(2, "0")}`;
+        }
+
+        function startDisplayTimer(startDuration) {
+          if (timerInterval) clearInterval(timerInterval);
+
+          duration = startDuration;
+          let remaining = duration;
+          const startTime = Date.now();
+
+          timerElement.textContent = formatTime(remaining);
+          timerElement.classList.add("running");
+          timerElement.classList.remove("warning", "expired");
+
+          timerInterval = setInterval(() => {
+            const elapsed = Math.floor((Date.now() - startTime) / 1000);
+            remaining = Math.max(0, duration - elapsed);
+
+            timerElement.textContent = formatTime(remaining);
+
+            if (remaining <= 10 && remaining > 0) {
+              timerElement.classList.add("warning");
+            } else if (remaining === 0) {
+              timerElement.classList.remove("running", "warning");
+              timerElement.classList.add("expired");
+              clearInterval(timerInterval);
+            }
+          }, 100);
+        }
+
+        function resetDisplayTimer(newDuration) {
+          if (timerInterval) clearInterval(timerInterval);
+          timerElement.classList.remove("running", "warning", "expired");
+          timerElement.textContent = formatTime(newDuration);
+          duration = newDuration;
+        }
+
+        startDisplayTimer(60);
+
+        document.addEventListener("keydown", function (e) {
+          if (e.key === "F11" || (e.key === "f" && e.ctrlKey)) {
+            e.preventDefault();
+            if (document.fullscreenElement) {
+              document.exitFullscreen();
+            } else {
+              document.documentElement.requestFullscreen();
+            }
+          } else if (e.key === "Escape") {
+            if (document.fullscreenElement) {
+              document.exitFullscreen();
+            }
+          }
+        });
+
+        console.log("Display interface initialized with static data.");
+      });
+    </script>
+  </body>
+</html>
