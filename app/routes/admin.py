@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, request, jsonify
 from ..extensions import db
-from ..models import Competition, SportType, Exercise, CompetitionType
+from ..models import Competition, SportType, Exercise, CompetitionType, Athlete, SportCategory
 from datetime import datetime
 
 admin_bp = Blueprint('admin', __name__, url_prefix='/admin')
@@ -99,17 +99,41 @@ def save_competition_model():
         competition.end_date = datetime.now().date()
         competition.is_active = True
         
-        # Store the complete configuration including events, movements, and groups
-        competition.config = {
-            'name': data['name'],
-            'sport_type': data['sport_type'],
-            'features': data.get('features', {
-                'allowAthleteInput': True,
-                'allowCoachAssignment': True,
-                'enableAttemptOrdering': True
-            }),
-            'events': data.get('events', [])
-        }
+        day = CompetitionDay(
+            competition=competition,
+            day_number=1,
+            date=datetime.now().date(),
+            is_active=True
+        )
+        db.session.add(day)
+        db.session.flush()
+        
+        for event_data in data.get('events', []):
+            category = SportCategory(
+                competition_day=day,
+                name=event_data['name'],
+                is_active=True
+            )
+            db.session.add(category)
+            db.session.flush()
+            
+            for idx, movement in enumerate(event_data.get('movements', []), 1):
+                exercise = Exercise(
+                    sport_category=category,
+                    name=movement['name'],
+                    order=idx,
+                    attempt_time_limit=movement['timer'].get('attempt_seconds', 60),
+                    break_time_default=movement['timer'].get('break_seconds', 120)
+                )
+                db.session.add(exercise)
+                db.session.flush()
+                
+                comp_type = CompetitionType(
+                    exercise=exercise,
+                    name=movement.get('scoring', {}).get('name', 'Standard'),
+                    is_active=True
+                )
+                db.session.add(comp_type)
         
         if not competition_id:
             db.session.add(competition)
@@ -137,3 +161,31 @@ def save_competition_model():
         
 # ensure /admin/timer gets registered on admin_bp
 from . import timer
+@admin_bp.route('/atheletes-management')
+def atheletes_management():
+    # Get pagination parameters
+    page = request.args.get('page', 1, type=int)
+    per_page = 10
+    
+    # Get all competitions for the filter dropdown
+    competitions = Competition.query.all()
+    
+    # Get athletes with pagination
+    athletes_query = Athlete.query
+    athletes = athletes_query.paginate(page=page, per_page=per_page, error_out=False)
+    
+    return render_template('admin/atheletes_management.html', 
+                         athletes=athletes.items,
+                         competitions=competitions,
+                         pagination=athletes,
+                         page=page,
+                         per_page=per_page,
+                         total=athletes.total)
+
+@admin_bp.route('/flights-management')
+def flights_management():
+    # Get all competitions for the selection dropdown
+    competitions = Competition.query.all()
+    
+    return render_template('admin/flights_management.html',
+                         competitions=competitions)
