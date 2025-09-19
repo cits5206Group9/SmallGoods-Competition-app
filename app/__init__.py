@@ -5,10 +5,10 @@ from pathlib import Path
 from flask import Flask
 from .config import get_config
 from .extensions import db, migrate
-from .routes import main_bp
-from .routes import admin_bp
-from .routes import display_bp
-from .routes import coach_bp
+from .route import main_bp
+from .route import admin_bp
+from app.routes.display import display_bp
+from app.routes.coach import coach_bp
 from . import models  # Import models so they are registered with SQLAlchemy
 
 
