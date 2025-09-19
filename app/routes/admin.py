@@ -374,23 +374,37 @@ def create_flight():
         data = request.get_json()
         
         # Validate required fields
-        if not data.get('name') or not data.get('event_id'):
+        if not data.get('name'):
             return jsonify({
                 'status': 'error',
-                'message': 'Flight name and event ID are required'
+                'message': 'Flight name is required'
             }), 400
         
-        # Check if event exists
-        event = Event.query.get(data.get('event_id'))
-        if not event:
-            return jsonify({
-                'status': 'error',
-                'message': 'Event not found'
-            }), 404
+        # Check if event exists (if provided)
+        event_id = data.get('event_id')
+        
+        # Handle empty string as None
+        if event_id == '' or event_id == 'null':
+            event_id = None
+        
+        if event_id:
+            try:
+                event_id = int(event_id)
+                event = Event.query.get(event_id)
+                if not event:
+                    return jsonify({
+                        'status': 'error',
+                        'message': 'Event not found'
+                    }), 404
+            except (ValueError, TypeError):
+                return jsonify({
+                    'status': 'error', 
+                    'message': 'Invalid event ID format'
+                }), 400
         
         # Create new flight
         flight = Flight(
-            event_id=int(data.get('event_id')),
+            event_id=event_id,
             name=data.get('name', '').strip(),
             order=int(data.get('order', 1)),
             is_active=bool(data.get('is_active', False))
@@ -466,14 +480,19 @@ def update_flight(flight_id):
         if 'is_active' in data:
             flight.is_active = bool(data['is_active'])
         if 'event_id' in data:
-            # Check if new event exists
-            event = Event.query.get(int(data['event_id']))
-            if not event:
-                return jsonify({
-                    'status': 'error',
-                    'message': 'Event not found'
-                }), 404
-            flight.event_id = int(data['event_id'])
+            event_id = data['event_id']
+            if event_id:
+                # Check if new event exists
+                event = Event.query.get(int(event_id))
+                if not event:
+                    return jsonify({
+                        'status': 'error',
+                        'message': 'Event not found'
+                    }), 404
+                flight.event_id = int(event_id)
+            else:
+                # Allow setting event_id to None
+                flight.event_id = None
         
         db.session.commit()
         

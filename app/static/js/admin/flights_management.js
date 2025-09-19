@@ -132,6 +132,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
     async function loadFlights(eventId) {
         try {
+            if (!eventId) {
+                showEmptyState('Please select an event to view flights');
+                return;
+            }
+            
             showLoading(flightsContainer);
             
             const response = await fetch(`/admin/events/${eventId}/flights`);
@@ -389,18 +394,16 @@ document.addEventListener('DOMContentLoaded', function() {
         const formData = new FormData(flightForm);
         const eventId = formData.get('event_id') || currentEventId;
         
-        // Check if we have a valid event ID
-        if (!eventId) {
-            showNotification('Please select an event first', 'error');
-            return;
-        }
-        
         const flightData = {
             name: formData.get('flight_name'),
             order: parseInt(formData.get('flight_order')),
-            is_active: formData.has('is_active'),
-            event_id: parseInt(eventId)
+            is_active: formData.has('is_active')
         };
+
+        // Only add event_id if it's provided and not empty
+        if (eventId && eventId.trim() !== '') {
+            flightData.event_id = parseInt(eventId);
+        }
 
         try {
             showLoading(flightForm);
@@ -429,8 +432,13 @@ document.addEventListener('DOMContentLoaded', function() {
             showNotification(result.message, 'success');
             closeModals();
             
-            // Reload flights
-            await loadFlights(currentEventId);
+            // Reload flights - only if we have a current event selected
+            if (currentEventId) {
+                await loadFlights(currentEventId);
+            } else {
+                // If no event selected, we could reload all flights or show a different view
+                showNotification('Flight created successfully. Select an event to view flights.', 'info');
+            }
 
         } catch (error) {
             console.error('Error saving flight:', error);
