@@ -1,7 +1,7 @@
 /* Athletes Management Styles */
 .athletes-management {
     padding: 2rem;
-    max-width: 1400px;
+    max-width: 100%; /* Match container width with other sections */
     margin: 0 auto;
 }
 
@@ -57,34 +57,51 @@
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     overflow-x: auto;
     margin-bottom: 2rem;
+    width: 100%;
 }
 
 .athletes-table {
     width: 100%;
+    min-width: 1100px; /* Minimum table width for proper column spacing */
     border-collapse: collapse;
     font-size: 0.9rem;
-    table-layout: fixed;
+    table-layout: fixed; /* Fixed layout for consistent column widths */
 }
 
 .athletes-table th {
     background-color: #f8f9fa;
-    padding: 1rem 0.75rem;
+    padding: 0.75rem 0.5rem;
     text-align: left;
     font-weight: 600;
     color: #495057;
     border-bottom: 2px solid #dee2e6;
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
+.athletes-table th:nth-child(1) { width: 140px; } /* Name */
+.athletes-table th:nth-child(2) { width: 220px; } /* Email */
+.athletes-table th:nth-child(3) { width: 80px; } /* Gender */
+.athletes-table th:nth-child(4) { width: 130px; } /* Team */
+.athletes-table th:nth-child(5) { width: 180px; } /* Competition */
+.athletes-table th:nth-child(6) { width: 90px; } /* Status */
 .athletes-table th:last-child {
-    width: 140px; /* Fixed width for actions column */
+    width: 160px; /* Actions column */
 }
 
 .athletes-table td {
-    padding: 0.75rem;
+    padding: 0.75rem 0.5rem;
     border-bottom: 1px solid #dee2e6;
     vertical-align: middle;
-    word-wrap: break-word;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.athletes-table td:last-child {
+    text-align: center;
+    white-space: nowrap;
 }
 
 .athletes-table tbody tr:hover {
@@ -112,20 +129,20 @@
 
 /* Action Buttons */
 .actions {
-    white-space: nowrap;
-    text-align: center;
-    width: 140px;
+    display: flex;
+    justify-content: center;
+    gap: 0.25rem;
+    align-items: center;
+    width: 100%;
+    padding: 0 0.25rem;
 }
 
 .actions .btn {
-    margin-right: 0.25rem;
     padding: 0.25rem 0.5rem;
-    font-size: 0.75rem;
-    min-width: auto;
-}
-
-.actions .btn:last-child {
-    margin-right: 0;
+    font-size: 0.7rem;
+    min-width: 50px;
+    flex-shrink: 0; /* Prevent button shrinking */
+    border-radius: 3px;
 }
 
 /* Button Styles */
@@ -408,4 +425,36 @@
 @keyframes spin {
     0% { transform: translate(-50%, -50%) rotate(0deg); }
     100% { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
+/* Responsive Design for smaller screens */
+@media (max-width: 1200px) {
+    .athletes-table {
+        min-width: 900px;
+    }
+    
+    .athletes-table th:nth-child(1) { width: 120px; } /* Name */
+    .athletes-table th:nth-child(2) { width: 180px; } /* Email */
+    .athletes-table th:nth-child(3) { width: 70px; } /* Gender */
+    .athletes-table th:nth-child(4) { width: 110px; } /* Team */
+    .athletes-table th:nth-child(5) { width: 150px; } /* Competition */
+    .athletes-table th:nth-child(6) { width: 80px; } /* Status */
+    .athletes-table th:last-child { width: 140px; } /* Actions */
+}
+
+@media (max-width: 768px) {
+    .search-controls {
+        grid-template-columns: 1fr;
+        gap: 0.5rem;
+    }
+    
+    .athletes-table {
+        font-size: 0.8rem;
+    }
+    
+    .actions .btn {
+        font-size: 0.65rem;
+        padding: 0.2rem 0.4rem;
+        min-width: 45px;
+    }
 }

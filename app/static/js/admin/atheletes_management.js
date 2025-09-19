@@ -221,11 +221,10 @@ document.addEventListener('DOMContentLoaded', function() {
             showNotification(result.message, 'success');
             closeModals();
             
-            // Remove row from table
-            const row = document.querySelector(`tr[data-athlete-id="${deleteAthleteId}"]`);
-            if (row) {
-                row.remove();
-            }
+            // Reload the page to refresh data and pagination
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
 
         } catch (error) {
             console.error('Error deleting athlete:', error);
