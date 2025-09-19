@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{% block title %}{% endblock %}</title>
-
+    
     <!-- Base CSS -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     {% block css %}{% endblock %}
@@ -16,6 +16,9 @@
 
     <footer class="footer">
         <div class="footer-content container">
+            <div class="footer-logo">
+                <img src="{{ url_for('static', filename='images/logo.png') }}" alt="SmallGoods Logo" class="logo">
+            </div>
             <div class="footer-info">
                 <p>© 2025 Small Goods Gym</p>
                 <p>All rights reserved</p>
