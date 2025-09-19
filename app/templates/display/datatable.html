@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Competition</title>
+    <style>
+      body {
+        background-color: #1a1a1a;
+        margin: 0;
+        padding: 20px;
+        display: flex;
+      }
+
+      .container {
+        width: 100%;
+        height: 96vh;
+        background-color: #2a2a2a;
+        padding: 0px;
+        display: flex;
+        border-radius: 10px;
+        box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+        flex-direction: column;
+        box-sizing: border-box;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+
+      table thead th {
+        background-color: #007bff;
+        color: white;
+        padding: 15px 10px;
+        text-align: left;
+        font-size: 1.2em;
+        border-bottom: 2px solid #0056b3;
+        position: sticky;
+        top: 0;
+        z-index: 1;
+      }
+
+      table tbody td {
+        padding: 12px 10px;
+        border-bottom: 1px solid #444;
+        font-size: 1.1em;
+        color: #f0f0f0;
+      }
+
+      table tbody tr:nth-child(even) {
+        background-color: #3a3a3a;
+      }
+
+      table tbody tr:hover {
+        background-color: #4a4a4a;
+        cursor: pointer;
+      }
+
+      .table-wrapper {
+        display: flex;
+        flex-grow: 1;
+        overflow: hidden;
+        border-radius: 10px;
+        box-shadow: 0 0 15px rgba(0, 0, 0, 0.3);
+      }
+
+      .fixed-table-container {
+        flex-shrink: 0;
+        overflow-x: hidden;
+        overflow-y: auto;
+        border-right: 10px;
+      }
+
+      .scrollable-table-container {
+        flex-grow: 1;
+        overflow: auto;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="table-wrapper">
+        <div class="fixed-table-container">
+          <table id="fixed-table">
+            <thead>
+              <tr></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div class="scrollable-table-container">
+          <table id="scrollable-table">
+            <thead>
+              <tr></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        const fixedTheadRow = document.querySelector("#fixed-table thead tr");
+        const fixedTbody = document.querySelector("#fixed-table tbody");
+        const scrollableTheadRow = document.querySelector(
+          "#scrollable-table thead tr",
+        );
+        const scrollableTbody = document.querySelector(
+          "#scrollable-table tbody",
+        );
+
+        const numRows = 30;
+        const numCols = 30;
+        const fixedCols = 3;
+
+        for (let i = 1; i <= numCols; i++) {
+          const th = document.createElement("th");
+          th.textContent = `Col${i}`;
+          if (i <= fixedCols) {
+            fixedTheadRow.appendChild(th);
+          } else {
+            scrollableTheadRow.appendChild(th);
+          }
+        }
+
+        for (let i = 1; i <= numRows; i++) {
+          const fixedRow = document.createElement("tr");
+          const scrollableRow = document.createElement("tr");
+          let fixedRowContent = "";
+          let scrollableRowContent = "";
+
+          for (let j = 1; j <= numCols; j++) {
+            const cellContent = `<td>Data-${i}-${j}</td>`;
+            if (j <= fixedCols) {
+              fixedRowContent += cellContent;
+            } else {
+              scrollableRowContent += cellContent;
+            }
+          }
+          fixedRow.innerHTML = fixedRowContent;
+          scrollableRow.innerHTML = scrollableRowContent;
+          fixedTbody.appendChild(fixedRow);
+          scrollableTbody.appendChild(scrollableRow);
+        }
+
+        const fixedContainer = document.querySelector(".fixed-table-container");
+        const scrollableContainer = document.querySelector(
+          ".scrollable-table-container",
+        );
+
+        let isSyncing = false;
+
+        fixedContainer.addEventListener("scroll", () => {
+          if (!isSyncing) {
+            isSyncing = true;
+            scrollableContainer.scrollTop = fixedContainer.scrollTop;
+            isSyncing = false;
+          }
+        });
+
+        scrollableContainer.addEventListener("scroll", () => {
+          if (!isSyncing) {
+            isSyncing = true;
+            fixedContainer.scrollTop = scrollableContainer.scrollTop;
+            isSyncing = false;
+          }
+        });
+      });
+    </script>
+  </body>
+</html>
