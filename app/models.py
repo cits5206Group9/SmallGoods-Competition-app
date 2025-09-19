@@ -142,6 +142,14 @@ class Athlete(db.Model):
     # Relationships
     flights = db.relationship("AthleteFlight", backref="athlete", lazy=True)
     entries = db.relationship("AthleteEntry", backref="athlete", lazy=True)
+    
+    @property
+    def attempts(self):
+        """Get all attempts for this athlete across all entries"""
+        all_attempts = []
+        for entry in self.entries:
+            all_attempts.extend(entry.attempts)
+        return all_attempts
 
 # Competition Types and Entries
 class CompetitionType(db.Model):
