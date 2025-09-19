@@ -5,10 +5,17 @@ from pathlib import Path
 from flask import Flask
 from .config import get_config
 from .extensions import db, migrate
+<<<<<<< HEAD
 from .routes import main_bp
 from .routes import admin_bp
 from .routes import display_bp
 from .routes import athlete_bp
+=======
+from app.routes.admin import admin_bp
+from app.routes.login import login_bp
+from app.routes.display import display_bp
+from app.routes.coach import coach_bp
+>>>>>>> 421d938d0c0542bb2643e6ccd2b7d52f2567fb88
 from . import models  # Import models so they are registered with SQLAlchemy
 
 
@@ -102,10 +109,14 @@ def create_app(config_name: str | None = None) -> Flask:
         _initialize_database(config, app.instance_path)
 
     # Register blueprints
-    app.register_blueprint(main_bp)
     app.register_blueprint(admin_bp)
+    app.register_blueprint(login_bp)
     app.register_blueprint(display_bp)
+<<<<<<< HEAD
     app.register_blueprint(athlete_bp)
+=======
+    app.register_blueprint(coach_bp)
+>>>>>>> 421d938d0c0542bb2643e6ccd2b7d52f2567fb88
     
     logger.info("Flask app created successfully")
     return app

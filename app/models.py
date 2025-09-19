@@ -9,6 +9,7 @@ class UserRole(Enum):
     REFEREE = 2
     TIMEKEEPER = 3
     ATHLETE = 4
+    COACH = 5
 
 class User(db.Model):
     """User accounts with different roles"""
@@ -104,7 +105,9 @@ class Athlete(db.Model):
     phone = db.Column(db.String(20))
 
     # Competition details
+    team = db.Column(db.String(100))
     gender = db.Column(db.String(10))
+    age = db.Column(db.Integer)  # Athlete's age
 
     is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -224,3 +227,16 @@ class WorkoutExercise(db.Model):
     weight = db.Column(db.Float, default=0.0)
 
     workout = db.relationship("Workout", backref=db.backref("items", lazy=True))
+
+class CoachAssignment(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    coach_user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    athlete_id = db.Column(db.Integer, db.ForeignKey("athlete.id"), nullable=False)
+    is_primary = db.Column(db.Boolean, default=False)
+    can_respond = db.Column(db.Boolean, default=True)
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    notes = db.Column(db.Text)
+
+    coach = db.relationship("User", backref=db.backref("coach_assignments", lazy=True), foreign_keys=[coach_user_id])
+    athlete = db.relationship("Athlete", backref=db.backref("coach_assignments", lazy=True))
