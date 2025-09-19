@@ -107,8 +107,6 @@ class Athlete(db.Model):
     # Competition details
     team = db.Column(db.String(100))
     gender = db.Column(db.String(10))
-    weight_category = db.Column(db.String(20))  # e.g., "73kg", "63kg"
-    bodyweight = db.Column(db.Float)  # Actual bodyweight
     age = db.Column(db.Integer)  # Athlete's age
 
     is_active = db.Column(db.Boolean, default=True)

@@ -414,3 +414,30 @@ def coach_athletes():
 @coach_bp.route('/athlete/int:athlete_id ')
 def coach_athlete_detail(athlete_id):
     return render_template('coach/athlete_detail.html', athlete_id=athlete_id)
+
+@main_bp.get("/seed")
+def seed():
+    # Simple seed route for local dev
+    if not User.query.filter_by(username="demo").first():
+        db.session.add(User(username="demo"))
+        db.session.commit()
+    return jsonify(message="seeded")
+
+# Login routes
+@main_bp.route("/login", methods=["GET", "POST"])
+def login():
+    if request.method == "POST":
+        contact = request.form.get("contact")
+        password = request.form.get("password")
+
+        # TODO: Implement actual authentication logic
+        # For now, just show the form data
+        flash(f"Login attempt for: {contact}", "info")
+        return redirect(url_for("main.login"))
+
+    return render_template("login.html")
+
+# Placeholder routes for links
+@main_bp.get("/forgot-password")
+def forgot_password():
+    return "<h1>Forgot Password</h1><p>Password reset functionality will go here...</p>"
