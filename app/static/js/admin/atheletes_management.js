@@ -123,7 +123,6 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('gender').value = athlete.gender || '';
             document.getElementById('age').value = athlete.age || '';
             document.getElementById('bodyweight').value = athlete.bodyweight || '';
-            document.getElementById('weight_category').value = athlete.weight_category || '';
             document.getElementById('competition_id').value = athlete.competition_id || '';
             document.getElementById('is_active').checked = athlete.is_active;
             
@@ -139,6 +138,14 @@ document.addEventListener('DOMContentLoaded', function() {
         event.preventDefault();
         
         const formData = new FormData(athleteForm);
+        
+        // Validate form
+        const errors = validateForm(formData);
+        if (errors.length > 0) {
+            showNotification(errors.join(', '), 'error');
+            return;
+        }
+        
         const athleteData = {
             first_name: formData.get('first_name'),
             last_name: formData.get('last_name'),
@@ -148,8 +155,7 @@ document.addEventListener('DOMContentLoaded', function() {
             gender: formData.get('gender'),
             age: formData.get('age') ? parseInt(formData.get('age')) : null,
             bodyweight: formData.get('bodyweight') ? parseFloat(formData.get('bodyweight')) : null,
-            weight_category: formData.get('weight_category'),
-            competition_id: parseInt(formData.get('competition_id')),
+            competition_id: formData.get('competition_id') ? parseInt(formData.get('competition_id')) : null,
             is_active: formData.has('is_active')
         };
 
@@ -327,10 +333,6 @@ document.addEventListener('DOMContentLoaded', function() {
             errors.push('Last name is required');
         }
 
-        if (!formData.get('competition_id')) {
-            errors.push('Competition is required');
-        }
-
         const email = formData.get('email');
         if (email && !isValidEmail(email)) {
             errors.push('Please enter a valid email address');
@@ -352,70 +354,5 @@ document.addEventListener('DOMContentLoaded', function() {
     function isValidEmail(email) {
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         return emailRegex.test(email);
-    }
-
-    // Auto-suggest weight category based on bodyweight and gender
-    document.getElementById('bodyweight').addEventListener('input', function() {
-        const bodyweight = parseFloat(this.value);
-        const gender = document.getElementById('gender').value;
-        
-        if (bodyweight && gender) {
-            const suggestedCategory = suggestWeightCategory(bodyweight, gender);
-            if (suggestedCategory) {
-                document.getElementById('weight_category').value = suggestedCategory;
-            }
-        }
-    });
-
-    document.getElementById('gender').addEventListener('change', function() {
-        const bodyweight = parseFloat(document.getElementById('bodyweight').value);
-        const gender = this.value;
-        
-        if (bodyweight && gender) {
-            const suggestedCategory = suggestWeightCategory(bodyweight, gender);
-            if (suggestedCategory) {
-                document.getElementById('weight_category').value = suggestedCategory;
-            }
-        }
-    });
-
-    function suggestWeightCategory(bodyweight, gender) {
-        // Simplified weight categories - adjust based on actual competition rules
-        const categories = {
-            'Male': [
-                { max: 61, category: '61kg' },
-                { max: 67, category: '67kg' },
-                { max: 73, category: '73kg' },
-                { max: 81, category: '81kg' },
-                { max: 89, category: '89kg' },
-                { max: 96, category: '96kg' },
-                { max: 102, category: '102kg' },
-                { max: 109, category: '109kg' },
-                { max: Infinity, category: '109kg+' }
-            ],
-            'Female': [
-                { max: 45, category: '45kg' },
-                { max: 49, category: '49kg' },
-                { max: 55, category: '55kg' },
-                { max: 59, category: '59kg' },
-                { max: 64, category: '64kg' },
-                { max: 71, category: '71kg' },
-                { max: 76, category: '76kg' },
-                { max: 81, category: '81kg' },
-                { max: 87, category: '87kg' },
-                { max: Infinity, category: '87kg+' }
-            ]
-        };
-
-        const genderCategories = categories[gender];
-        if (!genderCategories) return null;
-
-        for (const category of genderCategories) {
-            if (bodyweight <= category.max) {
-                return category.category;
-            }
-        }
-
-        return null;
     }
 });

@@ -55,7 +55,7 @@
     background: white;
     border-radius: 8px;
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    overflow: hidden;
+    overflow-x: auto;
     margin-bottom: 2rem;
 }
 
@@ -63,6 +63,7 @@
     width: 100%;
     border-collapse: collapse;
     font-size: 0.9rem;
+    table-layout: fixed;
 }
 
 .athletes-table th {
@@ -75,10 +76,15 @@
     white-space: nowrap;
 }
 
+.athletes-table th:last-child {
+    width: 140px; /* Fixed width for actions column */
+}
+
 .athletes-table td {
     padding: 0.75rem;
     border-bottom: 1px solid #dee2e6;
     vertical-align: middle;
+    word-wrap: break-word;
 }
 
 .athletes-table tbody tr:hover {
@@ -107,12 +113,15 @@
 /* Action Buttons */
 .actions {
     white-space: nowrap;
+    text-align: center;
+    width: 140px;
 }
 
 .actions .btn {
-    margin-right: 0.5rem;
-    padding: 0.375rem 0.75rem;
-    font-size: 0.8rem;
+    margin-right: 0.25rem;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+    min-width: auto;
 }
 
 .actions .btn:last-child {
