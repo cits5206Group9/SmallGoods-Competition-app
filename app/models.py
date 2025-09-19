@@ -114,7 +114,7 @@ class Lift(db.Model):
 class Flight(db.Model):
     """Groups of athletes competing together"""
     id = db.Column(db.Integer, primary_key=True)
-    event_id = db.Column(db.Integer, db.ForeignKey("event.id"), nullable=False)
+    event_id = db.Column(db.Integer, db.ForeignKey("event.id"), nullable=True)
     name = db.Column(db.String(50), nullable=False)
     order = db.Column(db.Integer, nullable=False)
     is_active = db.Column(db.Boolean, default=False)
@@ -126,7 +126,7 @@ class Athlete(db.Model):
     """Competition participants"""
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
-    competition_id = db.Column(db.Integer, db.ForeignKey("competition.id"), nullable=False)
+    competition_id = db.Column(db.Integer, db.ForeignKey("competition.id"), nullable=True)
     first_name = db.Column(db.String(80), nullable=False)
     last_name = db.Column(db.String(80), nullable=False)
     gender = db.Column(db.String(10))
@@ -141,8 +141,15 @@ class Athlete(db.Model):
 
     # Relationships
     flights = db.relationship("AthleteFlight", backref="athlete", lazy=True)
-    attempts = db.relationship("Attempt", backref="athlete", lazy=True)
     entries = db.relationship("AthleteEntry", backref="athlete", lazy=True)
+    
+    @property
+    def attempts(self):
+        """Get all attempts for this athlete across all entries"""
+        all_attempts = []
+        for entry in self.entries:
+            all_attempts.extend(entry.attempts)
+        return all_attempts
 
 # Competition Types and Entries
 class CompetitionType(db.Model):
