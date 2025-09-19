@@ -13,7 +13,7 @@
     <p class="subtitle">
       Define Events, Movements/Lifts, Groups/Flights, Metrics, Referee inputs, Scoring rules, Reps/Attempts, Timer settings, and Attempt Ordering.
     </p>
-    <a href="{{ url_for('admin.admin_dashboard') }}" class="btn-back">← Back to Admin Dashboard</a>
+    <a href="{{ url_for('admin.competition_model') }}" class="btn-back">← Back to Model Manager</a>
   </header>
 
   <!-- Top-level Competition Definition -->
@@ -116,7 +116,7 @@
           </select>
         </div>
         <div class="form-field">
-          <label>Custom Order (comma-separated indices)</label>
+          <label>Custom Order</label>
           <input type="text" class="event-custom-order" placeholder="e.g., 1,2,1,2">
         </div>
         <div class="form-field">
@@ -192,7 +192,7 @@
 
       <div class="metrics-section">
         <div class="metrics-header">
-          <h6>Metrics</h6>
+          <h5>Additional Metrics</h5>
           <button type="button" class="btn small add-metric">+ Add Metric</button>
         </div>
         <div class="metrics-container"></div>
@@ -243,7 +243,7 @@
     </div>
 
     <div class="subsection">
-      <h6>Referee Input Spec</h6>
+      <h5>Referee Input Spec</h5>
       <div class="grid grid-3">
         <div class="form-field">
           <label># of Referees</label>
