@@ -11,6 +11,11 @@ instance/
 .mypy_cache/
 .pytest_cache/
 
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
 # Node & frontend (if added later)
 node_modules/
 dist/
@@ -23,3 +28,36 @@ Thumbs.db
 # Editors
 .vscode/
 .idea/
+
+# Claude Code
+.claude/
+claude.md
+CLAUDE.md
+projectplan.md
+
+# Design & Planning Files
+todo.md
+logindesign.md
+*.design.md
+*-design.md
+design/
+planning/
+docs/design/
+docs/planning/
+wireframes/
+mockups/
+sketches/
+*.sketch
+*.fig
+*.xd
+*.psd
+*.ai
+
+# Temporary & Development Files
+*.tmp
+*.temp
+*.bak
+*.backup
+scratch/
+temp/
+tmp/

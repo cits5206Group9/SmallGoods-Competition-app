@@ -1,0 +1,190 @@
+{% extends "base.html" %}
+
+{% block title %}Referee Panel - Small Goods Competition{% endblock %}
+
+{% block head %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/referee.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="referee-container">
+    <div class="referee-header">
+        <h1>Referee Panel</h1>
+        <div class="competition-info">
+            <span id="competition-name">Select Competition</span>
+            <span id="current-event">No Event Selected</span>
+        </div>
+    </div>
+
+    <!-- Competition Selection -->
+    <div class="competition-selection">
+        <label for="competition-select">Competition:</label>
+        <select id="competition-select">
+            <option value="">Select Competition</option>
+        </select>
+        
+        <label for="event-select">Event:</label>
+        <select id="event-select" disabled>
+            <option value="">Select Event</option>
+        </select>
+    </div>
+
+    <!-- Current Athlete Display -->
+    <div class="current-athlete" id="current-athlete" style="display: none;">
+        <div class="athlete-info">
+            <h2 id="athlete-name">Athlete Name</h2>
+            <div class="athlete-details">
+                <span id="athlete-weight-class">Weight Class</span>
+                <span id="athlete-team">Team</span>
+                <span id="current-lift">Current Lift</span>
+                <span id="attempt-number">Attempt #1</span>
+            </div>
+        </div>
+        
+        <div class="attempt-info">
+            <div class="attempt-weight">
+                <label>Attempt Weight:</label>
+                <span id="attempt-weight">0kg</span>
+            </div>
+            <div class="timer-display">
+                <span id="attempt-timer">60</span>
+                <button id="start-timer" class="timer-btn">Start Timer</button>
+                <button id="reset-timer" class="timer-btn">Reset</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Referee Decision Panel -->
+    <div class="referee-decisions" id="referee-panel" style="display: none;">
+        <h3>Referee Decisions</h3>
+        
+        <div class="lift-result">
+            <h4>Lift Result</h4>
+            <div class="result-buttons">
+                <button class="result-btn good-lift" data-result="good">
+                    <i class="icon-check"></i>
+                    Good Lift
+                </button>
+                <button class="result-btn no-lift" data-result="no-lift">
+                    <i class="icon-x"></i>
+                    No Lift
+                </button>
+            </div>
+        </div>
+
+        <div class="technical-decisions" id="technical-decisions">
+            <h4>Technical Violations (if No Lift)</h4>
+            <div class="violation-checkboxes">
+                <label><input type="checkbox" value="press-out"> Press Out</label>
+                <label><input type="checkbox" value="elbow-touch"> Elbow Touch</label>
+                <label><input type="checkbox" value="knee-touch"> Knee Touch</label>
+                <label><input type="checkbox" value="bar-down"> Bar Pressed Down</label>
+                <label><input type="checkbox" value="incomplete-lockout"> Incomplete Lockout</label>
+                <label><input type="checkbox" value="foot-movement"> Foot Movement</label>
+                <label><input type="checkbox" value="early-drop"> Early Drop</label>
+                <label><input type="checkbox" value="other"> Other Technical</label>
+            </div>
+        </div>
+
+        <div class="referee-votes">
+            <h4>Referee Panel Votes</h4>
+            <div class="votes-display">
+                <div class="referee-vote">
+                    <span>Referee 1:</span>
+                    <button class="vote-btn white" data-referee="1" data-vote="good">⚪</button>
+                    <button class="vote-btn red" data-referee="1" data-vote="no-lift">🔴</button>
+                </div>
+                <div class="referee-vote">
+                    <span>Referee 2:</span>
+                    <button class="vote-btn white" data-referee="2" data-vote="good">⚪</button>
+                    <button class="vote-btn red" data-referee="2" data-vote="no-lift">🔴</button>
+                </div>
+                <div class="referee-vote">
+                    <span>Referee 3:</span>
+                    <button class="vote-btn white" data-referee="3" data-vote="good">⚪</button>
+                    <button class="vote-btn red" data-referee="3" data-vote="no-lift">🔴</button>
+                </div>
+            </div>
+            
+            <div class="final-decision">
+                <span>Final Decision:</span>
+                <span id="final-result">Pending</span>
+            </div>
+        </div>
+
+        <div class="action-buttons">
+            <button id="submit-decision" class="submit-btn" disabled>Submit Decision</button>
+            <button id="next-athlete" class="next-btn" disabled>Next Athlete</button>
+        </div>
+    </div>
+
+    <!-- Athletes Queue -->
+    <div class="athletes-queue">
+        <h3>Athletes Queue</h3>
+        <div class="queue-controls">
+            <button id="load-athletes">Load Competition Athletes</button>
+            <button id="randomize-order">Randomize Order</button>
+        </div>
+        
+        <div class="queue-list" id="athletes-queue">
+            <!-- Athletes will be populated here -->
+        </div>
+    </div>
+
+    <!-- Competition Progress -->
+    <div class="competition-progress">
+        <h3>Competition Progress</h3>
+        <div class="progress-stats">
+            <div class="stat">
+                <label>Current Round:</label>
+                <span id="current-round">1</span>
+            </div>
+            <div class="stat">
+                <label>Athletes Remaining:</label>
+                <span id="athletes-remaining">0</span>
+            </div>
+            <div class="stat">
+                <label>Completed Attempts:</label>
+                <span id="completed-attempts">0</span>
+            </div>
+        </div>
+        
+        <div class="event-progress">
+            <h4>Event Progress</h4>
+            <div class="progress-bar">
+                <div class="progress-fill" id="progress-fill" style="width: 0%"></div>
+            </div>
+            <span id="progress-text">0% Complete</span>
+        </div>
+    </div>
+
+    <!-- Results Summary -->
+    <div class="results-summary" id="results-summary" style="display: none;">
+        <h3>Current Results</h3>
+        <div class="results-table">
+            <table id="results-table">
+                <thead>
+                    <tr>
+                        <th>Rank</th>
+                        <th>Athlete</th>
+                        <th>Best Lift</th>
+                        <th>Total</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Results will be populated here -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Emergency Controls -->
+<div class="emergency-controls">
+    <button id="emergency-stop" class="emergency-btn">Emergency Stop</button>
+    <button id="technical-break" class="break-btn">Technical Break</button>
+</div>
+
+<script src="{{ url_for('static', filename='js/referee.js') }}"></script>
+{% endblock %}
