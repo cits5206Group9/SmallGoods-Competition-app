@@ -126,7 +126,7 @@ class Athlete(db.Model):
     """Competition participants"""
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
-    competition_id = db.Column(db.Integer, db.ForeignKey("competition.id"), nullable=False)
+    competition_id = db.Column(db.Integer, db.ForeignKey("competition.id"), nullable=True)
     first_name = db.Column(db.String(80), nullable=False)
     last_name = db.Column(db.String(80), nullable=False)
     gender = db.Column(db.String(10))
