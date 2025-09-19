@@ -1,0 +1,283 @@
+{% extends "base.html" %}
+
+{% block title %}Referee {{ referee_id }} - Small Goods Competition{% endblock %}
+
+{% block head %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/individual_referee.css') }}">
+{% endblock %}
+
+{% block content %}
+<a href="/referee/login" class="logout-btn">← Back to Login</a>
+
+<div class="individual-referee">
+    <div class="referee-header referee-{{ referee_id }}">
+        <h1>
+            {% if referee_id == '1' %}🔴 Referee 1 (Head Referee)
+            {% elif referee_id == '2' %}🟡 Referee 2 (Side Referee) 
+            {% else %}🟢 Referee 3 (Side Referee){% endif %}
+        </h1>
+        <p>Competition: <span id="competition-name">Loading...</span></p>
+        <p>Event: <span id="event-name">Loading...</span></p>
+    </div>
+    
+    <div class="competition-status">
+        <div class="timer-display">
+            <div>Time Remaining:</div>
+            <div class="timer-large" id="attempt-timer">--</div>
+        </div>
+    </div>
+    
+    <div class="current-attempt" id="current-attempt-display" style="display: none;">
+        <div class="athlete-display">
+            <div class="athlete-info">
+                <h2 id="athlete-name">Athlete Name</h2>
+                <div id="athlete-details">
+                    <div><strong>Weight Class:</strong> <span id="athlete-weight-class">--</span></div>
+                    <div><strong>Team:</strong> <span id="athlete-team">--</span></div>
+                    <div><strong>Attempt:</strong> <span id="attempt-number">--</span></div>
+                </div>
+            </div>
+            <div class="attempt-details">
+                <div>Attempting:</div>
+                <div class="attempt-weight" id="attempt-weight">--kg</div>
+                <div id="lift-type">--</div>
+            </div>
+        </div>
+        
+        <div class="vote-section">
+            <h3>Cast Your Vote</h3>
+            <div class="vote-buttons">
+                <button class="individual-vote-btn good" data-vote="good">
+                    ⚪
+                </button>
+                <button class="individual-vote-btn no-lift" data-vote="no-lift">
+                    🔴
+                </button>
+            </div>
+            <div>
+                <small>⚪ Good Lift &nbsp;&nbsp;&nbsp;&nbsp; 🔴 No Lift</small>
+            </div>
+            
+            <div class="vote-status" id="vote-status" style="display: none;">
+                <span id="vote-message">Vote submitted successfully!</span>
+            </div>
+            
+            <div class="other-referees">
+                <span class="referee-status ref-pending" id="ref1-status">Ref 1: Pending</span>
+                <span class="referee-status ref-pending" id="ref2-status">Ref 2: Pending</span>
+                <span class="referee-status ref-pending" id="ref3-status">Ref 3: Pending</span>
+            </div>
+        </div>
+    </div>
+    
+    <div class="current-attempt" id="waiting-display">
+        <div style="text-align: center; padding: 50px;">
+            <h3>⏳ Waiting for next athlete...</h3>
+            <p>Stand by for the next attempt</p>
+        </div>
+    </div>
+</div>
+
+<script>
+class IndividualReferee {
+    constructor(refereeId) {
+        this.refereeId = refereeId;
+        this.currentAttempt = null;
+        this.hasVoted = false;
+        this.pollInterval = null;
+        
+        this.init();
+    }
+    
+    init() {
+        this.bindEvents();
+        this.startPolling();
+        this.loadCompetitionInfo();
+    }
+    
+    bindEvents() {
+        document.querySelectorAll('.individual-vote-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                this.castVote(e.target.dataset.vote);
+            });
+        });
+    }
+    
+    async loadCompetitionInfo() {
+        try {
+            const response = await fetch('/admin/api/competitions');
+            const competitions = await response.json();
+            const currentComp = competitions.find(c => c.id === 1) || competitions[0];
+            
+            if (currentComp) {
+                document.getElementById('competition-name').textContent = currentComp.name;
+                
+                // Load events
+                const detailResponse = await fetch(`/admin/api/competitions/${currentComp.id}`);
+                const details = await detailResponse.json();
+                
+                if (details.events && details.events.length > 0) {
+                    document.getElementById('event-name').textContent = details.events[0].name;
+                }
+            }
+        } catch (error) {
+            console.error('Error loading competition info:', error);
+        }
+    }
+    
+    async startPolling() {
+        // Poll for current attempt every 2 seconds
+        this.pollInterval = setInterval(() => {
+            this.checkCurrentAttempt();
+        }, 2000);
+        
+        // Initial check
+        this.checkCurrentAttempt();
+    }
+    
+    async checkCurrentAttempt() {
+        try {
+            const response = await fetch('/admin/api/current-attempt');
+            
+            if (response.ok) {
+                const attemptData = await response.json();
+                this.updateDisplay(attemptData);
+            } else {
+                this.showWaitingDisplay();
+            }
+        } catch (error) {
+            console.error('Error checking current attempt:', error);
+            this.showWaitingDisplay();
+        }
+    }
+    
+    updateDisplay(attemptData) {
+        if (!attemptData || attemptData.status === 'waiting') {
+            this.showWaitingDisplay();
+            return;
+        }
+        
+        // Show current attempt
+        document.getElementById('waiting-display').style.display = 'none';
+        document.getElementById('current-attempt-display').style.display = 'block';
+        
+        // Update athlete info
+        document.getElementById('athlete-name').textContent = attemptData.athlete.name;
+        document.getElementById('athlete-weight-class').textContent = attemptData.athlete.weightClass;
+        document.getElementById('athlete-team').textContent = attemptData.athlete.team;
+        document.getElementById('attempt-number').textContent = `Attempt ${attemptData.attemptNumber}`;
+        document.getElementById('attempt-weight').textContent = `${attemptData.weight}kg`;
+        document.getElementById('lift-type').textContent = attemptData.liftType;
+        
+        // Update timer
+        if (attemptData.timer) {
+            document.getElementById('attempt-timer').textContent = attemptData.timer.remaining;
+        }
+        
+        // Update referee status
+        this.updateRefereeStatus(attemptData.votes || {});
+        
+        // Check if this referee has already voted for this attempt
+        this.hasVoted = attemptData.votes && attemptData.votes[this.refereeId];
+        this.updateVoteButtons();
+    }
+    
+    showWaitingDisplay() {
+        document.getElementById('current-attempt-display').style.display = 'none';
+        document.getElementById('waiting-display').style.display = 'block';
+        document.getElementById('attempt-timer').textContent = '--';
+    }
+    
+    updateRefereeStatus(votes) {
+        for (let i = 1; i <= 3; i++) {
+            const statusEl = document.getElementById(`ref${i}-status`);
+            if (votes[i]) {
+                statusEl.textContent = `Ref ${i}: ✓ Voted`;
+                statusEl.className = 'referee-status ref-voted';
+            } else {
+                statusEl.textContent = `Ref ${i}: Pending`;
+                statusEl.className = 'referee-status ref-pending';
+            }
+        }
+    }
+    
+    updateVoteButtons() {
+        const buttons = document.querySelectorAll('.individual-vote-btn');
+        const voteStatus = document.getElementById('vote-status');
+        
+        if (this.hasVoted) {
+            buttons.forEach(btn => btn.disabled = true);
+            voteStatus.style.display = 'block';
+            voteStatus.className = 'vote-status vote-submitted';
+            voteStatus.querySelector('#vote-message').textContent = 'Vote submitted successfully!';
+        } else {
+            buttons.forEach(btn => {
+                btn.disabled = false;
+                btn.classList.remove('selected');
+            });
+            voteStatus.style.display = 'none';
+        }
+    }
+    
+    async castVote(vote) {
+        if (this.hasVoted) return;
+        
+        try {
+            const response = await fetch('/admin/api/referee-vote', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    refereeId: this.refereeId,
+                    vote: vote,
+                    timestamp: new Date().toISOString()
+                })
+            });
+            
+            if (response.ok) {
+                this.hasVoted = true;
+                
+                // Highlight selected button
+                document.querySelectorAll('.individual-vote-btn').forEach(btn => {
+                    btn.classList.remove('selected');
+                });
+                document.querySelector(`[data-vote="${vote}"]`).classList.add('selected');
+                
+                this.updateVoteButtons();
+                this.showNotification('Vote submitted successfully!', 'success');
+            } else {
+                throw new Error('Failed to submit vote');
+            }
+        } catch (error) {
+            console.error('Error casting vote:', error);
+            this.showNotification('Error submitting vote. Please try again.', 'error');
+        }
+    }
+    
+    showNotification(message, type) {
+        const notification = document.createElement('div');
+        notification.style.cssText = `
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 15px 25px;
+            border-radius: 8px;
+            color: white;
+            font-weight: bold;
+            z-index: 1000;
+            ${type === 'success' ? 'background: #27ae60;' : 'background: #e74c3c;'}
+        `;
+        notification.textContent = message;
+        document.body.appendChild(notification);
+        
+        setTimeout(() => notification.remove(), 3000);
+    }
+}
+
+// Initialize referee interface
+document.addEventListener('DOMContentLoaded', () => {
+    const refereeId = '{{ referee_id }}';
+    window.referee = new IndividualReferee(refereeId);
+});
+</script>
+{% endblock %}

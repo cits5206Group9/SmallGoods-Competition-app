@@ -1,0 +1,14 @@
+[Unit]
+Description=SG Network (Gunicorn)
+After=network.target
+
+[Service]
+User=www-data
+Group=www-data
+WorkingDirectory=/opt/sg/network
+ExecStart=/opt/sg/venv/bin/gunicorn -b 127.0.0.1:5000 app:app
+Restart=always
+Environment="PYTHONUNBUFFERED=1"
+
+[Install]
+WantedBy=multi-user.target
