@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, request, jsonify
 from ..extensions import db
-from ..models import Competition, CompetitionDay, SportCategory, Exercise, CompetitionType
+from ..models import Competition, SportCategory, Exercise, CompetitionType
 from datetime import datetime
 
 admin_bp = Blueprint('admin', __name__, url_prefix='/admin')
@@ -61,15 +61,6 @@ def save_competition_model():
             is_active=True
         )
         db.session.add(competition)
-        db.session.flush()
-        
-        day = CompetitionDay(
-            competition=competition,
-            day_number=1,
-            date=datetime.now().date(),
-            is_active=True
-        )
-        db.session.add(day)
         db.session.flush()
         
         for event_data in data.get('events', []):
