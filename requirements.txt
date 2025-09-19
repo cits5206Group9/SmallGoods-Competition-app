@@ -11,3 +11,4 @@ black==24.8.0
 flake8==7.1.1
 isort==5.13.2
 pre-commit==3.7.1
+gunicorn==21.2.0
