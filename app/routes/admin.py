@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, request, jsonify
 from ..extensions import db
-from ..models import Competition, SportCategory, Exercise, CompetitionType
+from ..models import Competition, SportCategory, Exercise, CompetitionType, Athlete
 from datetime import datetime
 
 admin_bp = Blueprint('admin', __name__, url_prefix='/admin')
@@ -63,6 +63,15 @@ def save_competition_model():
         db.session.add(competition)
         db.session.flush()
         
+        day = CompetitionDay(
+            competition=competition,
+            day_number=1,
+            date=datetime.now().date(),
+            is_active=True
+        )
+        db.session.add(day)
+        db.session.flush()
+        
         for event_data in data.get('events', []):
             category = SportCategory(
                 competition_day=day,
@@ -103,3 +112,33 @@ def save_competition_model():
             'status': 'error',
             'message': str(e)
         }), 400
+        
+        
+@admin_bp.route('/atheletes-management')
+def atheletes_management():
+    # Get pagination parameters
+    page = request.args.get('page', 1, type=int)
+    per_page = 10
+    
+    # Get all competitions for the filter dropdown
+    competitions = Competition.query.all()
+    
+    # Get athletes with pagination
+    athletes_query = Athlete.query
+    athletes = athletes_query.paginate(page=page, per_page=per_page, error_out=False)
+    
+    return render_template('admin/atheletes_management.html', 
+                         athletes=athletes.items,
+                         competitions=competitions,
+                         pagination=athletes,
+                         page=page,
+                         per_page=per_page,
+                         total=athletes.total)
+
+@admin_bp.route('/flights-management')
+def flights_management():
+    # Get all competitions for the selection dropdown
+    competitions = Competition.query.all()
+    
+    return render_template('admin/flights_management.html',
+                         competitions=competitions)
