@@ -2,14 +2,33 @@ from datetime import datetime
 from enum import Enum
 from .extensions import db
 
-
-# User and Role System
+# Enums
 class UserRole(Enum):
     ADMIN = 1
     REFEREE = 2
     TIMEKEEPER = 3
     ATHLETE = 4
+    COACH = 5
 
+class SportType(Enum):
+    OLYMPIC_WEIGHTLIFTING = "olympic_weightlifting"
+    POWERLIFTING = "powerlifting"
+    CROSSFIT = "crossfit"
+    HYROX = "hyrox"
+
+class ScoringType(Enum):
+    MAX = "max"  # Heaviest weight
+    SUM = "sum"  # Total weight/reps
+    TIME = "time"  # Fastest completion
+
+class AttemptResult(Enum):
+    GOOD_LIFT = "good_lift"
+    NO_LIFT = "no_lift"
+    NOT_TO_DEPTH = "not_to_depth"
+    MISSED = "missed"
+    DNF = "dnf"  # Did Not Finish
+
+# User Models
 class User(db.Model):
     """User accounts with different roles"""
     id = db.Column(db.Integer, primary_key=True)
@@ -23,6 +42,7 @@ class User(db.Model):
 
     # Relationships
     referee_assignments = db.relationship("RefereeAssignment", backref="user", lazy=True)
+    workouts = db.relationship("Workout", backref="user", lazy=True)
 
 # Competition Structure
 class Competition(db.Model):
@@ -31,53 +51,105 @@ class Competition(db.Model):
     name = db.Column(db.String(200), nullable=False)
     description = db.Column(db.Text)
     start_date = db.Column(db.Date, nullable=False)
-    end_date = db.Column(db.Date, nullable=False)
+    end_date = db.Column(db.Date)
+    sport_type = db.Column(db.Enum(SportType), nullable=False)
     is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    config = db.Column(db.JSON)
 
     # Relationships
-    days = db.relationship("CompetitionDay", backref="competition", lazy=True, cascade="all, delete-orphan")
+    events = db.relationship("Event", backref="competition", lazy=True, cascade="all, delete-orphan")
+    athletes = db.relationship("Athlete", backref="competition", lazy=True, cascade="all, delete-orphan")
 
-class CompetitionDay(db.Model):
-    """Each day of the competition (day1, day2, etc.)"""
+class Event(db.Model):
+    """Specific events within a competition"""
     id = db.Column(db.Integer, primary_key=True)
     competition_id = db.Column(db.Integer, db.ForeignKey("competition.id"), nullable=False)
-    day_number = db.Column(db.Integer, nullable=False)  # 1, 2, 3, etc.
-    date = db.Column(db.Date, nullable=False)
+    name = db.Column(db.String(150), nullable=False)
+    weight_category = db.Column(db.String(50))
+    gender = db.Column(db.String(10))
+    scoring_type = db.Column(db.Enum(ScoringType), nullable=False)
     is_active = db.Column(db.Boolean, default=False)
+    current_lift_id = db.Column(db.Integer, db.ForeignKey("lift.id"))
 
     # Relationships
-    sport_categories = db.relationship("SportCategory", backref="competition_day", lazy=True, cascade="all, delete-orphan")
+    lifts = db.relationship("Lift", backref="event", lazy=True, cascade="all, delete-orphan", foreign_keys="[Lift.event_id]")
+    flights = db.relationship("Flight", backref="event", lazy=True, cascade="all, delete-orphan")
+    current_lift = db.relationship("Lift", foreign_keys=[current_lift_id], post_update=True)
 
 class SportCategory(db.Model):
     """Olympic or PowerLifting"""
     id = db.Column(db.Integer, primary_key=True)
-    competition_day_id = db.Column(db.Integer, db.ForeignKey("competition_day.id"), nullable=False)
-    name = db.Column(db.String(100), nullable=False)  # "Olympic", "PowerLifting"
+    name = db.Column(db.String(100), nullable=False)
     is_active = db.Column(db.Boolean, default=False)
 
     # Relationships
     exercises = db.relationship("Exercise", backref="sport_category", lazy=True, cascade="all, delete-orphan")
 
 class Exercise(db.Model):
-    """Specific exercises (snatch, clean & jerk, squat, bench, deadlift)"""
+    """Specific exercises"""
     id = db.Column(db.Integer, primary_key=True)
     sport_category_id = db.Column(db.Integer, db.ForeignKey("sport_category.id"), nullable=False)
-    name = db.Column(db.String(100), nullable=False)  # "snatch", "clean & jerk", "squat", "bench", "deadlift"
-    order = db.Column(db.Integer, nullable=False)  # Order within sport category
-
-    # Timer configuration
-    attempt_time_limit = db.Column(db.Integer, default=60)  # seconds
-    break_time_default = db.Column(db.Integer, default=120)  # seconds
+    name = db.Column(db.String(100), nullable=False)
+    order = db.Column(db.Integer, nullable=False)
+    attempt_time_limit = db.Column(db.Integer, default=60)
+    break_time_default = db.Column(db.Integer, default=120)
 
     # Relationships
     competition_types = db.relationship("CompetitionType", backref="exercise", lazy=True, cascade="all, delete-orphan")
 
+class Lift(db.Model):
+    """Types of lifts in an event"""
+    id = db.Column(db.Integer, primary_key=True)
+    event_id = db.Column(db.Integer, db.ForeignKey("event.id"), nullable=False)
+    name = db.Column(db.String(100), nullable=False)
+    order = db.Column(db.Integer, nullable=False)
+    max_attempts = db.Column(db.Integer, default=3)
+    attempt_time_seconds = db.Column(db.Integer, default=60)
+    break_time_seconds = db.Column(db.Integer, default=120)
+    
+    # Relationships
+    attempts = db.relationship("Attempt", backref="lift", lazy=True, foreign_keys="[Attempt.lift_id]")
+
+class Flight(db.Model):
+    """Groups of athletes competing together"""
+    id = db.Column(db.Integer, primary_key=True)
+    event_id = db.Column(db.Integer, db.ForeignKey("event.id"), nullable=False)
+    name = db.Column(db.String(50), nullable=False)
+    order = db.Column(db.Integer, nullable=False)
+    is_active = db.Column(db.Boolean, default=False)
+    
+    # Relationships
+    athlete_flights = db.relationship("AthleteFlight", backref="flight", lazy=True)
+
+class Athlete(db.Model):
+    """Competition participants"""
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
+    competition_id = db.Column(db.Integer, db.ForeignKey("competition.id"), nullable=False)
+    first_name = db.Column(db.String(80), nullable=False)
+    last_name = db.Column(db.String(80), nullable=False)
+    gender = db.Column(db.String(10))
+    bodyweight = db.Column(db.Float)
+    age = db.Column(db.Integer)
+    team = db.Column(db.String(100))
+    phone = db.Column(db.String(20))
+    email = db.Column(db.String(120))
+    is_active = db.Column(db.Boolean, default=True)
+    current_attempt_number = db.Column(db.Integer, default=1)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    # Relationships
+    flights = db.relationship("AthleteFlight", backref="athlete", lazy=True)
+    attempts = db.relationship("Attempt", backref="athlete", lazy=True)
+    entries = db.relationship("AthleteEntry", backref="athlete", lazy=True)
+
+# Competition Types and Entries
 class CompetitionType(db.Model):
-    """Oly/PowerLift vs SuperTotal"""
+    """Competition type configuration"""
     id = db.Column(db.Integer, primary_key=True)
     exercise_id = db.Column(db.Integer, db.ForeignKey("exercise.id"), nullable=False)
-    name = db.Column(db.String(100), nullable=False)  # "Oly", "PowerLift", "SuperTotal"
+    name = db.Column(db.String(100), nullable=False)
     is_active = db.Column(db.Boolean, default=False)
 
     # Relationships
@@ -88,73 +160,46 @@ class AthleteEntry(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     competition_type_id = db.Column(db.Integer, db.ForeignKey("competition_type.id"), nullable=False)
     athlete_id = db.Column(db.Integer, db.ForeignKey("athlete.id"), nullable=False)
-    entry_order = db.Column(db.Integer)  # Order within competition type
+    entry_order = db.Column(db.Integer)
     is_active = db.Column(db.Boolean, default=True)
 
     # Relationships
     attempts = db.relationship("Attempt", backref="athlete_entry", lazy=True, cascade="all, delete-orphan")
 
-class Athlete(db.Model):
-    """Competition participants"""
+class AthleteFlight(db.Model):
+    """Many-to-many relationship between athletes and flights"""
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)  # May not have user account
-    first_name = db.Column(db.String(80), nullable=False)
-    last_name = db.Column(db.String(80), nullable=False)
-    email = db.Column(db.String(120))
-    phone = db.Column(db.String(20))
-
-    # Competition details
-    team = db.Column(db.String(100))
-    weight_category = db.Column(db.String(50))
-    bodyweight = db.Column(db.Float)
-    age = db.Column(db.Integer)
-    gender = db.Column(db.String(10))
-
-    is_active = db.Column(db.Boolean, default=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-
-    # Relationships
-    entries = db.relationship("AthleteEntry", backref="athlete", lazy=True)
+    athlete_id = db.Column(db.Integer, db.ForeignKey("athlete.id"), nullable=False)
+    flight_id = db.Column(db.Integer, db.ForeignKey("flight.id"), nullable=False)
+    lot_number = db.Column(db.Integer)
 
 # Attempt and Referee System
-class AttemptResult(Enum):
-    GOOD = "good"
-    BAD = "bad"
-    DISQUALIFIED = "disqualified"
-    NOT_ATTEMPTED = "not_attempted"
-
 class Attempt(db.Model):
     """Individual lift attempts"""
     id = db.Column(db.Integer, primary_key=True)
     athlete_entry_id = db.Column(db.Integer, db.ForeignKey("athlete_entry.id"), nullable=False)
-    attempt_number = db.Column(db.Integer, nullable=False)  # 1, 2, 3
-
-    # Weight and result
+    lift_id = db.Column(db.Integer, db.ForeignKey("lift.id"), nullable=False)
+    attempt_number = db.Column(db.Integer, nullable=False)
     requested_weight = db.Column(db.Float, nullable=False)
     actual_weight = db.Column(db.Float)
-    final_result = db.Column(db.Enum(AttemptResult), default=AttemptResult.NOT_ATTEMPTED)
-
-    # Timing
+    final_result = db.Column(db.Enum(AttemptResult), default=AttemptResult.DNF)
     started_at = db.Column(db.DateTime)
     completed_at = db.Column(db.DateTime)
-    duration_seconds = db.Column(db.Integer)
-
-    # Order in competition
     lifting_order = db.Column(db.Integer)
 
     # Relationships
     referee_decisions = db.relationship("RefereeDecision", backref="attempt", lazy=True, cascade="all, delete-orphan")
 
 class RefereeAssignment(db.Model):
-    """Assigns referees to specific competition types"""
+    """Referee assignments"""
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
     competition_type_id = db.Column(db.Integer, db.ForeignKey("competition_type.id"), nullable=False)
-    referee_position = db.Column(db.String(20))  # "head", "side_1", "side_2"
+    referee_position = db.Column(db.String(20))
     is_active = db.Column(db.Boolean, default=True)
 
 class RefereeDecision(db.Model):
-    """Individual referee decisions on attempts"""
+    """Individual referee decisions"""
     id = db.Column(db.Integer, primary_key=True)
     attempt_id = db.Column(db.Integer, db.ForeignKey("attempt.id"), nullable=False)
     referee_assignment_id = db.Column(db.Integer, db.ForeignKey("referee_assignment.id"), nullable=False)
@@ -165,26 +210,20 @@ class RefereeDecision(db.Model):
     # Relationships
     referee_assignment = db.relationship("RefereeAssignment", backref="decisions")
 
-# Timer and Scoring System
+# Timer and Scoring
 class Timer(db.Model):
-    """Timer for attempts and breaks"""
+    """Timer management"""
     id = db.Column(db.Integer, primary_key=True)
     competition_type_id = db.Column(db.Integer, db.ForeignKey("competition_type.id"), nullable=False)
-
-    # Timer state
-    timer_type = db.Column(db.String(20), nullable=False)  # "attempt", "break"
+    timer_type = db.Column(db.String(20), nullable=False)
     duration_seconds = db.Column(db.Integer, nullable=False)
     remaining_seconds = db.Column(db.Integer, nullable=False)
     is_running = db.Column(db.Boolean, default=False)
     is_paused = db.Column(db.Boolean, default=False)
-
-    # Timing
     started_at = db.Column(db.DateTime)
     paused_at = db.Column(db.DateTime)
-
-    # Current context
-    current_attempt_id = db.Column(db.Integer, db.ForeignKey("attempt.id"), nullable=True)
-    current_athlete_id = db.Column(db.Integer, db.ForeignKey("athlete.id"), nullable=True)
+    current_attempt_id = db.Column(db.Integer, db.ForeignKey("attempt.id"))
+    current_athlete_id = db.Column(db.Integer, db.ForeignKey("athlete.id"))
 
     # Relationships
     competition_type = db.relationship("CompetitionType", backref="timers")
@@ -192,39 +231,50 @@ class Timer(db.Model):
     current_athlete = db.relationship("Athlete", foreign_keys=[current_athlete_id])
 
 class Score(db.Model):
-    """Calculated scores and rankings"""
+    """Score tracking"""
     id = db.Column(db.Integer, primary_key=True)
     athlete_entry_id = db.Column(db.Integer, db.ForeignKey("athlete_entry.id"), nullable=False)
-
-    # Score details
     best_attempt_weight = db.Column(db.Float)
     total_score = db.Column(db.Float)
     rank = db.Column(db.Integer)
-
-    # Score type (individual exercise or total)
-    score_type = db.Column(db.String(50))  # "exercise", "total"
-
-    # Calculation metadata
+    score_type = db.Column(db.String(50))
     calculated_at = db.Column(db.DateTime, default=datetime.utcnow)
     is_final = db.Column(db.Boolean, default=False)
 
     # Relationships
     athlete_entry = db.relationship("AthleteEntry", backref="scores")
 
-# Legacy models for backward compatibility
+# Coach Assignment
+class CoachAssignment(db.Model):
+    """Coach to athlete assignments"""
+    id = db.Column(db.Integer, primary_key=True)
+    coach_user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    athlete_id = db.Column(db.Integer, db.ForeignKey("athlete.id"), nullable=False)
+    is_primary = db.Column(db.Boolean, default=False)
+    can_respond = db.Column(db.Boolean, default=True)
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    notes = db.Column(db.Text)
+
+    # Relationships
+    coach = db.relationship("User", backref="coach_assignments", foreign_keys=[coach_user_id])
+    athlete = db.relationship("Athlete", backref="coach_assignments")
+
+# Legacy Support
 class Workout(db.Model):
+    """Legacy workout tracking"""
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
     date = db.Column(db.Date, default=datetime.utcnow)
     notes = db.Column(db.Text)
 
-    user = db.relationship("User", backref=db.backref("workouts", lazy=True))
-
 class WorkoutExercise(db.Model):
+    """Legacy workout exercises"""
     id = db.Column(db.Integer, primary_key=True)
     workout_id = db.Column(db.Integer, db.ForeignKey("workout.id"), nullable=False)
     sets = db.Column(db.Integer, default=3)
     reps = db.Column(db.Integer, default=10)
     weight = db.Column(db.Float, default=0.0)
 
-    workout = db.relationship("Workout", backref=db.backref("items", lazy=True))
+    # Relationships
+    workout = db.relationship("Workout", backref="items")

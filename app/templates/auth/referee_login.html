@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+
+{% block title %}Referee Login - Small Goods Competition{% endblock %}
+
+{% block head %}
+    <style>
+        .login-container {
+            max-width: 400px;
+            margin: 100px auto;
+            padding: 30px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+        
+        .login-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .login-header h1 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+        
+        .referee-selection {
+            margin-bottom: 20px;
+        }
+        
+        .referee-option {
+            display: block;
+            width: 100%;
+            padding: 15px;
+            margin: 10px 0;
+            background: #ecf0f1;
+            border: 2px solid transparent;
+            border-radius: 8px;
+            text-align: center;
+            text-decoration: none;
+            color: #2c3e50;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+        
+        .referee-option:hover {
+            background: #3498db;
+            color: white;
+            border-color: #2980b9;
+            transform: translateY(-2px);
+        }
+        
+        .referee-option.referee-1:hover { background: #e74c3c; border-color: #c0392b; }
+        .referee-option.referee-2:hover { background: #f39c12; border-color: #e67e22; }
+        .referee-option.referee-3:hover { background: #27ae60; border-color: #229954; }
+        
+        .competition-info {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .admin-link {
+            text-align: center;
+            margin-top: 20px;
+        }
+        
+        .admin-link a {
+            color: #7f8c8d;
+            text-decoration: none;
+            font-size: 14px;
+        }
+        
+        .admin-link a:hover {
+            color: #2c3e50;
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+<div class="login-container">
+    <div class="login-header">
+        <h1>🏋️ Referee Login</h1>
+        <p>Select your referee position</p>
+    </div>
+    
+    <div class="competition-info">
+        <strong>Current Competition:</strong><br>
+        <span id="current-competition">Loading...</span>
+    </div>
+    
+    <div class="referee-selection">
+        <a href="/referee/1" class="referee-option referee-1">
+            🔴 Referee 1 (Head Referee)
+        </a>
+        
+        <a href="/referee/2" class="referee-option referee-2">
+            🟡 Referee 2 (Side Referee)
+        </a>
+        
+        <a href="/referee/3" class="referee-option referee-3">
+            🟢 Referee 3 (Side Referee)
+        </a>
+    </div>
+    
+    <div class="admin-link">
+        <a href="/admin/referee">Admin Control Panel</a> | 
+        <a href="/admin/results">Results Dashboard</a>
+    </div>
+</div>
+
+<script>
+// Load current competition info
+fetch('/admin/api/competitions')
+    .then(response => response.json())
+    .then(competitions => {
+        const currentComp = competitions.find(c => c.id === 1) || competitions[0];
+        document.getElementById('current-competition').textContent = 
+            currentComp ? currentComp.name : 'No active competition';
+    })
+    .catch(error => {
+        document.getElementById('current-competition').textContent = 'Error loading competition';
+    });
+</script>
+{% endblock %}

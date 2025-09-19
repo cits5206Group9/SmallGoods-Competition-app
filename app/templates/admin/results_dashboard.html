@@ -1,0 +1,485 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Results Dashboard - Small Goods Competition{% endblock %}
+
+{% block head %}
+    <style>
+        .dashboard-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .dashboard-header {
+            background: #2c3e50;
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 2.5em;
+            font-weight: bold;
+            color: #2c3e50;
+            margin: 10px 0;
+        }
+        
+        .stat-label {
+            color: #7f8c8d;
+            font-size: 14px;
+            text-transform: uppercase;
+        }
+        
+        .live-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+        
+        .live-votes {
+            background: white;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        
+        .current-attempt {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .athlete-info {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+        
+        .referee-votes {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 15px;
+        }
+        
+        .referee-vote {
+            text-align: center;
+            padding: 15px;
+            border-radius: 8px;
+            min-width: 80px;
+        }
+        
+        .vote-pending {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .vote-good {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .vote-no-lift {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .results-table {
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        
+        .table-header {
+            background: #3498db;
+            color: white;
+            padding: 15px 20px;
+            font-weight: bold;
+        }
+        
+        .results-table table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        .results-table th,
+        .results-table td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid #ecf0f1;
+        }
+        
+        .results-table th {
+            background: #f8f9fa;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        
+        .results-table tr:hover {
+            background: #f8f9fa;
+        }
+        
+        .rank-badge {
+            display: inline-block;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background: #3498db;
+            color: white;
+            text-align: center;
+            line-height: 30px;
+            font-weight: bold;
+        }
+        
+        .rank-badge.first { background: #f1c40f; }
+        .rank-badge.second { background: #95a5a6; }
+        .rank-badge.third { background: #cd7f32; }
+        
+        .status-active { color: #27ae60; font-weight: bold; }
+        .status-completed { color: #7f8c8d; }
+        
+        .refresh-btn {
+            background: #27ae60;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            margin-bottom: 20px;
+        }
+        
+        .refresh-btn:hover {
+            background: #229954;
+        }
+        
+        .admin-controls {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+        
+        .control-btn {
+            padding: 10px 20px;
+            margin: 5px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            text-decoration: none;
+            display: inline-block;
+        }
+        
+        .btn-primary { background: #3498db; color: white; }
+        .btn-success { background: #27ae60; color: white; }
+        .btn-warning { background: #f39c12; color: white; }
+        .btn-danger { background: #e74c3c; color: white; }
+    </style>
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-container">
+    <div class="dashboard-header">
+        <h1>📊 Admin Results Dashboard</h1>
+        <p>Live Competition Monitoring & Results</p>
+        <div>
+            <span id="competition-name">Loading...</span> | 
+            <span id="event-name">Loading...</span>
+        </div>
+    </div>
+    
+    <div class="admin-controls">
+        <h3>🎛️ Admin Controls</h3>
+        <a href="/admin/referee" class="control-btn btn-primary">Main Referee Panel</a>
+        <a href="/referee/login" class="control-btn btn-success">Referee Login</a>
+        <button class="control-btn btn-warning" onclick="refreshData()">🔄 Refresh Data</button>
+        <button class="control-btn btn-danger" onclick="emergencyStop()">🛑 Emergency Stop</button>
+    </div>
+    
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-value" id="total-athletes">0</div>
+            <div class="stat-label">Total Athletes</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" id="completed-attempts">0</div>
+            <div class="stat-label">Completed Attempts</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" id="remaining-attempts">0</div>
+            <div class="stat-label">Remaining Attempts</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value" id="competition-progress">0%</div>
+            <div class="stat-label">Competition Progress</div>
+        </div>
+    </div>
+    
+    <div class="live-section">
+        <div class="live-votes">
+            <h3>🔴 Live Referee Voting</h3>
+            <div class="current-attempt" id="current-attempt-info">
+                <div class="athlete-info">
+                    <div>
+                        <strong>Athlete:</strong><br>
+                        <span id="current-athlete-name">No active attempt</span>
+                    </div>
+                    <div>
+                        <strong>Attempt:</strong><br>
+                        <span id="current-attempt-details">--</span>
+                    </div>
+                </div>
+                <div class="referee-votes">
+                    <div class="referee-vote vote-pending" id="referee-1-vote">
+                        <div>🔴 Ref 1</div>
+                        <div>Pending</div>
+                    </div>
+                    <div class="referee-vote vote-pending" id="referee-2-vote">
+                        <div>🟡 Ref 2</div>
+                        <div>Pending</div>
+                    </div>
+                    <div class="referee-vote vote-pending" id="referee-3-vote">
+                        <div>🟢 Ref 3</div>
+                        <div>Pending</div>
+                    </div>
+                </div>
+            </div>
+            <button class="refresh-btn" onclick="refreshVotes()">🔄 Refresh Votes</button>
+        </div>
+        
+        <div class="live-votes">
+            <h3>⏱️ Timer Status</h3>
+            <div style="text-align: center; padding: 20px;">
+                <div style="font-size: 3em; font-weight: bold; color: #2c3e50;" id="live-timer">--</div>
+                <div style="color: #7f8c8d;">Time Remaining</div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="results-table">
+        <div class="table-header">
+            🏆 Current Competition Results
+        </div>
+        <table>
+            <thead>
+                <tr>
+                    <th>Rank</th>
+                    <th>Athlete</th>
+                    <th>Weight Class</th>
+                    <th>Team</th>
+                    <th>Best Lift</th>
+                    <th>Total</th>
+                    <th>Status</th>
+                    <th>Attempts</th>
+                </tr>
+            </thead>
+            <tbody id="results-tbody">
+                <tr>
+                    <td colspan="8" style="text-align: center; padding: 30px;">Loading results...</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+class AdminDashboard {
+    constructor() {
+        this.currentAttemptData = null;
+        this.competitionData = null;
+        this.resultsData = [];
+        
+        this.init();
+    }
+    
+    init() {
+        this.loadCompetitionInfo();
+        this.loadResults();
+        this.startLiveUpdates();
+    }
+    
+    async loadCompetitionInfo() {
+        try {
+            const response = await fetch('/admin/api/competitions');
+            const competitions = await response.json();
+            const currentComp = competitions.find(c => c.id === 1) || competitions[0];
+            
+            if (currentComp) {
+                document.getElementById('competition-name').textContent = currentComp.name;
+                
+                const detailResponse = await fetch(`/admin/api/competitions/${currentComp.id}`);
+                const details = await detailResponse.json();
+                
+                if (details.events && details.events.length > 0) {
+                    document.getElementById('event-name').textContent = details.events[0].name;
+                }
+                
+                this.competitionData = details;
+            }
+        } catch (error) {
+            console.error('Error loading competition info:', error);
+        }
+    }
+    
+    async loadResults() {
+        try {
+            const athletesResponse = await fetch('/admin/api/competitions/1/athletes');
+            const athletes = await athletesResponse.json();
+            
+            // Calculate statistics
+            document.getElementById('total-athletes').textContent = athletes.length;
+            document.getElementById('completed-attempts').textContent = athletes.length * 2; // Mock data
+            document.getElementById('remaining-attempts').textContent = athletes.length; // Mock data
+            document.getElementById('competition-progress').textContent = '67%'; // Mock data
+            
+            // Update results table
+            this.updateResultsTable(athletes);
+            
+        } catch (error) {
+            console.error('Error loading results:', error);
+        }
+    }
+    
+    updateResultsTable(athletes) {
+        const tbody = document.getElementById('results-tbody');
+        tbody.innerHTML = '';
+        
+        athletes.forEach((athlete, index) => {
+            const row = document.createElement('tr');
+            const rank = index + 1;
+            const bestLift = athlete.startingWeight + (rank * 5); // Mock calculation
+            
+            row.innerHTML = `
+                <td>
+                    <span class="rank-badge ${rank === 1 ? 'first' : rank === 2 ? 'second' : rank === 3 ? 'third' : ''}">${rank}</span>
+                </td>
+                <td><strong>${athlete.name}</strong></td>
+                <td>${athlete.weightClass}</td>
+                <td>${athlete.team}</td>
+                <td>${bestLift}kg</td>
+                <td>${bestLift}kg</td>
+                <td><span class="status-${rank <= 3 ? 'active' : 'completed'}">${rank <= 3 ? 'Active' : 'Completed'}</span></td>
+                <td>2/3</td>
+            `;
+            
+            tbody.appendChild(row);
+        });
+    }
+    
+    async checkCurrentAttempt() {
+        try {
+            const response = await fetch('/admin/api/current-attempt');
+            const data = await response.json();
+            
+            if (data.status === 'active') {
+                this.updateCurrentAttemptDisplay(data);
+            } else {
+                this.showWaitingState();
+            }
+        } catch (error) {
+            console.error('Error checking current attempt:', error);
+            this.showWaitingState();
+        }
+    }
+    
+    updateCurrentAttemptDisplay(data) {
+        document.getElementById('current-athlete-name').textContent = data.athlete ? data.athlete.name : 'Unknown';
+        document.getElementById('current-attempt-details').textContent = 
+            `${data.weight}kg - Attempt ${data.attemptNumber}`;
+        
+        if (data.timer) {
+            document.getElementById('live-timer').textContent = data.timer.remaining;
+        }
+        
+        // Update referee votes
+        for (let i = 1; i <= 3; i++) {
+            const voteEl = document.getElementById(`referee-${i}-vote`);
+            if (data.votes && data.votes[i]) {
+                const vote = data.votes[i];
+                voteEl.className = `referee-vote vote-${vote === 'good' ? 'good' : 'no-lift'}`;
+                voteEl.innerHTML = `
+                    <div>${i === 1 ? '🔴' : i === 2 ? '🟡' : '🟢'} Ref ${i}</div>
+                    <div>${vote === 'good' ? '✅ Good' : '❌ No Lift'}</div>
+                `;
+            } else {
+                voteEl.className = 'referee-vote vote-pending';
+                voteEl.innerHTML = `
+                    <div>${i === 1 ? '🔴' : i === 2 ? '🟡' : '🟢'} Ref ${i}</div>
+                    <div>Pending</div>
+                `;
+            }
+        }
+    }
+    
+    showWaitingState() {
+        document.getElementById('current-athlete-name').textContent = 'No active attempt';
+        document.getElementById('current-attempt-details').textContent = '--';
+        document.getElementById('live-timer').textContent = '--';
+        
+        // Reset referee votes
+        for (let i = 1; i <= 3; i++) {
+            const voteEl = document.getElementById(`referee-${i}-vote`);
+            voteEl.className = 'referee-vote vote-pending';
+            voteEl.innerHTML = `
+                <div>${i === 1 ? '🔴' : i === 2 ? '🟡' : '🟢'} Ref ${i}</div>
+                <div>Pending</div>
+            `;
+        }
+    }
+    
+    startLiveUpdates() {
+        // Update every 2 seconds
+        setInterval(() => {
+            this.checkCurrentAttempt();
+        }, 2000);
+        
+        // Initial check
+        this.checkCurrentAttempt();
+    }
+}
+
+// Global functions
+function refreshData() {
+    window.dashboard.loadResults();
+    window.dashboard.checkCurrentAttempt();
+}
+
+function refreshVotes() {
+    window.dashboard.checkCurrentAttempt();
+}
+
+function emergencyStop() {
+    if (confirm('Are you sure you want to trigger an emergency stop?')) {
+        alert('Emergency stop activated! All timers stopped.');
+        // In a real implementation, this would stop all timers and notify referees
+    }
+}
+
+// Initialize dashboard
+document.addEventListener('DOMContentLoaded', () => {
+    window.dashboard = new AdminDashboard();
+});
+</script>
+{% endblock %}
