@@ -32,6 +32,9 @@ document.addEventListener('DOMContentLoaded', function() {
         competitionSelect.addEventListener('change', handleCompetitionChange);
         eventSelect.addEventListener('change', handleEventChange);
 
+        // Show all flights button
+        document.getElementById('show-all-flights').addEventListener('click', showAllFlights);
+
         // Add flight button
         addFlightBtn.addEventListener('click', showAddFlightModal);
 
@@ -150,6 +153,33 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
+    async function showAllFlights() {
+        try {
+            showLoading(flightsContainer);
+            
+            const response = await fetch('/admin/flights/all');
+            if (!response.ok) throw new Error('Failed to load all flights');
+            
+            const flights = await response.json();
+            
+            if (flights.length === 0) {
+                showEmptyState('No flights found');
+            } else {
+                displayFlights(flights);
+                // Clear event selection since we're showing all flights
+                currentEventId = null;
+                eventSelect.value = '';
+                competitionSelect.value = '';
+            }
+        } catch (error) {
+            console.error('Error loading all flights:', error);
+            showNotification('Error loading all flights', 'error');
+            showEmptyState();
+        } finally {
+            hideLoading(flightsContainer);
+        }
+    }
+
     function displayFlights(flights) {
         emptyState.style.display = 'none';
         flightsList.style.display = 'block';
@@ -255,31 +285,75 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    function showAddFlightModal() {
-        if (!currentEventId) {
-            showNotification('Please select an event first', 'error');
-            return;
-        }
-        
+    async function showAddFlightModal() {
         currentFlightId = null;
         document.getElementById('flight-modal-title').textContent = 'Add New Flight';
         document.getElementById('save-flight-btn').textContent = 'Save Flight';
         flightForm.reset();
         
+        // Populate event dropdown
+        await populateEventDropdown();
+        
         // Set default order
         const flightCards = flightsGrid.querySelectorAll('.flight-card');
         document.getElementById('flight_order').value = flightCards.length + 1;
+        
+        // Pre-select current event if available
+        if (currentEventId) {
+            document.getElementById('flight_event_id').value = currentEventId;
+        }
         
         flightModal.style.display = 'block';
         document.getElementById('flight_name').focus();
     }
 
-    function handleEditFlight(event) {
+    async function populateEventDropdown() {
+        try {
+            const eventSelect = document.getElementById('flight_event_id');
+            eventSelect.innerHTML = '<option value="">Select Event</option>';
+            
+            // Get all competitions first
+            const competitionsResponse = await fetch('/admin/competitions');
+            if (!competitionsResponse.ok) throw new Error('Failed to load competitions');
+            const competitions = await competitionsResponse.json();
+            
+            // Get events for each competition
+            for (const competition of competitions) {
+                const eventsResponse = await fetch(`/admin/competitions/${competition.id}/events`);
+                if (eventsResponse.ok) {
+                    const events = await eventsResponse.json();
+                    
+                    if (events.length > 0) {
+                        const optgroup = document.createElement('optgroup');
+                        optgroup.label = competition.name;
+                        
+                        events.forEach(event => {
+                            const option = document.createElement('option');
+                            option.value = event.id;
+                            option.textContent = event.name;
+                            optgroup.appendChild(option);
+                        });
+                        
+                        eventSelect.appendChild(optgroup);
+                    }
+                }
+            }
+            
+        } catch (error) {
+            console.error('Error loading events:', error);
+            showNotification('Error loading events', 'error');
+        }
+    }
+
+    async function handleEditFlight(event) {
         const flightId = event.target.closest('button').dataset.flightId;
         currentFlightId = flightId;
         
         document.getElementById('flight-modal-title').textContent = 'Edit Flight';
         document.getElementById('save-flight-btn').textContent = 'Update Flight';
+        
+        // Populate event dropdown first
+        await populateEventDropdown();
         
         // Load flight data
         loadFlightData(flightId);
@@ -299,6 +373,7 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('flight_name').value = flight.name;
             document.getElementById('flight_order').value = flight.order;
             document.getElementById('flight_is_active').checked = flight.is_active;
+            document.getElementById('flight_event_id').value = flight.event_id;
             
         } catch (error) {
             console.error('Error loading flight data:', error);
@@ -312,11 +387,19 @@ document.addEventListener('DOMContentLoaded', function() {
         event.preventDefault();
         
         const formData = new FormData(flightForm);
+        const eventId = formData.get('event_id') || currentEventId;
+        
+        // Check if we have a valid event ID
+        if (!eventId) {
+            showNotification('Please select an event first', 'error');
+            return;
+        }
+        
         const flightData = {
             name: formData.get('flight_name'),
             order: parseInt(formData.get('flight_order')),
             is_active: formData.has('is_active'),
-            event_id: currentEventId
+            event_id: parseInt(eventId)
         };
 
         try {
