@@ -141,7 +141,6 @@ class Athlete(db.Model):
 
     # Relationships
     flights = db.relationship("AthleteFlight", backref="athlete", lazy=True)
-    attempts = db.relationship("Attempt", backref="athlete", lazy=True)
     entries = db.relationship("AthleteEntry", backref="athlete", lazy=True)
 
 # Competition Types and Entries
@@ -177,8 +176,21 @@ class AthleteFlight(db.Model):
 class Attempt(db.Model):
     """Individual lift attempts"""
     id = db.Column(db.Integer, primary_key=True)
-    athlete_entry_id = db.Column(db.Integer, db.ForeignKey("athlete_entry.id"), nullable=False)
-    lift_id = db.Column(db.Integer, db.ForeignKey("lift.id"), nullable=False)
+    athlete_id = db.Column(
+        db.Integer, 
+        db.ForeignKey("athlete.id", name="fk_attempt_athlete_id"), 
+        nullable=False
+    )
+    athlete_entry_id = db.Column(
+        db.Integer, 
+        db.ForeignKey("athlete_entry.id", name="fk_attempt_athlete_entry_id"), 
+        nullable=False
+    )
+    lift_id = db.Column(
+        db.Integer, 
+        db.ForeignKey("lift.id", name="fk_attempt_lift_id"), 
+        nullable=False
+    )
     attempt_number = db.Column(db.Integer, nullable=False)
     requested_weight = db.Column(db.Float, nullable=False)
     actual_weight = db.Column(db.Float)
@@ -188,8 +200,9 @@ class Attempt(db.Model):
     lifting_order = db.Column(db.Integer)
 
     # Relationships
+    athlete = db.relationship("Athlete", backref="attempts")
     referee_decisions = db.relationship("RefereeDecision", backref="attempt", lazy=True, cascade="all, delete-orphan")
-
+    
 class RefereeAssignment(db.Model):
     """Referee assignments"""
     id = db.Column(db.Integer, primary_key=True)
