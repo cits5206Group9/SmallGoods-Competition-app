@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, request, jsonify
 from ..extensions import db
-from ..models import Competition, SportCategory, Exercise, CompetitionType
+from ..models import Competition, SportType, Exercise, CompetitionType
 from datetime import datetime
 
 admin_bp = Blueprint('admin', __name__, url_prefix='/admin')
@@ -12,6 +12,15 @@ def admin_dashboard():
 @admin_bp.route('/competition-model')
 def competition_model():
     return render_template('admin/competition_model.html')
+
+@admin_bp.route('/competition-model/create')
+def competition_create():
+    return render_template('admin/competition_create.html')
+
+@admin_bp.route('/competition-model/edit')
+def competition_edit():
+    competitions = Competition.query.all()
+    return render_template('admin/competition_edit.html', competitions=competitions)
 
 @admin_bp.route('/live-event')
 def live_event():
@@ -48,49 +57,68 @@ def display():
     return render_template('admin/display.html')
 
 # API Routes below
+@admin_bp.route('/competition-model/get/<int:id>')
+def get_competition_model(id):
+    competition = Competition.query.get_or_404(id)
+    return jsonify({
+        'id': competition.id,
+        'name': competition.name,
+        'description': competition.description,
+        'sport_type': competition.sport_type.value if competition.sport_type else None,
+        'config': competition.config or {
+            'name': competition.name,
+            'sport_type': competition.sport_type.value if competition.sport_type else None,
+            'features': {
+                'allowAthleteInput': True,
+                'allowCoachAssignment': True,
+                'enableAttemptOrdering': True
+            },
+            'events': []
+        },
+        'is_active': competition.is_active
+    })
+
 @admin_bp.route('/competition-model/save', methods=['POST'])
 def save_competition_model():
     try:
         data = request.get_json()
+        print("Received data:", data)  # Debug log
         
-        competition = Competition(
-            name=data['name'],
-            description=f"Sport type: {data['sport_type']}",
-            start_date=datetime.now().date(),
-            end_date=datetime.now().date(),
-            is_active=True
-        )
-        db.session.add(competition)
-        db.session.flush()
+        # Create new competition or update existing one
+        competition_id = data.get('id')
+        if competition_id:
+            competition = Competition.query.get_or_404(competition_id)
+        else:
+            competition = Competition()
+
+        # Update basic fields
+        competition.name = data['name']
+        competition.sport_type = SportType(data['sport_type'])
+        competition.description = f"Sport type: {data['sport_type']}"
+        competition.start_date = datetime.now().date()
+        competition.end_date = datetime.now().date()
+        competition.is_active = True
         
-        for event_data in data.get('events', []):
-            category = SportCategory(
-                competition_day=day,
-                name=event_data['name'],
-                is_active=True
-            )
-            db.session.add(category)
-            db.session.flush()
-            
-            for idx, movement in enumerate(event_data.get('movements', []), 1):
-                exercise = Exercise(
-                    sport_category=category,
-                    name=movement['name'],
-                    order=idx,
-                    attempt_time_limit=movement['timer'].get('attempt_seconds', 60),
-                    break_time_default=movement['timer'].get('break_seconds', 120)
-                )
-                db.session.add(exercise)
-                db.session.flush()
-                
-                comp_type = CompetitionType(
-                    exercise=exercise,
-                    name=movement.get('scoring', {}).get('name', 'Standard'),
-                    is_active=True
-                )
-                db.session.add(comp_type)
+        # Store the complete configuration including events, movements, and groups
+        competition.config = {
+            'name': data['name'],
+            'sport_type': data['sport_type'],
+            'features': data.get('features', {
+                'allowAthleteInput': True,
+                'allowCoachAssignment': True,
+                'enableAttemptOrdering': True
+            }),
+            'events': data.get('events', [])
+        }
         
+        if not competition_id:
+            db.session.add(competition)
+        
+        # Commit the changes
         db.session.commit()
+        
+        print("Saved competition:", competition.id, competition.config)  # Debug log
+        
         return jsonify({
             'status': 'success',
             'competition_id': competition.id,
@@ -99,6 +127,7 @@ def save_competition_model():
         
     except Exception as e:
         db.session.rollback()
+        print("Error saving competition:", str(e))  # Debug log
         return jsonify({
             'status': 'error',
             'message': str(e)

@@ -1,0 +1,274 @@
+{% extends "base.html" %}
+
+{% block title %}Competition Model Editor - SmallGoods{% endblock %}
+
+{% block css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/competition_create.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="model-editor container">
+  <header class="model-editor__header">
+    <h1>Competition Model Editor</h1>
+    <p class="subtitle">
+      Define Events, Movements/Lifts, Groups/Flights, Metrics, Referee inputs, Scoring rules, Reps/Attempts, Timer settings, and Attempt Ordering.
+    </p>
+    <a href="{{ url_for('admin.competition_model') }}" class="btn-back">← Back to Model Manager</a>
+  </header>
+
+  <!-- Top-level Competition Definition -->
+  <section class="panel">
+    <h2>Competition Definition</h2>
+    <div class="grid grid-2">
+      <div class="form-field">
+        <label for="comp-name">Competition Name</label>
+        <input type="text" id="comp-name" placeholder="e.g., SG Open 2025">
+      </div>
+      <div class="form-field">
+        <label for="sport-type">Sport Type</label>
+        <select id="sport-type">
+          <option value="">Select...</option>
+          <option value="olympic_weightlifting">Olympic Weightlifting</option>
+          <option value="powerlifting">Powerlifting</option>
+          <option value="crossfit">CrossFit</option>
+          <option value="hyrox">Hyrox</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="settings-row">
+      <label class="checkbox">
+        <input type="checkbox" id="allow-athlete-input" checked>
+        Allow athlete data collection (e.g., openers / next attempt weight)
+      </label>
+      <label class="checkbox">
+        <input type="checkbox" id="allow-coach-assignment" checked>
+        Allow coach assignment and responses on behalf of athlete
+      </label>
+      <label class="checkbox">
+        <input type="checkbox" id="enable-attempt-ordering" checked>
+        Enable Attempt Ordering (e.g., heaviest last)
+      </label>
+    </div>
+  </section>
+
+  <!-- Events Builder -->
+  <section class="panel">
+    <div class="panel-header">
+      <h2>Events</h2>
+      <button type="button" class="btn" id="add-event-btn">+ Add Event</button>
+    </div>
+    <div id="events-container" class="stack"></div>
+  </section>
+
+  <!-- Actions -->
+  <section class="panel actions-panel">
+    <button type="button" class="btn primary" id="save-local-btn">Save to Browser</button>
+    <button type="button" class="btn primary" id="save-db-btn">Save to Database</button>
+    <button type="button" class="btn" id="load-local-btn">Load from Browser</button>
+    <button type="button" class="btn" id="download-json-btn">Download JSON</button>
+    <button type="button" class="btn danger" id="clear-all-btn">Clear All</button>
+    <span id="status-msg" class="status-msg" aria-live="polite"></span>
+  </section>
+
+  <!-- Live Preview -->
+  <section class="panel">
+    <h2>Live JSON Preview</h2>
+    <pre id="json-preview" class="json-preview" aria-label="JSON Preview"></pre>
+  </section>
+</div>
+
+<!-- Templates (cloned by JS) -->
+<template id="tpl-event">
+  <div class="card event-card">
+    <div class="card-header">
+      <h3>Event</h3>
+      <div class="card-actions">
+        <button type="button" class="btn small danger remove-event">Remove Event</button>
+      </div>
+    </div>
+    <div class="grid grid-3">
+      <div class="form-field">
+        <label>Event Name</label>
+        <input type="text" class="event-name" placeholder="e.g., Mixed Weightlifting">
+      </div>
+      <div class="form-field">
+        <label>Gender</label>
+        <select class="event-gender">
+          <option value="">Any</option>
+          <option value="M">Male</option>
+          <option value="F">Female</option>
+          <option value="Mixed">Mixed</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="subsection">
+      <h4>Attempt Ordering</h4>
+      <div class="grid grid-3">
+        <div class="form-field">
+          <label>Rule</label>
+          <select class="event-attempt-ordering">
+            <option value="">None</option>
+            <option value="heaviest_last">Heaviest last</option>
+            <option value="lightest_first">Lightest first</option>
+            <option value="custom">Custom order list</option>
+          </select>
+        </div>
+        <div class="form-field">
+          <label>Custom Order</label>
+          <input type="text" class="event-custom-order" placeholder="e.g., 1,2,1,2">
+        </div>
+        <div class="form-field">
+          <label>Notes</label>
+          <input type="text" class="event-order-notes" placeholder="Optional">
+        </div>
+      </div>
+    </div>
+
+    <div class="subsection movements">
+      <div class="subsection-header">
+        <h4>Movements / Lifts</h4>
+        <button type="button" class="btn small add-movement">+ Add Movement/Lift</button>
+      </div>
+      <div class="movements-container stack"></div>
+    </div>
+
+    <div class="subsection groups">
+      <div class="subsection-header">
+        <h4>Groups / Flights</h4>
+        <button type="button" class="btn small add-group">+ Add Group/Flight</button>
+      </div>
+      <div class="groups-container stack"></div>
+    </div>
+  </div>
+</template>
+
+<template id="tpl-movement">
+  <div class="card movement-card">
+    <div class="card-header">
+      <h5>Movement / Lift</h5>
+      <div class="card-actions">
+        <button type="button" class="btn small danger remove-movement">Remove Movement</button>
+      </div>
+    </div>
+
+    <div class="movement-content">
+      <div class="grid grid-2">
+        <div class="form-field">
+          <label>Name</label>
+          <input type="text" class="movement-name" placeholder="e.g., Snatch, Squat">
+        </div>
+        <div class="form-field">
+          <label>Reps / Attempts</label>
+          <input type="text" class="movement-reps" placeholder="e.g., 1,1,1">
+          <small>Length = number of attempts (e.g., 3 attempts)</small>
+        </div>
+      </div>
+
+      <div class="form-field">
+        <label>Scoring</label>
+        <div class="scoring-grid">
+          <input type="text" class="scoring-name" placeholder="e.g., biggest">
+          <select class="scoring-type">
+            <option value="max">Max</option>
+            <option value="sum">Sum</option>
+            <option value="min">Min</option>
+          </select>
+          <input type="text" class="scoring-metric" placeholder="metric name (e.g., weight)">
+        </div>
+      </div>
+
+      <div class="grid grid-2">
+        <div class="form-field">
+          <label>Attempt Time (sec)</label>
+          <input type="number" min="1" class="attempt-time" placeholder="e.g., 60">
+        </div>
+        <div class="form-field">
+          <label>Break Time (sec)</label>
+          <input type="number" min="0" class="break-time" placeholder="e.g., 120">
+        </div>
+      </div>
+
+      <div class="metrics-section">
+        <div class="metrics-header">
+          <h5>Additional Metrics</h5>
+          <button type="button" class="btn small add-metric">+ Add Metric</button>
+        </div>
+        <div class="metrics-container"></div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<template id="tpl-metric">
+  <div class="row metric-row">
+    <div class="grid grid-3">
+      <div class="form-field">
+        <label>Metric Name</label>
+        <input type="text" class="metric-name" placeholder="e.g., weight, reps, time">
+      </div>
+      <div class="form-field">
+        <label>Units</label>
+        <input type="text" class="metric-units" placeholder="e.g., kg, count, sec, m">
+      </div>
+      <div class="form-field actions-right">
+        <button type="button" class="btn small danger remove-metric">Remove</button>
+      </div>
+    </div>
+  </div>
+</template>
+
+<template id="tpl-group">
+  <div class="card group-card">
+    <div class="card-header">
+      <h5>Group / Flight</h5>
+      <div class="card-actions">
+        <button type="button" class="btn small danger remove-group">Remove Group</button>
+      </div>
+    </div>
+    <div class="grid grid-3">
+      <div class="form-field">
+        <label>Name</label>
+        <input type="text" class="group-name" placeholder="e.g., Flight A">
+      </div>
+      <div class="form-field">
+        <label>Override Reps / Attempts</label>
+        <input type="text" class="group-reps" placeholder="Optional override (e.g., 1,1,1)">
+      </div>
+      <div class="form-field">
+        <label>Order In Group</label>
+        <input type="number" class="group-order" min="1" placeholder="e.g., 1">
+      </div>
+    </div>
+
+    <div class="subsection">
+      <h5>Referee Input Spec</h5>
+      <div class="grid grid-3">
+        <div class="form-field">
+          <label># of Referees</label>
+          <input type="number" min="1" class="ref-n" placeholder="e.g., 3">
+        </div>
+        <div class="form-field">
+          <label>Decision Options</label>
+          <textarea class="ref-options" rows="2" placeholder='Label,Color,Value per line
+e.g.
+good lift,green,true
+no lift,red,false
+not to depth,blue,false'></textarea>
+        </div>
+        <div class="form-field">
+          <label>Notes</label>
+          <input type="text" class="ref-notes" placeholder="Optional">
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/competition-utils.js') }}"></script>
+<script src="{{ url_for('static', filename='js/competition_create.js') }}"></script>
+{% endblock %}
