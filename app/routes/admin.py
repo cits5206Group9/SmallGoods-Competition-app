@@ -1,6 +1,7 @@
+from asyncio.log import logger
 from flask import Blueprint, render_template, request, jsonify
 from ..extensions import db
-from ..models import Competition, SportCategory, Exercise, CompetitionType, Athlete, Flight, Event, SportType
+from ..models import Competition, SportCategory, Exercise, CompetitionType, Athlete, Flight, Event, SportType, AthleteFlight
 from datetime import datetime
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import joinedload
@@ -209,13 +210,133 @@ def atheletes_management():
 
 @admin_bp.route('/flights-management')
 def flights_management():
-    # Get all competitions for the selection dropdown
-    competitions = Competition.query.all()
-    
-    return render_template('admin/flights_management.html',
-                         competitions=competitions)
-<<<<<<< HEAD
-=======
+    try:
+        print("Starting flights_management route...")
+        
+        # Get all competitions with their events
+        competitions = Competition.query.options(
+            db.joinedload(Competition.events)
+        ).all()
+        print(f"Found {len(competitions)} competitions")
+        
+        # Get all events with competition information
+        events = Event.query.options(
+            db.joinedload(Event.competition)
+        ).all()
+        print(f"Found {len(events)} events")
+        
+        # Get all athletes with competition information
+        athletes = Athlete.query.options(
+            db.joinedload(Athlete.competition)
+        ).all()
+        print(f"Found {len(athletes)} athletes")
+        
+        # Get all flights with their relationships
+        flights = Flight.query.options(
+            db.joinedload(Flight.event).joinedload(Event.competition),
+            db.joinedload(Flight.athlete_flights).joinedload(AthleteFlight.athlete)
+        ).order_by(Flight.order).all()
+        print(f"Found {len(flights)} flights")
+        
+        # Prepare data for template and localStorage
+        competitions_data = []
+        for comp in competitions:
+            comp_events = []
+            for event in comp.events:
+                comp_events.append({
+                    'id': event.id,
+                    'name': event.name,
+                    'type': event.scoring_type.value if event.scoring_type else None,
+                    'competition_id': comp.id
+                })
+            
+            competitions_data.append({
+                'id': comp.id,
+                'name': comp.name,
+                'config': comp.config,
+                'events': comp_events
+            })
+        print(f"Prepared {len(competitions_data)} competitions data")
+        
+        events_data = []
+        for event in events:
+            events_data.append({
+                'id': event.id,
+                'name': event.name,
+                'type': event.scoring_type.value if event.scoring_type else None,
+                'competition_id': event.competition_id,
+                'competition_name': event.competition.name if event.competition else None
+            })
+        print(f"Prepared {len(events_data)} events data")
+        
+        athletes_data = []
+        for athlete in athletes:
+            athletes_data.append({
+                'id': athlete.id,
+                'first_name': athlete.first_name,
+                'last_name': athlete.last_name,
+                'email': athlete.email,
+                'phone': athlete.phone,
+                'team': athlete.team,
+                'gender': athlete.gender,
+                'age': athlete.age,
+                'bodyweight': athlete.bodyweight,
+                'competition_id': athlete.competition_id,
+                'competition_name': athlete.competition.name if athlete.competition else None,
+                'is_active': athlete.is_active
+            })
+        print(f"Prepared {len(athletes_data)} athletes data")
+        
+        flights_data = []
+        for flight in flights:
+            # Get athlete count and athletes list safely
+            athlete_count = 0
+            athletes_list = []
+            
+            if hasattr(flight, 'athlete_flights') and flight.athlete_flights:
+                athlete_count = len(flight.athlete_flights)
+                for af in flight.athlete_flights:
+                    if hasattr(af, 'athlete') and af.athlete:
+                        athletes_list.append({
+                            'id': af.athlete.id,
+                            'name': f"{af.athlete.first_name} {af.athlete.last_name}",
+                            'order': getattr(af, 'order', 0) or 0  # Use order field
+                        })
+            
+            flight_data = {
+                'id': flight.id,
+                'name': flight.name,
+                'order': flight.order,
+                'is_active': flight.is_active,
+                'event_id': flight.event_id,
+                'event_name': flight.event.name if flight.event else None,
+                'competition_id': flight.event.competition_id if flight.event and flight.event.competition else None,
+                'competition_name': flight.event.competition.name if flight.event and flight.event.competition else None,
+                'athlete_count': athlete_count,
+                'athletes': athletes_list
+            }
+            flights_data.append(flight_data)
+        print(f"Prepared {len(flights_data)} flights data")
+        
+        print("Rendering template with data...")
+        return render_template('admin/flights_management.html',
+                             competitions=competitions_data,
+                             events=events_data,
+                             athletes=athletes_data,
+                             flights=flights_data)
+                             
+    except Exception as e:
+        print(f"Error in flights_management: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        
+        # Return empty data on error but still render the template
+        return render_template('admin/flights_management.html',
+                             competitions=[],
+                             events=[],
+                             athletes=[],
+                             flights=[])
+>>>>>>> deddd38 (Link Flight with athletes)
 
 # Athlete API Routes
 @admin_bp.route('/athletes', methods=['POST'])
@@ -719,6 +840,106 @@ def get_competition_events(competition_id):
 >>>>>>> 9480c1c (athelete flights managment v3)
 =======
 
+@admin_bp.route('/flights/<int:flight_id>/available-athletes', methods=['GET'])
+def get_available_athletes_for_flight(flight_id):
+    """Get all athletes that can be assigned to a specific flight"""
+    try:
+        # Get pagination parameters
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 50, type=int)
+        search = request.args.get('search', '', type=str)
+        
+        flight = Flight.query.options(
+            joinedload(Flight.event).joinedload(Event.competition)
+        ).get(flight_id)
+        
+        if not flight:
+            return jsonify({
+                'status': 'error',
+                'message': 'Flight not found'
+            }), 404
+        
+        # Get the competition ID for this flight
+        competition_id = None
+        if flight.event and flight.event.competition:
+            competition_id = flight.event.competition_id
+        elif flight.event:
+            # Flight might be associated with a competition directly
+            event = Event.query.get(flight.event_id)
+            if event:
+                competition_id = event.competition_id
+        
+        # If no competition found, get all athletes not in any flight
+        if not competition_id:
+            subquery = db.session.query(AthleteFlight.athlete_id).subquery()
+            available_athletes_query = db.session.query(Athlete).filter(
+                ~Athlete.id.in_(subquery),
+                Athlete.is_active == True
+            )
+        else:
+            # Get athletes in the same competition who are not in any flight
+            subquery = db.session.query(AthleteFlight.athlete_id).subquery()
+            available_athletes_query = db.session.query(Athlete).filter(
+                Athlete.competition_id == competition_id,
+                ~Athlete.id.in_(subquery),
+                Athlete.is_active == True
+            )
+        
+        # Add search filter if provided
+        if search:
+            search_filter = f"%{search}%"
+            available_athletes_query = available_athletes_query.filter(
+                db.or_(
+                    Athlete.first_name.ilike(search_filter),
+                    Athlete.last_name.ilike(search_filter),
+                    Athlete.team.ilike(search_filter),
+                    Athlete.email.ilike(search_filter)
+                )
+            )
+        
+        # Apply pagination
+        paginated_athletes = available_athletes_query.paginate(
+            page=page, per_page=per_page, error_out=False
+        )
+        
+        return jsonify({
+            'flight': {
+                'id': flight.id,
+                'name': flight.name,
+                'event_id': flight.event_id,
+                'event_name': flight.event.name if flight.event else None,
+                'competition_id': competition_id,
+                'competition_name': flight.event.competition.name if flight.event and flight.event.competition else None
+            },
+            'athletes': [{
+                'id': athlete.id,
+                'first_name': athlete.first_name,
+                'last_name': athlete.last_name,
+                'full_name': f"{athlete.first_name} {athlete.last_name}",
+                'email': athlete.email,
+                'team': athlete.team,
+                'bodyweight': athlete.bodyweight,
+                'gender': athlete.gender,
+                'age': athlete.age,
+                'competition_id': athlete.competition_id,
+                'competition_name': athlete.competition.name if athlete.competition else None
+            } for athlete in paginated_athletes.items],
+            'pagination': {
+                'page': page,
+                'per_page': per_page,
+                'total': paginated_athletes.total,
+                'pages': paginated_athletes.pages,
+                'has_prev': paginated_athletes.has_prev,
+                'has_next': paginated_athletes.has_next
+            }
+        }), 200
+        
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': 'Failed to retrieve available athletes: ' + str(e)
+        }), 500
+
 @admin_bp.route('/events/<int:event_id>/available-athletes', methods=['GET'])
 def get_available_athletes(event_id):
     """Get all athletes that can be assigned to flights for this event"""
@@ -795,8 +1016,6 @@ def get_available_athletes(event_id):
 def get_flight_athletes(flight_id):
     """Get all athletes assigned to a specific flight"""
     try:
-        from ..models import AthleteFlight
-        
         flight = Flight.query.options(
             joinedload(Flight.event).joinedload(Event.competition)
         ).get(flight_id)
@@ -807,9 +1026,16 @@ def get_flight_athletes(flight_id):
                 'message': 'Flight not found'
             }), 404
         
-        flight_athletes = db.session.query(Athlete).join(AthleteFlight).filter(
+        # Get athletes with their flight order
+        flight_athletes_query = db.session.query(Athlete, AthleteFlight).join(
+            AthleteFlight, Athlete.id == AthleteFlight.athlete_id
+        ).filter(
             AthleteFlight.flight_id == flight_id
-        ).options(joinedload(Athlete.competition)).all()
+        ).options(
+            joinedload(Athlete.competition)
+        ).order_by(AthleteFlight.order)
+        
+        flight_athletes = flight_athletes_query.all()
         
         return jsonify({
             'flight': {
@@ -818,19 +1044,23 @@ def get_flight_athletes(flight_id):
                 'event_id': flight.event_id,
                 'order': flight.order,
                 'event_name': flight.event.name if flight.event else None,
+                'competition_id': flight.event.competition_id if flight.event and flight.event.competition else None,
                 'competition_name': flight.event.competition.name if flight.event and flight.event.competition else None
             },
             'athletes': [{
                 'id': athlete.id,
                 'first_name': athlete.first_name,
                 'last_name': athlete.last_name,
+                'full_name': f"{athlete.first_name} {athlete.last_name}",
                 'email': athlete.email,
                 'team': athlete.team,
                 'bodyweight': athlete.bodyweight,
                 'gender': athlete.gender,
                 'age': athlete.age,
-                'competition_name': athlete.competition.name if athlete.competition else None
-            } for athlete in flight_athletes]
+                'competition_id': athlete.competition_id,
+                'competition_name': athlete.competition.name if athlete.competition else None,
+                'order': athlete_flight.order
+            } for athlete, athlete_flight in flight_athletes]
         }), 200
         
     except Exception as e:
@@ -843,9 +1073,9 @@ def get_flight_athletes(flight_id):
 def add_athlete_to_flight(flight_id, athlete_id):
     """Add an athlete to a flight"""
     try:
-        from ..models import AthleteFlight
-        
-        flight = Flight.query.get(flight_id)
+        flight = Flight.query.options(
+            joinedload(Flight.event).joinedload(Event.competition)
+        ).get(flight_id)
         athlete = Athlete.query.get(athlete_id)
         
         if not flight or not athlete:
@@ -862,14 +1092,48 @@ def add_athlete_to_flight(flight_id, athlete_id):
                 'message': 'Athlete is already in this flight'
             }), 400
         
+        # Get the next order number for this flight
+        max_order = db.session.query(db.func.max(AthleteFlight.order)).filter(
+            AthleteFlight.flight_id == flight_id
+        ).scalar() or 0
+        next_order = max_order + 1
+        
+        # Update athlete's competition_id if the flight is associated with a competition
+        if flight.event and flight.event.competition:
+            competition_id = flight.event.competition_id
+            if athlete.competition_id != competition_id:
+                athlete.competition_id = competition_id
+                print(f"Updated athlete {athlete_id} competition_id to {competition_id}")
+        
         # Add athlete to flight
-        athlete_flight = AthleteFlight(flight_id=flight_id, athlete_id=athlete_id)
+        athlete_flight = AthleteFlight(
+            flight_id=flight_id, 
+            athlete_id=athlete_id,
+            order=next_order
+        )
         db.session.add(athlete_flight)
         db.session.commit()
         
+        # Return updated athlete information
+        athlete_data = {
+            'id': athlete.id,
+            'first_name': athlete.first_name,
+            'last_name': athlete.last_name,
+            'full_name': f"{athlete.first_name} {athlete.last_name}",
+            'email': athlete.email,
+            'team': athlete.team,
+            'bodyweight': athlete.bodyweight,
+            'gender': athlete.gender,
+            'age': athlete.age,
+            'competition_id': athlete.competition_id,
+            'competition_name': athlete.competition.name if athlete.competition else None,
+            'order': next_order
+        }
+        
         return jsonify({
             'status': 'success',
-            'message': 'Athlete added to flight successfully'
+            'message': 'Athlete added to flight successfully',
+            'athlete': athlete_data
         }), 200
         
     except Exception as e:
@@ -883,8 +1147,6 @@ def add_athlete_to_flight(flight_id, athlete_id):
 def remove_athlete_from_flight(flight_id, athlete_id):
     """Remove an athlete from a flight"""
     try:
-        from ..models import AthleteFlight
-        
         athlete_flight = AthleteFlight.query.filter_by(flight_id=flight_id, athlete_id=athlete_id).first()
         
         if not athlete_flight:
@@ -893,12 +1155,31 @@ def remove_athlete_from_flight(flight_id, athlete_id):
                 'message': 'Athlete not found in this flight'
             }), 404
         
+        # Get athlete info before deletion
+        athlete = Athlete.query.get(athlete_id)
+        
         db.session.delete(athlete_flight)
         db.session.commit()
         
+        # Return the removed athlete data for frontend updates
+        athlete_data = {
+            'id': athlete.id,
+            'first_name': athlete.first_name,
+            'last_name': athlete.last_name,
+            'full_name': f"{athlete.first_name} {athlete.last_name}",
+            'email': athlete.email,
+            'team': athlete.team,
+            'bodyweight': athlete.bodyweight,
+            'gender': athlete.gender,
+            'age': athlete.age,
+            'competition_id': athlete.competition_id,
+            'competition_name': athlete.competition.name if athlete.competition else None
+        } if athlete else None
+        
         return jsonify({
             'status': 'success',
-            'message': 'Athlete removed from flight successfully'
+            'message': 'Athlete removed from flight successfully',
+            'athlete': athlete_data
         }), 200
         
     except Exception as e:
@@ -907,4 +1188,49 @@ def remove_athlete_from_flight(flight_id, athlete_id):
             'status': 'error',
             'message': 'Failed to remove athlete from flight: ' + str(e)
         }), 500
+<<<<<<< HEAD
 >>>>>>> 78cb8ad (1.Add pagination for athletes management page)
+=======
+
+@admin_bp.route('/flights/<int:flight_id>/athletes/reorder', methods=['POST'])
+def reorder_flight_athletes(flight_id):
+    """Update the order of athletes within a flight"""
+    try:
+        data = request.get_json()
+        athlete_orders = data.get('athlete_orders', [])
+        
+        if not athlete_orders:
+            return jsonify({
+                'status': 'error',
+                'message': 'No athlete order data provided'
+            }), 400
+        
+        # Update each athlete's order
+        for item in athlete_orders:
+            athlete_id = item.get('athlete_id')
+            new_order = item.get('order')
+            
+            if athlete_id is None or new_order is None:
+                continue
+                
+            athlete_flight = AthleteFlight.query.filter_by(
+                flight_id=flight_id, 
+                athlete_id=athlete_id
+            ).first()
+            
+            if athlete_flight:
+                athlete_flight.order = new_order
+        
+        db.session.commit()
+        
+        return jsonify({
+            'status': 'success',
+            'message': 'Athletes reordered successfully'
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'status': 'error',
+            'message': 'Failed to reorder athletes: ' + str(e)
+        }), 500
