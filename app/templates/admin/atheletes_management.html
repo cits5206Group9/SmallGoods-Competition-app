@@ -51,6 +51,7 @@
                     <th>Gender</th>
                     <th>Age</th>
                     <th>Bodyweight (kg)</th>
+                    <th>Competition</th>
                     <th>Status</th>
                     <th>Actions</th>
                 </tr>
@@ -65,6 +66,7 @@
                     <td>{{ athlete.gender or '-' }}</td>
                     <td>{{ athlete.age or '-' }}</td>
                     <td>{{ athlete.bodyweight or '-' }}</td>
+                    <td>{{ athlete.competition.name if athlete.competition else 'not allocated' }}</td>
                     <td>
                         <span class="status-badge {{ 'active' if athlete.is_active else 'inactive' }}">
                             {{ 'Active' if athlete.is_active else 'Inactive' }}
@@ -92,13 +94,13 @@
         {% if pagination.pages > 1 %}
         <div class="pagination">
             {% if pagination.has_prev %}
-            <a href="{{ url_for('admin.atheletes', page=pagination.prev_num) }}" class="page-link">Previous</a>
+            <a href="{{ url_for('admin.atheletes_management', page=pagination.prev_num) }}" class="page-link">Previous</a>
             {% endif %}
             
             {% for page_num in pagination.iter_pages() %}
                 {% if page_num %}
                     {% if page_num != pagination.page %}
-                    <a href="{{ url_for('admin.atheletes', page=page_num) }}" class="page-link">{{ page_num }}</a>
+                    <a href="{{ url_for('admin.atheletes_management', page=page_num) }}" class="page-link">{{ page_num }}</a>
                     {% else %}
                     <span class="page-link active">{{ page_num }}</span>
                     {% endif %}
@@ -108,7 +110,7 @@
             {% endfor %}
             
             {% if pagination.has_next %}
-            <a href="{{ url_for('admin.atheletes', page=pagination.next_num) }}" class="page-link">Next</a>
+            <a href="{{ url_for('admin.atheletes_management', page=pagination.next_num) }}" class="page-link">Next</a>
             {% endif %}
         </div>
         {% endif %}
