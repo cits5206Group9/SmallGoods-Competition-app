@@ -1,7 +1,7 @@
 /* ============================================================================
-   SmallGoods — Timekeeper (compact, responsive, no frameworks)
+   SmallGoods — Timekeeper (matches competition_create.css look & feel)
    File: app/static/css/timekeeper.css
-   ========================================================================= */
+   ========================================================================== */
 
 /* ---- Base ---- */
 * { box-sizing: border-box; }
@@ -10,21 +10,20 @@ body {
   margin: 0;
   background: #f6f8fb;
   color: #1f2a44;
-  font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
-  line-height: 1.45;
-}
-@media (prefers-reduced-motion: reduce) {
-  * { transition: none !important; animation: none !important; }
 }
 
-/* ---- Grid (minimal Bootstrap-ish) ---- */
+/* ---- Container / grid ---- */
 .container-fluid { max-width: 1024px; margin: 0 auto; padding: 0 16px; }
 .row { display: flex; flex-wrap: wrap; margin-left: -8px; margin-right: -8px; }
 [class^="col-"], [class*=" col-"] { padding-left: 8px; padding-right: 8px; width: 100%; }
 .col-12 { width: 100%; }
-@media (min-width: 768px) { .col-md-3 { width: 25%; } .col-md-6 { width: 50%; } }
 
-/* ---- Spacing helpers used by your HTML ---- */
+@media (min-width: 768px) {
+  .col-md-6 { width: 50%; }
+  .col-md-3 { width: 25%; }
+}
+
+/* ---- Spacing helpers ---- */
 .mb-3 { margin-bottom: .75rem; }
 .mb-4 { margin-bottom: 1rem; }
 .mt-3 { margin-top: .75rem; }
@@ -33,378 +32,198 @@ body {
 
 /* ---- Text helpers ---- */
 .text-center { text-align: center; }
-.text-muted  { color: #6f7d93; }
-.text-white  { color: #fff; }
+.text-muted  { color: #6c757d; }
 
-/* ---- Headings (uniform type + tidy look) ---- */
+/* ---- Headings (remove underline, keep neutral weights like admin pages) ---- */
 h1 {
-  margin: 0 0 .75rem;
-  font: 800 clamp(2rem, 1.2rem + 2.5vw, 3.25rem)/1.1 system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
-  letter-spacing: .4px;
+  margin: 0 0 1rem;
   text-align: center;
   color: #16233f;
+  position: relative;
 }
-h5 { margin: 0; font: 700 1.5rem/1.2 inherit; color: #1b2a4a; }
-h6 { margin: 0 0 .5rem; font: 700 1rem/1.2 inherit; }
+/* Remove decorative underline entirely */
+h1::after { content: none !important; }
 
-/* ---- Cards ---- */
+h5 { margin: 0; color: #1b2a4a; font-size: 1rem;}
+h6 { margin: 0 0 .5rem; color: #1b2a4a; }
+
+/* ---- Cards (styled like competition_create.css panels/cards) ---- */
 .card {
-  background: #fff;
-  border: 1px solid #e7ecf5;
-  border-radius: 12px;
-  box-shadow: 0 6px 16px rgba(28, 39, 63, .06);
+  background: #fafafa;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  padding: 0;               /* header + body manage their own padding */
+  box-shadow: none;
 }
 .card-header {
-  padding: .6rem .9rem;
-  background: #f3f6fb;
-  border-bottom: 1px solid #e7ecf5;
-  border-top-left-radius: 12px; border-top-right-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: .75rem .9rem;
+  border-bottom: 1px solid #e9ecef;
+  background: transparent;  /* same as competition_create.css vibe */
+  border-top-left-radius: 8px; border-top-right-radius: 8px;
 }
-.card-body { padding: .9rem; }
+.card-body { padding: .8rem; }
 
 /* -----------------------------------------------------------------------------
-   TIMER CONTROLS (Tiles) — Unified Blue/White theme
+   TIMER CONTROLS (Tiles) — bigger icon + label
    -------------------------------------------------------------------------- */
 .tc-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(180px, 1fr));
-  gap: 14px;
+  grid-template-columns: repeat(4, minmax(150px, 1fr));
+  gap: 16px;
 }
-@media (max-width: 991px) { .tc-grid { grid-template-columns: repeat(2, minmax(180px, 1fr)); } }
-@media (max-width: 520px) { .tc-grid { grid-template-columns: 1fr; } }
+@media (max-width: 1024px) { .tc-grid { grid-template-columns: repeat(2, minmax(150px, 1fr)); } }
+@media (max-width: 560px)  { .tc-grid { grid-template-columns: 1fr; } }
 
 .tile {
+  min-height: 148px;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
-  min-height: 120px;
-  border: 1px solid #dbe5f3; border-radius: 12px; background: #fff;
-  text-align: center; padding: .85rem;
-  color: #22335a;
-  box-shadow: 0 4px 12px rgba(18,29,51,.06);
-  transition: box-shadow .15s ease, transform .05s ease, color .15s ease, background-color .15s ease, border-color .15s ease;
+  border: 1px solid #e9ecef; border-radius: 12px;
+  background: #fff; color: #22335a; text-align: center;
+  padding: 1rem;
+  transition: background-color .15s ease, border-color .15s ease, transform .05s ease;
 }
-.tile:hover { box-shadow: 0 8px 18px rgba(18,29,51,.12); }
+.tile:hover  { background: #c9dcf7; border-color: #7aafd3; }
 .tile:active { transform: translateY(1px); }
-.tile-ico   { font-size: 3rem; opacity: .95; margin-bottom: .35rem; color: #2980b9; }
-.tile-title { font-weight: 800; letter-spacing: .2px; font-size: 1.05rem; }
 
-/* Variants — all visually consistent (blue outline -> blue fill on hover) */
-.tile--start, .tile--pause, .tile--stop, .tile--reset {
-  border-color: #cfe0ff;
-}
-.tile--start:hover,
-.tile--pause:hover,
-.tile--stop:hover,
-.tile--reset:hover {
-  background: #2980b9;
-  border-color: #2980b9;
-  color: #fff;
-}
-.tile--start:hover .tile-ico,
-.tile--pause:hover .tile-ico,
-.tile--stop:hover .tile-ico,
-.tile--reset:hover .tile-ico { color: #fff; }
+.tile-ico   { font-size: 2.5rem; line-height: 1; color: #2980b9; margin-bottom: .5rem; }
+.tile-title { font-size: 1.25rem; color: #1f2a44; }
 
-/* ---- Current Status layout ---- */
+/* ---- Status / timer displays ---- */
 .status-wrap { display: grid; gap: 18px; }
-.status-top {
-  display: grid;
-  grid-template-columns: 1.8fr 1fr; /* timer wider than meta (even though meta is hidden in your markup now) */
-  gap: 18px;
-  align-items: center;
-}
-.muted-sub { margin-top: .55rem; text-align: center; color: #6f7d93; }
-.status-top__timer .display-time { text-align: center; }
+.status-top  { display: grid; grid-template-columns: 1fr; gap: 18px; }
+.muted-sub   { margin-top: .5rem; text-align: center; color: #6c757d; }
 
-.status-top__meta { display: flex; flex-direction: column; align-items: center; gap: .5rem; }
-.status-pill { font-weight: 900; color: #0ea5b7; font-size: 1.05rem; }
-.status-tags { display: flex; gap: .5rem; flex-wrap: wrap; justify-content: center; }
-
-.status-bottom { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
-.panel {
-  background: #f8fbff;
-  border: 1px solid #e6eefc;
-  border-radius: 10px;
-  padding: .8rem;
-}
-.panel h6 { margin-bottom: .5rem; }
-
-/* ---- Buttons (Break/Block controls) — Blue/White theme ---- */
-.btn {
-  background: #ffffff;
-  color: #1f2a44;
-  border: 1px solid #dbe5f3;
-  padding: .6rem .9rem;
-  border-radius: 12px;
-  cursor: pointer;
-  font-weight: 700;
-  transition: background-color .15s ease, color .15s ease, border-color .15s ease, box-shadow .15s ease, transform .05s ease;
-}
-.btn:hover { background: #f3f7ff; border-color: #cfe0ff; }
-.btn:active { transform: translateY(1px); }
-.btn.primary {
-  background: #2980b9; border-color: #246d9d; color: #fff;
-}
-.btn.primary:hover { background: #2980b9; }
-.btn.danger { /* keep in palette (white/blue), but hint danger with text only */
-  background: #ffffff; color: #b02a37; border-color: #e9c7cb;
-}
-.btn.danger:hover { background: #fff5f6; }
-
-/* Row for break buttons */
-.btn-row { display: flex; gap: .6rem; flex-wrap: wrap; margin-top: .75rem; justify-content: center; }
-
-/* ---- Timers (blue digital) ---- */
-.display-time,
-#attemptClock,
-#breakClock,
-#currentTimer {
-  font-variant-numeric: tabular-nums;
-  font-weight: 600;
-  letter-spacing: .02em;
+/* Big hero timer (Current Status) */
+.display-time--hero {
   background: #eef3ff;
   border: 1px solid #d9e4ff;
-  border-radius: 12px;
-  padding: .6rem 1rem;
+  border-radius: 14px;
   color: #2980b9;
-  text-shadow: 0 0 1px rgba(33,77,191,.25);
-  line-height: 1.15;
-}
-.display-time { font-size: clamp(1.6rem, 1rem + 1.8vw, 2.4rem); }
-.display-time.small { font-size: clamp(1.2rem, .9rem + 1.2vw, 1.6rem); }
-
-/* ---- Event Log table ---- */
-.tk-table { width: 100%; border-collapse: collapse; font-size: .95rem; }
-.tk-table th, .tk-table td { padding: .45rem .5rem; border-bottom: 1px solid #e7ecf5; text-align: center; }
-.tk-table th { color: #6f7d93; }
-
-@media (max-width: 480px) {
-  .card-body { padding: .75rem; }
-  .tk-table { display: block; width: 100%; overflow-x: auto; white-space: nowrap; }
+  text-align: center;
+  padding: .2rem 0.5rem;
+  /* LARGE like before */
+  font-size: clamp(56px, 7vw, 108px);
 }
 
-/* ---- Form toggles ---- */
-.chk { display: flex; align-items: center; gap: .5rem; margin: .25rem 0; color: #6f7d93; }
-
-/* ---- A11y helper ---- */
-.visually-hidden {
-  position: absolute !important;
-  width: 1px; height: 1px; padding: 0; margin: -1px;
-  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+/* Secondary display (Break) – also large */
+#breakClock.display-time,
+#breakClock {
+  background: #eef3ff;
+  border: 1px solid #d9e4ff;
+  border-radius: 14px;
+  color: #2980b9;
+  text-align: center;
+  padding: 0.1rem 1rem;
+  font-size: clamp(40px, 5vw, 80px);
 }
 
-/* ---- Responsive stacking for status card ---- */
-@media (max-width: 992px) {
-  .status-top { grid-template-columns: 1fr; }
-  .status-bottom { grid-template-columns: 1fr; }
+.status-bottom { display: grid; grid-template-columns: 1fr; gap: 18px; }
+
+/* ---- Buttons (reuse competition_create tone) ---- */
+.btn {
+  background: #e9ecef;
+  border: 1px solid #ced4da;
+  color: #333;
+  padding: 0.6rem 0.9rem;
+  border-radius: 12px;
+  cursor: pointer;
 }
+.btn:hover { background: #dee2e6; }
+.btn.primary {
+  background: #3498db; border-color: #2980b9; color: #fff;
+}
+.btn.primary:hover { background: #2980b9; }
+.btn.danger  { background: #dc3545; border-color: #c82333; color: #fff; }
+.btn.small   { padding: .25rem .5rem; font-size: .9rem; }
 
-/* ---- Optional page scope ---- */
-.tk-v1 { background: #f6f8fb; }
+.btn-row { display: flex; gap: .6rem; flex-wrap: wrap; margin-top: .75rem; justify-content: center; }
 
-/* === Bigger, readable hero timer ======================================= */
-.display-time--hero {
-  font-size: clamp(3rem, 8vw, 5.75rem);
-  padding: .8rem 1.1rem;
+/* ---- Inputs for HH:MM:SS rows ---- */
+.timer-set { display: grid; grid-template-columns: auto 1fr auto; gap: .6rem .7rem; align-items: center; margin: .2rem 0 .6rem; }
+.input-hms {
+  height: 44px; width: 10.5rem; padding: .55rem .75rem;
+  border: 1px solid #ced4da; border-radius: 10px; background: #fff; color: #23314f;font-size: 1.3rem;
+}
+.input-hms:focus { outline: none; border-color: #9ec1ff; box-shadow: 0 0 0 3px rgba(66,133,244,.15); }
+
+/* ---- Countdown toggle button ---- */
+.attempt-controls { display:flex; justify-content:center; margin-top:.85rem; }
+#btnAttemptToggle {
+  background:#3498db; border:1px solid #2980b9; color:#fff;
+  padding:.75rem 1.25rem; border-radius:14px; font-size: 1.1rem;
+}
+#btnAttemptToggle.is-on { background:#2980b9; }
+
+/* ---- Break section panel ---- */
+.panel {
+  background: #fff;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  padding: 1rem;
+}
+.panel h5 { margin: 0 0 .75rem; }
+
+/* Break set row */
+.break-set { display:flex; justify-content:center; align-items:center; gap:.8rem; margin-top:.8rem; }
+.break-set label { color: #1f2a44; }
+.break-set .input-hms { height: 48px; }
+.break-set #btnBreakApply { height: 48px; padding:0 1.25rem; }
+
+/* ---- Event / Timer Log table ---- */
+.tk-table { width: 100%; border-collapse: collapse; }
+.tk-table th, .tk-table td {
+  padding: .55rem .6rem;
+  border-bottom: 1px solid #e9ecef;
   text-align: center;
 }
+.tk-table th { color: #6c757d; }
 
-/* Current Status: timer only, break below */
-.status-top.only-timer { grid-template-columns: 1fr; }
-.status-bottom.one-col { grid-template-columns: 1fr; }
-
-@media (min-width: 1024px) { .status-wrap { gap: 22px; } }
-
-/* -----------------------------------------------------------------------------
-   Mobile Control Dock — Blue/White theme
-   -------------------------------------------------------------------------- */
+/* ---- Mobile control dock ---- */
 .control-dock {
-  position: fixed;
-  left: 0; right: 0; bottom: 0;
-  display: none; /* shown on small screens below */
-  gap: 10px;
-  padding: 10px 12px;
-  background: rgba(255,255,255,.96);
-  border-top: 1px solid #e7ecf5;
-  box-shadow: 0 -6px 14px rgba(18,29,51,.08);
+  position: fixed; left: 0; right: 0; bottom: 0;
+  display: none; gap: 10px; padding: 10px 12px;
+  background: rgba(255,255,255,.96); border-top: 1px solid #e9ecef;
   z-index: 999;
 }
 .dock-btn {
   flex: 1 1 0;
-  height: 48px;
-  border-radius: 12px;
-  border: 1px solid #cfe0ff;
-  background: #ffffff;
-  font-size: 1.1rem;
-  font-weight: 800;
+  height: 60px;              /* bigger buttons */
+  font-size: 1.8rem;         /* larger icons/text */
+  border-radius: 10px;
+  /* border-color:#2980b9 ; */    /* rounder corners */
+  background: #f8f9fa;       /* softer background */
   color: #2980b9;
-  transition: background-color .15s ease, color .15s ease, border-color .15s ease, transform .05s ease;
 }
-.dock-btn:hover { background: #2980b9; color: #fff; border-color: #2980b9; }
-.dock-btn:active { transform: translateY(1px); }
+.dock-btn:hover { background: #3498db; color: #fff; border-color: #2980b9; }
 
-/* Show dock on small screens and leave space under content */
-@media (max-width: 768px) {
-  .control-dock { display: grid; grid-template-columns: repeat(4, 1fr); }
-  .tk-v1 { padding-bottom: 84px; }
-  .tc-grid { display: none; } /* hide big tiles when dock is present */
-}
-
-/* Desktop: hide the dock */
-@media (min-width: 769px) { .control-dock { display: none; } }
-
-/* -----------------------------------------------------------------------------
-   Break panel — refined look (kept, aligned with blue/white)
-   -------------------------------------------------------------------------- */
-.panel {
-  background: linear-gradient(180deg, #fbfdff 0%, #f8fbff 100%);
-  border: 1px solid #e5eefb;
-  border-radius: 14px;
-  box-shadow: 0 8px 22px rgba(20, 35, 70, .06);
-  padding: 1rem 1.1rem 1.2rem;
-}
-.panel h6 {
-  font-size: clamp(1.1rem, .95rem + .6vw, 1.35rem);
-  font-weight: 900;
-  letter-spacing: .2px;
-  margin: 0 0 .75rem;
-  color: #24324e;
-}
-.panel .display-time {
-  text-align: center;
-  background: #eef4ff;
-  border: 1px solid #d9e7ff;
-  border-radius: 14px;
-  padding: .9rem 1.2rem;
-  color: #2980b9;
-  text-shadow: 0 0 1px rgba(31, 67, 184, .25);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.7);
-  margin-bottom: .85rem;
-}
-
-/* "Set" row */
-.timer-set {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  gap: .6rem .7rem;
-  align-items: center;
-  margin: .2rem 0 .6rem;
-}
-.timer-set label { color: #415173; font-weight: 800; letter-spacing: .2px; }
-.input-hms {
-  height: 44px;
-  width: 10.5rem;
-  padding: .55rem .75rem;
-  border: 1px solid #dbe5f3;
-  border-radius: 12px;
-  background: #fff;
-  font-size: 1.5rem;
-  color: #23314f;
-  box-shadow: 0 1px 0 rgba(255,255,255,.8), inset 0 1px 2px rgba(31,49,97,.04);
-}
-.input-hms:focus { outline: none; border-color: #9ec1ff; box-shadow: 0 0 0 3px rgba(66,133,244,.15); }
-#btnBreakApply { height: 44px; padding: .55rem 1.1rem; border-radius: 12px; font-weight: 500; }
-#btnBreakApply.invalid { animation: pulse 300ms linear 1; }
-@keyframes pulse { 50% { transform: scale(0.98); } }
-
-/* Larger, centered break buttons */
-.panel .btn-row { justify-content: center; gap: .75rem; margin-top: .95rem; }
-.panel .btn {
-  min-width: 7.1rem;
-  height: 52px;
-  padding: 0 1.1rem;
-  border-radius: 14px;
-  font-size: 1.20rem;
-  font-weight: 550;
-  box-shadow: 0 4px 14px rgba(22, 44, 88, .06);
-}
-.panel .btn:hover { box-shadow: 0 8px 18px rgba(22,44,88,.1); }
-
-/* ===== Attempt countdown toggle (under main timer) ===== */
-.attempt-controls{
-  display:flex;
-  justify-content:center;
-  margin-top:.85rem;
-}
-
-#btnAttemptToggle{
-  background:#2980b9;
-  border:1px solid #2980b9;
-  color:#fff;
-  font-weight:800;
-  font-size:1.06rem;
-  padding:.75rem 1.25rem;
-  border-radius:14px;
-  box-shadow:0 4px 14px rgba(22,44,88,.08);
-  transition:transform .05s ease, box-shadow .15s ease, filter .15s ease;
-}
-#btnAttemptToggle:hover{ filter:brightness(1.02); box-shadow:0 8px 18px rgba(22,44,88,.12); }
-#btnAttemptToggle:active{ transform:translateY(1px); }
-
-/* optional: “active” look when countdown is enabled */
-#btnAttemptToggle.is-on{
-  background:#2980b9;
-  border-color:#2980b9;
-}
-
-/* Centered Break Set row */
-.break-set {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 0.8rem;
-  margin-top: 0.8rem;
-}
-
-.break-set label {
-  font-weight: 500;
-  font-size: 1.3rem;
-  color: #1f2a44;
-}
-
-.break-set .input-hms {
-  height: 48px;
-  font-size: 1.25rem;
-  font-weight: 500;
-}
-
-.break-set #btnBreakApply {
-  height: 48px;
-  padding: 0 1.25rem;
-  font-size: 1.05rem;
-  font-weight: 700;
-}
-
-/* Unified Section Headings */
-.card-header h5,
-.panel h5,
-.panel h6 {
-  font-size: 1.35rem;     /* Larger, more readable */
-  font-weight: 550;       /* Bold to match buttons */
-  letter-spacing: 0.3px;
-  color: #1f2a44;         /* Same as body headings */
-  margin: 0;
-}
-
-/* Hide the entire Timer Controls card on mobile */
 @media (max-width: 768px) {
   .hide-on-mobile { display: none !important; }
+  .control-dock   { display: grid; grid-template-columns: repeat(4, 1fr); }
+  .tk-v1          { padding-bottom: 84px; }
 }
 
-h1 {
-  font: 600 clamp(2.5rem, 2rem + 2vw, 3rem)/1.2 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  letter-spacing: 0.5px;
-  text-align: center;
-  color: #0f172a;
-  margin-bottom: 1.5rem;
-  position: relative;
-}
+/* ---- Flights tree (unchanged except for border color harmony) ---- */
+.tk-flight-tree{display:grid;gap:1rem}
+.tk-comp__title{ margin:.25rem 0 .5rem; }
+.tk-evt{padding:.5rem .75rem;background:#f7fafe;border:1px solid #e9ecef;border-radius:10px}
+.tk-evt__title{margin-bottom:.5rem}
+.tk-flight-list{display:flex;flex-wrap:wrap;gap:.5rem}
+.tk-flight{padding:.4rem .7rem;border-radius:999px;border:1px solid #ced4da;background:#fff;cursor:pointer}
+.tk-flight:hover{background:#eef5ff}
+.tk-flight.is-active{background:#3498db;color:#fff;border-color:#2980b9}
 
-h1::after {
-  content: "";
-  display: block;
-  width: 80px;
-  height: 4px;
-  margin: 0.6rem auto 0;
-  background:#2980b9;
-  border-radius: 2px;
+/* Hotfix: keep the JS compatibility controls off-screen */
+.visually-hidden {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  margin: -1px !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  clip: rect(0 0 0 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
 }
