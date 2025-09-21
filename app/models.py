@@ -273,6 +273,28 @@ class CoachAssignment(db.Model):
     coach = db.relationship("User", backref="coach_assignments", foreign_keys=[coach_user_id])
     athlete = db.relationship("Athlete", backref="coach_assignments")
 
+# Referee Management
+class Referee(db.Model):
+    """Referee accounts and credentials for individual referee pages"""
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    username = db.Column(db.String(50), unique=True, nullable=False)
+    password = db.Column(db.String(100), nullable=False)  # Plain text for admin viewing
+    position = db.Column(db.String(50))  # e.g., "Head Referee", "Side Referee"
+    email = db.Column(db.String(120))
+    phone = db.Column(db.String(20))
+    competition_id = db.Column(db.Integer, db.ForeignKey('competition.id'))  # Link to competition
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    last_login = db.Column(db.DateTime)
+    notes = db.Column(db.Text)
+
+    # Relationships
+    competition = db.relationship('Competition', backref='referees')
+
+    def __repr__(self):
+        return f'<Referee {self.name} ({self.username})>'
+
 # Legacy Support
 class Workout(db.Model):
     """Legacy workout tracking"""
