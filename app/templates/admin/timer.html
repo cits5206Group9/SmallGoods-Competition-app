@@ -19,18 +19,18 @@
         <span class="ico"></span> Timekeeper Dashboard
       </h1>
 
-      <!-- Available Competitions (static shell for now; swap in real data later) -->
+      <!-- Available Competitions -->
       <div class="card">
         <div class="card-header">
           <h5><span class="ico"></span> Available Competitions</h5>
         </div>
-        <div class="card-body">
+        <div class="card-body" id="tk-competitions-body">
           <div class="text-center py-5" id="tk-competitions-empty">
             <div class="muted-ico"></div>
             <h4 class="text-muted">No competitions available</h4>
             <p class="text-muted">There are currently no active competitions requiring timekeeping.</p>
           </div>
-          <!-- If you pass competitions from Flask later, render them here -->
+          <!-- flights list gets injected here -->
         </div>
       </div>
 
@@ -153,15 +153,39 @@
       <!-- Event Log -->
       <div class="card mt-4">
         <div class="card-header">
-          <h5>Event Log</h5>
+          <h5>Timer Log</h5>
         </div>
+
+        <!-- Add this small toolbar (optional but recommended) -->
+        <div class="card-body" style="padding-bottom:0.5rem">
+          <div style="display:flex; gap:1rem; align-items:center; flex-wrap:wrap">
+            <label style="font-weight:600">Athlete:
+              <input id="athleteName" type="text" placeholder="Type name…" style="margin-left:.5rem; padding:.35rem 1rem; border:1px solid #cfe0ff; border-radius:8px;">
+            </label>
+            <!-- <span class="text-muted" style="font-size:.9rem">Athlete name will be attached to new log rows.</span> -->
+          </div>
+        </div>
+
+        
         <div class="card-body">
           <table class="tk-table" id="logTable">
-            <thead><tr><th>Start time</th><th>Stop time</th><th>Action</th><th>Duration</th></tr></thead>
+            <thead>
+              <tr>
+                <th>Start</th>
+                <th>Stop</th>
+                <th>Competition</th>
+                <th>Event</th>
+                <th>Flight</th>
+                <th>Athlete</th>
+                <th>Action</th>
+                <th>Duration</th>
+              </tr>
+            </thead>
             <tbody></tbody>
           </table>
         </div>
       </div>
+
 
     </div>
   </div>

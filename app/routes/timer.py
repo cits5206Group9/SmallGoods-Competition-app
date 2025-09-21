@@ -17,3 +17,41 @@ def timer_page():
         context=ctx,
         flight_id=flight_id,
     )
+
+
+# ---- TEMP MOCKS for Timekeeper Flights panel ----
+from flask import jsonify
+from .admin import admin_bp
+
+# Competitions list
+@admin_bp.get("/competitions")
+def _mock_competitions():
+    return jsonify([
+        {"id": 1, "name": "Event Name 1"},
+        # removed Interclub Meet
+    ])
+
+@admin_bp.get("/competitions/<int:comp_id>/events")
+def _mock_events(comp_id):
+    data = {
+        1: [
+            {"id": 101, "name": "Snatch"},
+            {"id": 102, "name": "Clean & Jerk"},
+        ],
+        # removed comp_id=2
+    }
+    return jsonify(data.get(comp_id, []))
+
+@admin_bp.get("/events/<int:event_id>/flights")
+def _mock_flights(event_id):
+    data = {
+        101: [
+            {"id": 1001, "name": "Flight A", "order": 1, "is_active": True},
+            {"id": 1002, "name": "Flight B", "order": 2, "is_active": True},
+        ],
+        102: [
+            {"id": 1101, "name": "Flight A", "order": 1, "is_active": False},
+        ],
+       
+    }
+    return jsonify(data.get(event_id, []))
