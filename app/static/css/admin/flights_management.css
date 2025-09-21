@@ -94,6 +94,105 @@
   margin: 0;
 }
 
+/* Flights Controls */
+.flights-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+  padding: 1rem;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.search-controls {
+  flex: 1;
+  margin-right: 2rem;
+}
+
+.search-input {
+  width: 100%;
+  max-width: 300px;
+  padding: 0.75rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 0.9rem;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: #3498db;
+  box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+}
+
+.filter-controls {
+  display: flex;
+  gap: 1rem;
+}
+
+.filter-select {
+  padding: 0.75rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  background: white;
+  min-width: 120px;
+}
+
+.filter-select:focus {
+  outline: none;
+  border-color: #3498db;
+  box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+}
+
+/* Pagination */
+.pagination-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 2rem;
+  padding: 1rem;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.pagination-info {
+  color: #6c757d;
+  font-size: 0.9rem;
+}
+
+.pagination {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.page-link {
+  padding: 0.5rem 1rem;
+  text-decoration: none;
+  color: #3498db;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.page-link:hover {
+  background: #3498db;
+  color: white;
+}
+
+.page-link.active {
+  background: #3498db;
+  color: white;
+  border-color: #3498db;
+}
+
+.page-ellipsis {
+  padding: 0.5rem 1rem;
+  color: #6c757d;
+}
+
 /* Flights Grid */
 .flights-grid {
   display: grid;
@@ -295,9 +394,28 @@
   margin-bottom: 0.25rem;
 }
 
+.athlete-email {
+  font-size: 0.8rem;
+  color: #6c757d;
+  margin-bottom: 0.25rem;
+  font-style: italic;
+}
+
 .athlete-details {
   font-size: 0.8rem;
   color: #6c757d;
+  margin-bottom: 0.25rem;
+}
+
+.athlete-competition {
+  font-size: 0.75rem;
+  color: #3498db;
+  font-weight: 500;
+  background: rgba(52, 152, 219, 0.1);
+  padding: 0.2rem 0.5rem;
+  border-radius: 12px;
+  display: inline-block;
+  margin-top: 0.25rem;
 }
 
 .athlete-actions {
@@ -542,7 +660,10 @@
   justify-content: flex-end;
   gap: 1rem;
   margin-top: 1.5rem;
+  margin-bottom: 1rem;
+  margin-right: 1rem;
   padding-top: 1.5rem;
+  padding-bottom: 1.5rem;
   border-top: 1px solid #dee2e6;
 }
 

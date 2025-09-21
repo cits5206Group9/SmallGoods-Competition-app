@@ -160,11 +160,39 @@ def atheletes_management():
     page = request.args.get('page', 1, type=int)
     per_page = 10
     
+    # Get filter parameters
+    competition_id = request.args.get('competition_id', type=int)
+    search = request.args.get('search', '').strip()
+    gender = request.args.get('gender', '').strip()
+    status = request.args.get('status', '').strip()
+    
     # Get all competitions for the filter dropdown
     competitions = Competition.query.all()
     
-    # Get athletes with pagination and competition relationship
+    # Build query with filters
     athletes_query = Athlete.query.options(db.joinedload(Athlete.competition))
+    
+    # Apply filters
+    if competition_id:
+        athletes_query = athletes_query.filter(Athlete.competition_id == competition_id)
+    
+    if search:
+        search_filter = db.or_(
+            Athlete.first_name.ilike(f'%{search}%'),
+            Athlete.last_name.ilike(f'%{search}%'),
+            Athlete.email.ilike(f'%{search}%'),
+            Athlete.team.ilike(f'%{search}%')
+        )
+        athletes_query = athletes_query.filter(search_filter)
+    
+    if gender:
+        athletes_query = athletes_query.filter(Athlete.gender == gender)
+    
+    if status:
+        is_active = status == 'active'
+        athletes_query = athletes_query.filter(Athlete.is_active == is_active)
+    
+    # Get paginated results
     athletes = athletes_query.paginate(page=page, per_page=per_page, error_out=False)
     
     return render_template('admin/atheletes_management.html', 
@@ -173,7 +201,11 @@ def atheletes_management():
                          pagination=athletes,
                          page=page,
                          per_page=per_page,
-                         total=athletes.total)
+                         total=athletes.total,
+                         current_competition_id=competition_id,
+                         current_search=search,
+                         current_gender=gender,
+                         current_status=status)
 
 @admin_bp.route('/flights-management')
 def flights_management():
@@ -691,7 +723,7 @@ def get_competition_events(competition_id):
 def get_available_athletes(event_id):
     """Get all athletes that can be assigned to flights for this event"""
     try:
-        from ..models import AthleteEntry, AthleteFlight
+        from ..models import AthleteFlight
         
         # Get pagination parameters
         page = request.args.get('page', 1, type=int)
@@ -705,12 +737,12 @@ def get_available_athletes(event_id):
                 'message': 'Event not found'
             }), 404
         
-        # Get all athletes entered in this event's competition
+        # Get all athletes in this event's competition
         # Filter out those already in flights for this event
         subquery = db.session.query(AthleteFlight.athlete_id).join(Flight).filter(Flight.event_id == event_id).subquery()
         
-        available_athletes_query = db.session.query(Athlete).join(AthleteEntry).filter(
-            AthleteEntry.competition_id == event.competition_id,
+        available_athletes_query = db.session.query(Athlete).filter(
+            Athlete.competition_id == event.competition_id,
             ~Athlete.id.in_(subquery),
             Athlete.is_active == True
         )
@@ -736,9 +768,12 @@ def get_available_athletes(event_id):
                 'id': athlete.id,
                 'first_name': athlete.first_name,
                 'last_name': athlete.last_name,
+                'email': athlete.email,
                 'team': athlete.team,
                 'bodyweight': athlete.bodyweight,
-                'gender': athlete.gender
+                'gender': athlete.gender,
+                'age': athlete.age,
+                'competition_name': athlete.competition.name if athlete.competition else None
             } for athlete in paginated_athletes.items],
             'pagination': {
                 'page': page,
@@ -762,7 +797,10 @@ def get_flight_athletes(flight_id):
     try:
         from ..models import AthleteFlight
         
-        flight = Flight.query.get(flight_id)
+        flight = Flight.query.options(
+            joinedload(Flight.event).joinedload(Event.competition)
+        ).get(flight_id)
+        
         if not flight:
             return jsonify({
                 'status': 'error',
@@ -771,16 +809,29 @@ def get_flight_athletes(flight_id):
         
         flight_athletes = db.session.query(Athlete).join(AthleteFlight).filter(
             AthleteFlight.flight_id == flight_id
-        ).all()
+        ).options(joinedload(Athlete.competition)).all()
         
-        return jsonify([{
-            'id': athlete.id,
-            'first_name': athlete.first_name,
-            'last_name': athlete.last_name,
-            'team': athlete.team,
-            'bodyweight': athlete.bodyweight,
-            'gender': athlete.gender
-        } for athlete in flight_athletes]), 200
+        return jsonify({
+            'flight': {
+                'id': flight.id,
+                'name': flight.name,
+                'event_id': flight.event_id,
+                'order': flight.order,
+                'event_name': flight.event.name if flight.event else None,
+                'competition_name': flight.event.competition.name if flight.event and flight.event.competition else None
+            },
+            'athletes': [{
+                'id': athlete.id,
+                'first_name': athlete.first_name,
+                'last_name': athlete.last_name,
+                'email': athlete.email,
+                'team': athlete.team,
+                'bodyweight': athlete.bodyweight,
+                'gender': athlete.gender,
+                'age': athlete.age,
+                'competition_name': athlete.competition.name if athlete.competition else None
+            } for athlete in flight_athletes]
+        }), 200
         
     except Exception as e:
         return jsonify({

@@ -19,22 +19,22 @@
     <!-- Search and Filter Section -->
     <div class="search-section">
         <div class="search-controls">
-            <input type="text" id="athlete-search" placeholder="Search athletes by name, email, or team...">
+            <input type="text" id="athlete-search" placeholder="Search athletes by name, email, or team..." value="{{ current_search or '' }}">
             <select id="competition-filter">
                 <option value="">All Competitions</option>
                 {% for competition in competitions %}
-                <option value="{{ competition.id }}">{{ competition.name }}</option>
+                <option value="{{ competition.id }}" {{ 'selected' if current_competition_id == competition.id else '' }}>{{ competition.name }}</option>
                 {% endfor %}
             </select>
             <select id="gender-filter">
                 <option value="">All Genders</option>
-                <option value="Male">Male</option>
-                <option value="Female">Female</option>
+                <option value="Male" {{ 'selected' if current_gender == 'Male' else '' }}>Male</option>
+                <option value="Female" {{ 'selected' if current_gender == 'Female' else '' }}>Female</option>
             </select>
             <select id="status-filter">
                 <option value="">All Status</option>
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
+                <option value="active" {{ 'selected' if current_status == 'active' else '' }}>Active</option>
+                <option value="inactive" {{ 'selected' if current_status == 'inactive' else '' }}>Inactive</option>
             </select>
         </div>
     </div>
@@ -58,7 +58,7 @@
             </thead>
             <tbody>
                 {% for athlete in athletes %}
-                <tr data-athlete-id="{{ athlete.id }}">
+                <tr data-athlete-id="{{ athlete.id }}" data-competition-id="{{ athlete.competition_id or '' }}">
                     <td>{{ athlete.first_name }} {{ athlete.last_name }}</td>
                     <td>{{ athlete.email or '-' }}</td>
                     <td>{{ athlete.phone or '-' }}</td>
@@ -94,13 +94,12 @@
         {% if pagination.pages > 1 %}
         <div class="pagination">
             {% if pagination.has_prev %}
-            <a href="{{ url_for('admin.atheletes_management', page=pagination.prev_num) }}" class="page-link">Previous</a>
+            <a href="{{ url_for('admin.atheletes_management', page=pagination.prev_num, competition_id=current_competition_id, search=current_search, gender=current_gender, status=current_status) }}" class="page-link">Previous</a>
             {% endif %}
-            
             {% for page_num in pagination.iter_pages() %}
                 {% if page_num %}
                     {% if page_num != pagination.page %}
-                    <a href="{{ url_for('admin.atheletes_management', page=page_num) }}" class="page-link">{{ page_num }}</a>
+                    <a href="{{ url_for('admin.atheletes_management', page=page_num, competition_id=current_competition_id, search=current_search, gender=current_gender, status=current_status) }}" class="page-link">{{ page_num }}</a>
                     {% else %}
                     <span class="page-link active">{{ page_num }}</span>
                     {% endif %}
@@ -110,7 +109,7 @@
             {% endfor %}
             
             {% if pagination.has_next %}
-            <a href="{{ url_for('admin.atheletes_management', page=pagination.next_num) }}" class="page-link">Next</a>
+            <a href="{{ url_for('admin.atheletes_management', page=pagination.next_num, competition_id=current_competition_id, search=current_search, gender=current_gender, status=current_status) }}" class="page-link">Next</a>
             {% endif %}
         </div>
         {% endif %}
