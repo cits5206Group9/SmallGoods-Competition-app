@@ -4,29 +4,70 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{% block title %}{% endblock %}</title>
-    
-    <!-- Base CSS -->
+
+    <!-- Your global stylesheet -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     {% block css %}{% endblock %}
+
+
   </head>
+
   <body>
-    <main class="container">
-        {% block content %}{% endblock %}
+    <header class="site-header">
+      <div class="header-inner">
+        <a class="brand" href="/admin/">
+          <img src="{{ url_for('static', filename='images/logo.png') }}" alt="SmallGoods" class="brand-logo">
+          <span class="brand-name">SmallGoods Admin</span>
+        </a>
+
+        {% set path = request.path if request is defined else '' %}
+        <nav class="site-nav" role="navigation" aria-label="Primary">
+          <ul class="nav-list">
+            <li>
+              <a href="/admin/"
+                 class="nav-link {{ 'active' if path == '/admin/' else '' }}">
+                Dashboard
+              </a>
+            </li>
+            <li>
+              <a href="/admin/display"
+                 class="nav-link {{ 'active' if path.startswith('/admin/display') else '' }}">
+                Display
+              </a>
+            </li>
+            {# Add more items with plain paths when you have the routes:
+            <li>
+              <a href="/admin/flights-management"
+                 class="nav-link {{ 'active' if path.startswith('/admin/flights-management') else '' }}">
+                Flights
+              </a>
+            </li>
+            <li>
+              <a href="/admin/timer"
+                 class="nav-link {{ 'active' if path.startswith('/admin/timer') else '' }}">
+                Timer
+              </a>
+            </li>
+            #}
+          </ul>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container page-main">
+      {% block content %}{% endblock %}
     </main>
 
-    <footer class="footer">
-        <div class="footer-content container">
-            <div class="footer-logo">
-                <img src="{{ url_for('static', filename='images/logo.png') }}" alt="SmallGoods Logo" class="logo">
-            </div>
-            <div class="footer-info">
-                <p>© 2025 Small Goods Gym</p>
-                <p>All rights reserved</p>
-            </div>
-        </div>
+    <footer class="site-footer">
+      <div class="footer-inner">
+        <a class="footer-brand" href="/admin/">
+          <img src="{{ url_for('static', filename='images/logo.png') }}" alt="SmallGoods" class="footer-logo">
+          <span>SmallGoods</span>
+        </a>
+        <div class="footer-meta">© 2025 Small Goods Gym · All rights reserved</div>
+      </div>
     </footer>
 
-    <!-- Base JavaScript -->
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
     {% block scripts %}{% endblock %}
   </body>
