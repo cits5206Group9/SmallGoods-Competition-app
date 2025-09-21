@@ -1,4 +1,6 @@
-/* Base Styles */
+/* =========================
+   Base Styles (existing)
+   ========================= */
 * {
   box-sizing: border-box;
 }
@@ -27,7 +29,7 @@ a:hover {
   text-decoration: underline;
 }
 
-/* Footer Styles */
+/* Footer Styles (legacy footer class kept for backward compatibility) */
 .footer {
   background-color: #f8f9fa;
   padding: 2rem 0;
@@ -103,13 +105,8 @@ input:focus, select:focus, textarea:focus {
 }
 
 /* Utility Classes */
-.text-center {
-  text-align: center;
-}
-
-.text-muted {
-  color: #6b7280;
-}
+.text-center { text-align: center; }
+.text-muted  { color: #6b7280; }
 
 .mt-1 { margin-top: 0.25rem; }
 .mt-2 { margin-top: 0.5rem; }
@@ -121,7 +118,7 @@ input:focus, select:focus, textarea:focus {
 .mb-3 { margin-bottom: 0.75rem; }
 .mb-4 { margin-bottom: 1rem; }
 
-/* Responsive Design */
+/* Responsive Design (existing) */
 
 /* Large tablets and small desktops (768px - 1024px) */
 @media (max-width: 1024px) and (min-width: 769px) {
@@ -136,15 +133,8 @@ input:focus, select:focus, textarea:focus {
   .container {
     padding: 1rem;
   }
-  
-  header h1 {
-    font-size: 1.35rem;
-  }
-  
-  nav {
-    margin-top: 0.75rem;
-  }
-  
+  header h1 { font-size: 1.35rem; }
+  nav { margin-top: 0.75rem; }
   nav a {
     margin-right: 0.75rem;
     padding: 0.5rem;
@@ -154,23 +144,13 @@ input:focus, select:focus, textarea:focus {
 
 /* Mobile devices (up to 480px) */
 @media (max-width: 480px) {
-  .container {
-    padding: 0.75rem;
-  }
-  
-  header {
-    text-align: center;
-  }
-  
+  .container { padding: 0.75rem; }
+  header { text-align: center; }
   header h1 {
     font-size: 1.25rem;
     margin-bottom: 1rem;
   }
-  
-  nav {
-    margin-top: 0;
-  }
-  
+  nav { margin-top: 0; }
   nav a {
     display: inline-block;
     margin: 0.25rem 0.5rem;
@@ -179,18 +159,15 @@ input:focus, select:focus, textarea:focus {
     border-radius: 6px;
     font-size: 0.9rem;
   }
-  
-  nav a:hover {
-    background: #e5e7eb;
-  }
-  
+  nav a:hover { background: #e5e7eb; }
+
   /* Make buttons easier to tap on mobile */
   .btn {
     padding: 1rem 1.5rem;
     font-size: 1.1rem;
     min-height: 48px; /* Minimum touch target size */
   }
-  
+
   /* Form improvements for mobile */
   .form-group input,
   .form-group select,
@@ -199,76 +176,45 @@ input:focus, select:focus, textarea:focus {
     font-size: 16px; /* Prevents zoom on iOS */
     min-height: 48px;
   }
-  
+
   /* Radio buttons - larger touch targets */
   .radio-option {
     padding: 1.25rem;
     margin: 0.5rem 0;
   }
-  
+
   .radio-custom {
     width: 24px;
     height: 24px;
   }
-  
+
   /* Checkbox - larger touch target */
   .checkbox-custom {
     width: 24px;
     height: 24px;
     margin-right: 1rem;
   }
-  
+
   /* Auth card adjustments */
-  .auth-card {
-    margin: 0.5rem;
-    padding: 1.5rem;
-  }
-  
-  .registration-card {
-    margin: 0.25rem;
-    padding: 1.25rem;
-  }
-  
+  .auth-card { margin: 0.5rem; padding: 1.5rem; }
+  .registration-card { margin: 0.25rem; padding: 1.25rem; }
+
   /* Form sections more compact on mobile */
-  .form-section {
-    margin: 1.5rem 0;
-    padding: 1rem;
-  }
-  
-  .form-section h3 {
-    font-size: 1rem;
-  }
+  .form-section { margin: 1.5rem 0; padding: 1rem; }
+  .form-section h3 { font-size: 1rem; }
 }
 
 /* Very small mobile devices (up to 360px) */
 @media (max-width: 360px) {
-  .container {
-    padding: 0.5rem;
-  }
-  
-  .auth-card,
-  .registration-card {
-    margin: 0;
-    padding: 1rem;
-  }
-  
-  .form-section {
-    padding: 0.75rem;
-  }
-  
-  .radio-option {
-    padding: 1rem;
-  }
-  
-  .radio-content strong {
-    font-size: 0.9rem;
-  }
-  
-  .radio-content small {
-    font-size: 0.8rem;
-  }
+  .container { padding: 0.5rem; }
+  .auth-card, .registration-card { margin: 0; padding: 1rem; }
+  .form-section { padding: 0.75rem; }
+  .radio-option { padding: 1rem; }
+  .radio-content strong { font-size: 0.9rem; }
+  .radio-content small  { font-size: 0.8rem; }
 }
 
+/* Logout button (existing) */
 .btn-logout {
   padding: 0.5rem 1rem;
   background-color: #dc3545;
@@ -278,8 +224,124 @@ input:focus, select:focus, textarea:focus {
   cursor: pointer;
   transition: background-color 0.2s;
 }
+.btn-logout:hover { background-color: #c82333; }
 
-.btn-logout:hover {
-  background-color: #c82333;
+/* ==========================================================
+   Admin Layout Additions (Header / Nav / Footer / Layout)
+   ========================================================== */
+
+/* Theme variables (used by header/footer) */
+:root{
+  --brand-700:#1e63c7;
+  --brand-600:#2a6fe0;
+  --brand-500:#3d7ff0;
+  --ink-0:#ffffff;
+  --ink-700:#24344d;
+  --line:#e6edfb;
+  --shadow-soft:0 6px 18px rgba(10, 61, 147, .08);
+  --radius-lg:14px;
+  --radius-md:10px;
 }
 
+/* Header */
+.site-header {
+  background: linear-gradient(180deg, var(--brand-600), var(--brand-500));
+  color: var(--ink-0);
+  box-shadow: var(--shadow-soft);
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+}
+
+.header-inner {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: .9rem 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: .6rem;
+  text-decoration: none;
+  color: var(--ink-0);
+}
+.brand-logo { width: 28px; height: 28px; display: block; }
+.brand-name { font-weight: 800; letter-spacing: .2px; }
+
+/* Nav */
+.site-nav { display:flex; align-items:center; }
+.site-nav .nav-list { display:flex; gap:.5rem; list-style:none; margin:0; padding:0; }
+.site-nav .nav-link {
+  display:inline-block;
+  padding:.55rem .95rem;
+  border-radius:var(--radius-md);
+  text-decoration:none;
+  color:var(--ink-0);
+  font-weight:600;
+  transition: background .2s ease, transform .05s ease;
+}
+.site-nav .nav-link:hover  { background: rgba(255,255,255,.12); }
+.site-nav .nav-link:active { transform: translateY(1px); }
+.site-nav .nav-link.active { background:#fff; color:var(--brand-700); }
+
+/* Main wrapper for pages that extend base.html */
+.page-main {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 1.25rem 1rem 2rem;
+}
+
+/* Footer (new site footer, separate from legacy .footer) */
+.site-footer { border-top:1px solid var(--line); background:#fff; }
+.site-footer .footer-inner {
+  max-width:1100px;
+  margin:0 auto;
+  padding:1.1rem 1rem;
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  justify-content:space-between;
+  gap:.75rem 1rem;
+}
+.footer-brand {
+  display:inline-flex;
+  align-items:center;
+  gap:.5rem;
+  color:var(--ink-700);
+  text-decoration:none;
+  font-weight:700;
+}
+.footer-logo { width:22px; height:22px; display:block; }
+.footer-meta { color:#70829f; }
+
+/* Wider content area only when both classes are present */
+.container.page-main {
+  width: 100%;
+  max-width: 1200px !important;
+}
+
+/* Optional: comfy width on very large screens */
+@media (min-width: 1400px) {
+  .container.page-main { max-width: 1280px !important; }
+}
+
+/* Sticky-footer layout */
+html, body { height: 100%; }
+body {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+.page-main { flex: 1; }
+
+/* Responsive header/footer tweaks */
+@media (max-width: 720px){
+  .header-inner { flex-wrap: wrap; gap: .75rem; }
+  .site-nav .nav-list { width:100%; }
+  .site-footer .footer-inner { flex-direction:column; text-align:center; }
+}
