@@ -85,8 +85,8 @@ def get_competition_model(id):
 def save_competition_model():
     try:
         data = request.get_json()
-        print("Received data:", data)  # Debug log
-        
+        logger.info("Received data: %s", data)  # Debug log
+
         # Create new competition or update existing one
         competition_id = data.get('id')
         if competition_id:
@@ -134,9 +134,9 @@ def save_competition_model():
         
         # Commit the changes
         db.session.commit()
-        
-        print("Saved competition:", competition.id, competition.config)  # Debug log
-        
+
+        logger.info("Saved competition: %d, %s", competition.id, competition.config)  # Debug log
+
         return jsonify({
             'status': 'success',
             'competition_id': competition.id,
@@ -145,7 +145,7 @@ def save_competition_model():
         
     except Exception as e:
         db.session.rollback()
-        print("Error saving competition:", str(e))  # Debug log
+        logger.error("Error saving competition: %s", str(e))  # Debug log
         return jsonify({
             'status': 'error',
             'message': str(e)
@@ -211,25 +211,21 @@ def atheletes_management():
 @admin_bp.route('/flights-management')
 def flights_management():
     try:
-        print("Starting flights_management route...")
         
         # Get all competitions with their events
         competitions = Competition.query.options(
             db.joinedload(Competition.events)
         ).all()
-        print(f"Found {len(competitions)} competitions")
         
         # Get all events with competition information
         events = Event.query.options(
             db.joinedload(Event.competition)
         ).all()
-        print(f"Found {len(events)} events")
         
         # Get all athletes with competition information
         athletes = Athlete.query.options(
             db.joinedload(Athlete.competition)
         ).all()
-        print(f"Found {len(athletes)} athletes")
         
         # Get all flights with their relationships
         flights = Flight.query.options(
@@ -237,7 +233,6 @@ def flights_management():
             db.joinedload(Flight.athlete_flights).joinedload(AthleteFlight.athlete),
             db.joinedload(Flight.competition)  # Direct competition relationship
         ).order_by(Flight.order).all()
-        print(f"Found {len(flights)} flights")
         
         # Build hierarchical competition data structure
         competitions_data = []
@@ -316,7 +311,6 @@ def flights_management():
                 'events': comp_events,
                 'flights': direct_flights  # Flights directly under competition
             })
-        print(f"Prepared {len(competitions_data)} competitions data with hierarchy")
         
         # Flat events data for easy access
         events_data = []
@@ -328,7 +322,6 @@ def flights_management():
                 'competition_id': event.competition_id,
                 'competition_name': event.competition.name if event.competition else None
             })
-        print(f"Prepared {len(events_data)} events data")
         
         # Flat athletes data for easy access
         athletes_data = []
@@ -348,7 +341,7 @@ def flights_management():
                 'competition_name': athlete.competition.name if athlete.competition else None,
                 'is_active': athlete.is_active
             })
-        print(f"Prepared {len(athletes_data)} athletes data")
+        (f"Prepared {len(athletes_data)} athletes data")
         
         # Flat flights data with proper competition/event relationships
         flights_data = []
@@ -403,9 +396,7 @@ def flights_management():
                 'athletes': athletes_list
             }
             flights_data.append(flight_data)
-        print(flights_data)
 
-        print("Rendering template with hierarchical data...")
         return render_template('admin/flights_management.html',
                              competitions=competitions_data,
                              events=events_data,
@@ -413,7 +404,7 @@ def flights_management():
                              flights=flights_data)
                              
     except Exception as e:
-        print(f"Error in flights_management: {str(e)}")
+        logger.error(f"Error in flights_management: {str(e)}")
         import traceback
         traceback.print_exc()
         
@@ -1324,7 +1315,6 @@ def add_athlete_to_flight(flight_id, athlete_id):
             competition_id = flight.event.competition_id
             if athlete.competition_id != competition_id:
                 athlete.competition_id = competition_id
-                print(f"Updated athlete {athlete_id} competition_id to {competition_id}")
         
         # Add athlete to flight
         athlete_flight = AthleteFlight(
