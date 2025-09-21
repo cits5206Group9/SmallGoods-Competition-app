@@ -1024,13 +1024,18 @@ class FlightManager {
         "success"
       );
 
+      // Store currentFlightId before closing modals since closeModals() resets it
+      const isUpdate = this.currentFlightId !== null;
+      
       // Close modal
       this.closeModals();
       
-      // Refresh the page to get latest data with proper relationships
-      setTimeout(() => {
-        window.location.reload();
-      }, 1000);
+      // Instead of page reload, update the UI directly like athlete page does
+      if (isUpdate) {
+        this.updateFlightInGrid(result.flight);
+      } else {
+        this.addFlightToGrid(result.flight);
+      }
       
     } catch (error) {
       console.error("Error saving flight:", error);
@@ -1070,14 +1075,12 @@ class FlightManager {
       const result = await response.json();
       this.showNotification(result.message, "success");
 
+      // Remove the flight from the grid before closing modal
+      this.removeFlightFromGrid(this.deleteFlightId);
+      
       // Close modal
       this.deleteFlightModal.style.display = "none";
       this.deleteFlightId = null;
-
-      // Refresh the page to get latest data
-      setTimeout(() => {
-        window.location.reload();
-      }, 1000);
 
     } catch (error) {
       console.error("Error deleting flight:", error);
@@ -1318,18 +1321,13 @@ class FlightManager {
 
       const result = await response.json();
       
-      // Update athlete's competition_id if it changed
-      if (result.athlete && result.athlete.competition_id) {
-        this.updateAthleteCompetition(athleteId, result.athlete.competition_id);
-      }
-
       this.showNotification("Athlete added to flight", "success");
       
       // Reload flight athletes to sync with database
       await this.loadFlightAthletes(this.currentFlightId);
       
-      // Also refresh the main flights view to update athlete counts
-      await this.refreshFlightData();
+      // Update the flight card's athlete count directly
+      this.updateFlightAthleteCount(this.currentFlightId);
       
     } catch (error) {
       console.error("Error adding athlete to flight:", error);
@@ -1364,8 +1362,8 @@ class FlightManager {
       // Reload flight athletes to sync with database
       await this.loadFlightAthletes(this.currentFlightId);
       
-      // Also refresh the main flights view to update athlete counts
-      await this.refreshFlightData();
+      // Update the flight card's athlete count directly
+      this.updateFlightAthleteCount(this.currentFlightId);
       
     } catch (error) {
       console.error("Error removing athlete from flight:", error);
@@ -1373,25 +1371,6 @@ class FlightManager {
         error.message || "Error removing athlete from flight",
         "error"
       );
-    }
-  }
-
-  // Function to refresh flight data from the server
-  async refreshFlightData() {
-    try {
-      console.log('Refreshing flight data from server...');
-      const response = await fetch('/admin/flights/all');
-      if (response.ok) {
-        const data = await response.json();
-        this.flights = data;
-        this.updateLocalStorage();
-        
-        // Update the display immediately
-        this.renderFlights();
-        console.log('Flight data refreshed successfully');
-      }
-    } catch (error) {
-      console.error('Error refreshing flight data:', error);
     }
   }
 
@@ -1425,8 +1404,6 @@ class FlightManager {
         this.athletes = athletesData.athletes || athletesData;
       }
       
-      // Update localStorage with fresh data
-      this.updateLocalStorage();
       this.renderFlights();
       
       console.log('All data refreshed successfully');
@@ -1600,21 +1577,115 @@ class FlightManager {
       });
   }
   
-  // Debug function to check localStorage sync
-  debugLocalStorage() {
-    console.log('=== localStorage Debug Info ===');
-    console.log('Competitions:', this.competitions.length);
-    console.log('Events:', this.events.length);
-    console.log('Athletes:', this.athletes.length);
-    console.log('Flights:', this.flights.length);
-    console.log('Last Updated:', new Date(parseInt(localStorage.getItem('flightDataLastUpdated') || '0')));
-    
-    console.log('=== Sample Data ===');
-    console.log('First Competition:', this.competitions[0]);
-    console.log('First Event:', this.events[0]);
-    console.log('First Athlete:', this.athletes[0]);
-    console.log('First Flight:', this.flights[0]);
+  // Update just the athlete count for a specific flight card
+  async updateFlightAthleteCount(flightId) {
+    try {
+      const response = await fetch(`/admin/flights/${flightId}/athletes`);
+      if (response.ok) {
+        const data = await response.json();
+        const athleteCount = data.athletes ? data.athletes.length : 0;
+        
+        // Find the flight card and update its athlete count
+        const card = document.querySelector(`.flight-card[data-flight-id="${flightId}"]`);
+        if (card) {
+          const athleteCountElement = card.querySelector('.athlete-count');
+          if (athleteCountElement) {
+            athleteCountElement.innerHTML = `<strong>${athleteCount}</strong> athletes`;
+          }
+        }
+        
+        console.log(`Updated athlete count for flight ${flightId}: ${athleteCount}`);
+      }
+    } catch (error) {
+      console.error('Error updating flight athlete count:', error);
+    }
   }
+  
+  // Direct DOM update functions similar to athlete page
+  updateFlightInGrid(flight) {
+    const card = document.querySelector(`.flight-card[data-flight-id="${flight.id}"]`);
+    if (card) {
+      // Enrich flight data to ensure all fields are available
+      const enrichedFlight = this.enrichFlightData(flight);
+      
+      // Update data attributes
+      card.dataset.flightOrder = enrichedFlight.order;
+      card.dataset.competitionId = enrichedFlight.competition_id || '';
+      card.dataset.eventId = enrichedFlight.event_id || '';
+      
+      // Update flight name
+      const nameElement = card.querySelector('.flight-name');
+      if (nameElement) {
+        nameElement.textContent = enrichedFlight.name;
+      }
+      
+      // Update flight order
+      const orderElement = card.querySelector('.flight-order');
+      if (orderElement) {
+        orderElement.textContent = `Order: ${enrichedFlight.order}`;
+      }
+      
+      // Update competition and event info
+      const eventInfoSection = card.querySelector('.flight-event-info');
+      if (eventInfoSection) {
+        const competitionInfo = enrichedFlight.competition_name || 'No Competition';
+        const eventInfo = enrichedFlight.event_name || 'No Event';
+        eventInfoSection.innerHTML = `
+          <small><strong>Competition:</strong> ${competitionInfo}</small>
+          <small><strong>Event:</strong> ${eventInfo}</small>
+        `;
+      }
+      
+      // Update athlete count
+      const athleteCountElement = card.querySelector('.athlete-count');
+      if (athleteCountElement) {
+        athleteCountElement.innerHTML = `<strong>${enrichedFlight.athlete_count || 0}</strong> athletes`;
+      }
+      
+      // Update status badge
+      const statusBadge = card.querySelector('.status-badge');
+      if (statusBadge) {
+        statusBadge.className = `status-badge ${enrichedFlight.is_active ? 'active' : 'inactive'}`;
+        statusBadge.textContent = enrichedFlight.is_active ? 'Active' : 'Inactive';
+      }
+      
+      // Update the card's active class
+      card.className = `flight-card ${enrichedFlight.is_active ? 'active' : ''}`;
+      
+      console.log('Updated flight card in grid:', enrichedFlight.id);
+    }
+  }
+  
+  addFlightToGrid(flight) {
+    const flightsGrid = this.flightsGrid;
+    if (flightsGrid) {
+      // Enrich flight data to ensure all fields are available
+      const enrichedFlight = this.enrichFlightData(flight);
+      
+      // Create the new flight card
+      const newCard = this.createFlightCard(enrichedFlight);
+      
+      // Add to the grid
+      flightsGrid.appendChild(newCard);
+      
+      // Reinitialize sortable to include the new card
+      this.initializeFlightsSortable();
+      
+      console.log('Added new flight card to grid:', enrichedFlight.id);
+    }
+  }
+  
+  removeFlightFromGrid(flightId) {
+    const card = document.querySelector(`.flight-card[data-flight-id="${flightId}"]`);
+    if (card) {
+      card.remove();
+      console.log('Removed flight card from grid:', flightId);
+      
+      // Reinitialize sortable after removal
+      this.initializeFlightsSortable();
+    }
+  }
+  
 }
 
 document.addEventListener("DOMContentLoaded", function () {
