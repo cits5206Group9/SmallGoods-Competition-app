@@ -412,16 +412,30 @@ def referee_login_page(referee_id):
                          referee_id=referee_id, 
                          referee=referee)
 
+@admin_bp.route('/referee/login')
+def general_referee_login():
+    """General referee login page for any referee"""
+    return render_template('admin/referee_login.html', referee=None)
+
 @admin_bp.route('/api/referee/login', methods=['POST'])
 def referee_login():
     """Handle referee login"""
     try:
         data = request.get_json()
-        referee_id = data.get('referee_id')
+        referee_id = data.get('referee_id')  # Optional
         username = data.get('username')
         password = data.get('password')
         
-        referee = Referee.query.get_or_404(referee_id)
+        # Find referee by username if referee_id not provided
+        if referee_id:
+            referee = Referee.query.get_or_404(referee_id)
+        else:
+            referee = Referee.query.filter_by(username=username).first()
+            if not referee:
+                return jsonify({
+                    'success': False,
+                    'message': 'Invalid username or password'
+                }), 401
         
         if referee.username == username and referee.password == password and referee.is_active:
             session['referee_id'] = referee.id
@@ -431,7 +445,7 @@ def referee_login():
             return jsonify({
                 'success': True,
                 'message': 'Login successful',
-                'redirect': url_for('admin.referee_dashboard_page', referee_id=referee.id)
+                'redirect': url_for('admin.individual_referee_page', referee_id=referee.id)
             })
         else:
             return jsonify({
@@ -457,6 +471,61 @@ def referee_logout_page():
     """Logout page for referees"""
     session.pop('referee_id', None)
     return redirect(url_for('admin.referee'))
+
+@admin_bp.route('/api/referee-decision', methods=['POST'])
+def submit_referee_decision():
+    """Submit a referee decision"""
+    try:
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'success': False, 'message': 'No data provided'}), 400
+        
+        referee_id = data.get('referee_id')
+        competition_id = data.get('competition_id')
+        decision = data.get('decision')
+        timestamp = data.get('timestamp')
+        
+        if not all([referee_id, competition_id, decision]):
+            return jsonify({'success': False, 'message': 'Missing required fields'}), 400
+        
+        # Verify referee exists and belongs to the competition
+        referee = Referee.query.filter_by(id=referee_id, competition_id=competition_id).first()
+        if not referee:
+            return jsonify({'success': False, 'message': 'Invalid referee or competition'}), 404
+        
+        # For now, we'll store decisions in a simple way by updating the referee's notes
+        # In a full implementation, you might want to create a separate table for decisions
+        decision_info = f"Decision at {timestamp}: {decision.get('label', 'Unknown')} (Value: {decision.get('value', 'Unknown')})"
+        
+        if referee.notes:
+            referee.notes += f"\n{decision_info}"
+        else:
+            referee.notes = decision_info
+        
+        db.session.commit()
+        
+        return jsonify({
+            'success': True, 
+            'message': 'Decision submitted successfully',
+            'referee_id': referee_id,
+            'decision': decision
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        print("Error submitting referee decision:", str(e))
+        return jsonify({'success': False, 'message': 'Error submitting decision'}), 500
+
+@admin_bp.route('/api/current-attempt', methods=['GET'])
+def get_current_attempt():
+    """Get current attempt data for referees"""
+    # For now, return a waiting state since we don't have real-time competition data
+    # In a real implementation, this would connect to live competition data
+    return jsonify({
+        'status': 'waiting',
+        'message': 'No active attempt'
+    })
 
 @admin_bp.route('/referee/dashboard/<int:referee_id>')
 def referee_dashboard_page(referee_id):
