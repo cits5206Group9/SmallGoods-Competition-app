@@ -101,9 +101,12 @@
 
 {% block content %}
 <div class="individual-referee">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
         <a href="{{ url_for('admin.general_referee_login') }}" class="logout-btn">← Back to Login</a>
-    
-    <div class="referee-header">
+        <button id="logout-btn" class="logout-btn" style="background: #dc3545; border: none; cursor: pointer;">
+            Logout →
+        </button>
+    </div>    <div class="referee-header">
         <h1>🎯 {{ referee.name }} ({{ referee.position or 'Referee' }})</h1>
         <div class="referee-details">
             <p><strong>Username:</strong> {{ referee.username }}</p>
@@ -267,6 +270,34 @@ document.addEventListener('DOMContentLoaded', () => {
         window.referee = new IndividualReferee(refereeId, competitionId);
     } else {
         document.body.innerHTML += '<div style="text-align: center; padding: 50px;"><h3>Error: No competition assigned to this referee</h3></div>';
+    }
+
+    // Add logout functionality
+    const logoutBtn = document.getElementById('logout-btn');
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', async () => {
+            try {
+                const response = await fetch('/admin/api/referee/logout', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                
+                if (response.ok) {
+                    // Show success message briefly
+                    logoutBtn.textContent = 'Logging out...';
+                    logoutBtn.disabled = true;
+                    
+                    setTimeout(() => {
+                        window.location.href = '/admin/referee/login';
+                    }, 1000);
+                } else {
+                    throw new Error('Logout failed');
+                }
+            } catch (error) {
+                console.error('Logout error:', error);
+                alert('Logout failed. Please try again.');
+            }
+        });
     }
 });
 </script>
