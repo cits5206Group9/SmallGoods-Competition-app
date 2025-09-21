@@ -70,7 +70,12 @@ class Event(db.Model):
     gender = db.Column(db.String(10))
     scoring_type = db.Column(db.Enum(ScoringType), nullable=False)
     is_active = db.Column(db.Boolean, default=False)
-    current_lift_id = db.Column(db.Integer, db.ForeignKey("lift.id"))
+    # It will caused circular dependency if not use post_update=True
+    current_lift_id = db.Column(
+        db.Integer,
+        db.ForeignKey("lift.id", name="fk_event_current_lift_id", use_alter=True),
+        nullable=True
+    )
 
     # Relationships
     lifts = db.relationship("Lift", backref="event", lazy=True, cascade="all, delete-orphan", foreign_keys="[Lift.event_id]")
