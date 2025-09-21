@@ -29,6 +29,8 @@ document.addEventListener("DOMContentLoaded", function () {
   function init() {
     bindEvents();
     loadCompetitions();
+    // Load all flights by default
+    showAllFlights();
   }
 
   function bindEvents() {
@@ -231,11 +233,19 @@ document.addEventListener("DOMContentLoaded", function () {
     card.dataset.flightId = flight.id;
     card.dataset.flightOrder = flight.order;
 
+    // Add event info if available (when showing all flights)
+    const eventInfo = flight.event_name ? `
+        <div class="flight-event-info">
+            <small>${flight.competition_name} - ${flight.event_name}</small>
+        </div>
+    ` : '';
+
     card.innerHTML = `
             <div class="flight-card-header">
                 <div class="flight-name">${flight.name}</div>
                 <div class="flight-order">Order: ${flight.order}</div>
             </div>
+            ${eventInfo}
             <div class="flight-info">
                 <p class="athlete-count"><strong>${
                   flight.athlete_count || 0
@@ -467,17 +477,17 @@ document.addEventListener("DOMContentLoaded", function () {
 
       const result = await response.json();
       showNotification(result.message, "success");
+      
+      // Store current state before closing modal
+      const wasUpdating = currentFlightId !== null;
       closeModals();
 
-      // Reload flights - only if we have a current event selected
+      // Instead of reloading the whole view, update the table directly
       if (currentEventId) {
         await loadFlights(currentEventId);
       } else {
-        // If no event selected, we could reload all flights or show a different view
-        showNotification(
-          "Flight created successfully. Select an event to view flights.",
-          "info"
-        );
+        // If no event selected, reload all flights to show the new/updated flight
+        await showAllFlights();
       }
     } catch (error) {
       console.error("Error saving flight:", error);
@@ -518,8 +528,13 @@ document.addEventListener("DOMContentLoaded", function () {
       showNotification(result.message, "success");
       closeModals();
 
-      // Reload flights
-      await loadFlights(currentEventId);
+      // Reload flights based on current view
+      if (currentEventId) {
+        await loadFlights(currentEventId);
+      } else {
+        // If no event selected, reload all flights
+        await showAllFlights();
+      }
     } catch (error) {
       console.error("Error deleting flight:", error);
       showNotification(error.message, "error");

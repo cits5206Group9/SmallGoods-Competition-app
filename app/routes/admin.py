@@ -638,11 +638,15 @@ def reorder_flights():
 def get_all_flights():
     """Get all flights across all events"""
     try:
-        flights = Flight.query.order_by(Flight.order).all()
+        flights = Flight.query.options(
+            joinedload(Flight.event).joinedload(Event.competition)
+        ).order_by(Flight.order).all()
         
         return jsonify([{
             'id': flight.id,
             'event_id': flight.event_id,
+            'event_name': flight.event.name if flight.event else 'No Event',
+            'competition_name': flight.event.competition.name if flight.event and flight.event.competition else 'No Competition',
             'name': flight.name,
             'order': flight.order,
             'is_active': flight.is_active,
