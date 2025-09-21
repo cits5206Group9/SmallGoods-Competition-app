@@ -38,15 +38,7 @@ def timer():
 def referee():
     return render_template('admin/referee.html')
 
-@admin_bp.route('/referee/login')
-def referee_login():
-    return render_template('auth/referee_login.html')
 
-@admin_bp.route('/referee/<int:referee_id>')
-def individual_referee(referee_id):
-    if referee_id not in [1, 2, 3]:
-        return "Invalid referee ID", 400
-    return render_template('admin/individual_referee.html', referee_id=str(referee_id))
 
 @admin_bp.route('/results')
 def results_dashboard():
@@ -128,6 +120,56 @@ def save_competition_model():
     except Exception as e:
         db.session.rollback()
         print("Error saving competition:", str(e))  # Debug log
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 400
+
+@admin_bp.route('/api/competitions', methods=['GET'])
+def get_competitions():
+    try:
+        competitions = Competition.query.all()
+        return jsonify([
+            {
+                'id': comp.id,
+                'name': comp.name,
+                'sport_type': comp.sport_type.value if comp.sport_type else None,
+                'is_active': comp.is_active,
+                'start_date': comp.start_date.isoformat() if comp.start_date else None,
+                'end_date': comp.end_date.isoformat() if comp.end_date else None
+            }
+            for comp in competitions
+        ])
+    except Exception as e:
+        print("Error fetching competitions:", str(e))
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 400
+
+@admin_bp.route('/api/competitions/<int:competition_id>', methods=['GET'])
+def get_competition_details(competition_id):
+    try:
+        competition = Competition.query.get_or_404(competition_id)
+        
+        # Extract events from config if available
+        events = []
+        if competition.config and 'events' in competition.config:
+            events = competition.config['events']
+        
+        return jsonify({
+            'id': competition.id,
+            'name': competition.name,
+            'sport_type': competition.sport_type.value if competition.sport_type else None,
+            'description': competition.description,
+            'is_active': competition.is_active,
+            'start_date': competition.start_date.isoformat() if competition.start_date else None,
+            'end_date': competition.end_date.isoformat() if competition.end_date else None,
+            'events': events,
+            'config': competition.config
+        })
+    except Exception as e:
+        print("Error fetching competition details:", str(e))
         return jsonify({
             'status': 'error',
             'message': str(e)
