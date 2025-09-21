@@ -184,6 +184,7 @@ class AthleteFlight(db.Model):
     athlete_id = db.Column(db.Integer, db.ForeignKey("athlete.id"), nullable=False)
     flight_id = db.Column(db.Integer, db.ForeignKey("flight.id"), nullable=False)
     lot_number = db.Column(db.Integer)
+    order = db.Column(db.Integer, default=0)  # Order within the flight for attempts
 
 # Attempt and Referee System
 class Attempt(db.Model):
