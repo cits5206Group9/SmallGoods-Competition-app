@@ -1,8 +1,9 @@
 from flask import Blueprint, render_template, request, jsonify
 from ..extensions import db
-from ..models import Competition, SportType, SportCategory, Exercise, CompetitionType, Athlete, Flight, Event
+from ..models import Competition, SportCategory, Exercise, CompetitionType, Athlete, Flight, Event, SportType
 from datetime import datetime
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import joinedload
 
 admin_bp = Blueprint('admin', __name__, url_prefix='/admin')
 
@@ -162,8 +163,8 @@ def atheletes_management():
     # Get all competitions for the filter dropdown
     competitions = Competition.query.all()
     
-    # Get athletes with pagination
-    athletes_query = Athlete.query
+    # Get athletes with pagination and competition relationship
+    athletes_query = Athlete.query.options(db.joinedload(Athlete.competition))
     athletes = athletes_query.paginate(page=page, per_page=per_page, error_out=False)
     
     return render_template('admin/atheletes_management.html', 
@@ -215,10 +216,26 @@ def create_athlete():
         db.session.add(athlete)
         db.session.commit()
         
+        # Reload with competition relationship
+        athlete = Athlete.query.options(joinedload(Athlete.competition)).get(athlete.id)
+        
         return jsonify({
             'status': 'success',
             'message': 'Athlete created successfully',
-            'athlete_id': athlete.id
+            'athlete': {
+                'id': athlete.id,
+                'first_name': athlete.first_name,
+                'last_name': athlete.last_name,
+                'email': athlete.email,
+                'phone': athlete.phone,
+                'team': athlete.team,
+                'gender': athlete.gender,
+                'age': athlete.age,
+                'bodyweight': athlete.bodyweight,
+                'competition_id': athlete.competition_id,
+                'competition_name': athlete.competition.name if athlete.competition else None,
+                'is_active': athlete.is_active
+            }
         }), 201
         
     except ValueError as e:
@@ -238,7 +255,7 @@ def create_athlete():
 def get_athlete(athlete_id):
     """Get athlete details by ID"""
     try:
-        athlete = Athlete.query.get(athlete_id)
+        athlete = Athlete.query.options(joinedload(Athlete.competition)).get(athlete_id)
         
         if not athlete:
             return jsonify({
@@ -257,6 +274,7 @@ def get_athlete(athlete_id):
             'age': athlete.age,
             'bodyweight': athlete.bodyweight,
             'competition_id': athlete.competition_id,
+            'competition_name': athlete.competition.name if athlete.competition else None,
             'is_active': athlete.is_active
         }), 200
         
@@ -304,9 +322,27 @@ def update_athlete(athlete_id):
         
         db.session.commit()
         
+        # Reload with competition relationship
+        db.session.refresh(athlete)
+        athlete = Athlete.query.options(joinedload(Athlete.competition)).get(athlete.id)
+        
         return jsonify({
             'status': 'success',
-            'message': 'Athlete updated successfully'
+            'message': 'Athlete updated successfully',
+            'athlete': {
+                'id': athlete.id,
+                'first_name': athlete.first_name,
+                'last_name': athlete.last_name,
+                'email': athlete.email,
+                'phone': athlete.phone,
+                'team': athlete.team,
+                'gender': athlete.gender,
+                'age': athlete.age,
+                'bodyweight': athlete.bodyweight,
+                'competition_id': athlete.competition_id,
+                'competition_name': athlete.competition.name if athlete.competition else None,
+                'is_active': athlete.is_active
+            }
         }), 200
         
     except ValueError as e:
@@ -643,4 +679,177 @@ def get_competition_events(competition_id):
             'status': 'error',
             'message': 'Failed to retrieve events: ' + str(e)
         }), 500
+<<<<<<< HEAD
 >>>>>>> 9480c1c (athelete flights managment v3)
+=======
+
+@admin_bp.route('/events/<int:event_id>/available-athletes', methods=['GET'])
+def get_available_athletes(event_id):
+    """Get all athletes that can be assigned to flights for this event"""
+    try:
+        from ..models import AthleteEntry, AthleteFlight
+        
+        # Get pagination parameters
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 50, type=int)  # Default 50 athletes per page
+        search = request.args.get('search', '', type=str)
+        
+        event = Event.query.get(event_id)
+        if not event:
+            return jsonify({
+                'status': 'error',
+                'message': 'Event not found'
+            }), 404
+        
+        # Get all athletes entered in this event's competition
+        # Filter out those already in flights for this event
+        subquery = db.session.query(AthleteFlight.athlete_id).join(Flight).filter(Flight.event_id == event_id).subquery()
+        
+        available_athletes_query = db.session.query(Athlete).join(AthleteEntry).filter(
+            AthleteEntry.competition_id == event.competition_id,
+            ~Athlete.id.in_(subquery),
+            Athlete.is_active == True
+        )
+        
+        # Add search filter if provided
+        if search:
+            search_filter = f"%{search}%"
+            available_athletes_query = available_athletes_query.filter(
+                db.or_(
+                    Athlete.first_name.ilike(search_filter),
+                    Athlete.last_name.ilike(search_filter),
+                    Athlete.team.ilike(search_filter)
+                )
+            )
+        
+        # Apply pagination
+        paginated_athletes = available_athletes_query.paginate(
+            page=page, per_page=per_page, error_out=False
+        )
+        
+        return jsonify({
+            'athletes': [{
+                'id': athlete.id,
+                'first_name': athlete.first_name,
+                'last_name': athlete.last_name,
+                'team': athlete.team,
+                'bodyweight': athlete.bodyweight,
+                'gender': athlete.gender
+            } for athlete in paginated_athletes.items],
+            'pagination': {
+                'page': page,
+                'per_page': per_page,
+                'total': paginated_athletes.total,
+                'pages': paginated_athletes.pages,
+                'has_prev': paginated_athletes.has_prev,
+                'has_next': paginated_athletes.has_next
+            }
+        }), 200
+        
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': 'Failed to retrieve available athletes: ' + str(e)
+        }), 500
+
+@admin_bp.route('/flights/<int:flight_id>/athletes', methods=['GET'])
+def get_flight_athletes(flight_id):
+    """Get all athletes assigned to a specific flight"""
+    try:
+        from ..models import AthleteFlight
+        
+        flight = Flight.query.get(flight_id)
+        if not flight:
+            return jsonify({
+                'status': 'error',
+                'message': 'Flight not found'
+            }), 404
+        
+        flight_athletes = db.session.query(Athlete).join(AthleteFlight).filter(
+            AthleteFlight.flight_id == flight_id
+        ).all()
+        
+        return jsonify([{
+            'id': athlete.id,
+            'first_name': athlete.first_name,
+            'last_name': athlete.last_name,
+            'team': athlete.team,
+            'bodyweight': athlete.bodyweight,
+            'gender': athlete.gender
+        } for athlete in flight_athletes]), 200
+        
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': 'Failed to retrieve flight athletes: ' + str(e)
+        }), 500
+
+@admin_bp.route('/flights/<int:flight_id>/athletes/<int:athlete_id>', methods=['POST'])
+def add_athlete_to_flight(flight_id, athlete_id):
+    """Add an athlete to a flight"""
+    try:
+        from ..models import AthleteFlight
+        
+        flight = Flight.query.get(flight_id)
+        athlete = Athlete.query.get(athlete_id)
+        
+        if not flight or not athlete:
+            return jsonify({
+                'status': 'error',
+                'message': 'Flight or athlete not found'
+            }), 404
+        
+        # Check if athlete is already in this flight
+        existing = AthleteFlight.query.filter_by(flight_id=flight_id, athlete_id=athlete_id).first()
+        if existing:
+            return jsonify({
+                'status': 'error',
+                'message': 'Athlete is already in this flight'
+            }), 400
+        
+        # Add athlete to flight
+        athlete_flight = AthleteFlight(flight_id=flight_id, athlete_id=athlete_id)
+        db.session.add(athlete_flight)
+        db.session.commit()
+        
+        return jsonify({
+            'status': 'success',
+            'message': 'Athlete added to flight successfully'
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'status': 'error',
+            'message': 'Failed to add athlete to flight: ' + str(e)
+        }), 500
+
+@admin_bp.route('/flights/<int:flight_id>/athletes/<int:athlete_id>', methods=['DELETE'])
+def remove_athlete_from_flight(flight_id, athlete_id):
+    """Remove an athlete from a flight"""
+    try:
+        from ..models import AthleteFlight
+        
+        athlete_flight = AthleteFlight.query.filter_by(flight_id=flight_id, athlete_id=athlete_id).first()
+        
+        if not athlete_flight:
+            return jsonify({
+                'status': 'error',
+                'message': 'Athlete not found in this flight'
+            }), 404
+        
+        db.session.delete(athlete_flight)
+        db.session.commit()
+        
+        return jsonify({
+            'status': 'success',
+            'message': 'Athlete removed from flight successfully'
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'status': 'error',
+            'message': 'Failed to remove athlete from flight: ' + str(e)
+        }), 500
+>>>>>>> 78cb8ad (1.Add pagination for athletes management page)
