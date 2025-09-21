@@ -81,17 +81,35 @@
 }
 
 /* Equal width columns for better display */
-.athletes-table th:nth-child(1) { width: 11%; } /* Name */
-.athletes-table th:nth-child(2) { width: 14%; } /* Email */
-.athletes-table th:nth-child(3) { width: 9%; }  /* Phone */
-.athletes-table th:nth-child(4) { width: 9%; }  /* Team */
-.athletes-table th:nth-child(5) { width: 7%; }  /* Gender */
-.athletes-table th:nth-child(6) { width: 6%; }  /* Age */
-.athletes-table th:nth-child(7) { width: 10%; } /* Bodyweight */
-.athletes-table th:nth-child(8) { width: 12%; } /* Competition */
-.athletes-table th:nth-child(9) { width: 7%; }  /* Status */
+.athletes-table th:nth-child(1) {
+  width: 11%;
+} /* Name */
+.athletes-table th:nth-child(2) {
+  width: 14%;
+} /* Email */
+.athletes-table th:nth-child(3) {
+  width: 9%;
+} /* Phone */
+.athletes-table th:nth-child(4) {
+  width: 9%;
+} /* Team */
+.athletes-table th:nth-child(5) {
+  width: 7%;
+} /* Gender */
+.athletes-table th:nth-child(6) {
+  width: 6%;
+} /* Age */
+.athletes-table th:nth-child(7) {
+  width: 10%;
+} /* Bodyweight */
+.athletes-table th:nth-child(8) {
+  width: 12%;
+} /* Competition */
+.athletes-table th:nth-child(9) {
+  width: 7%;
+} /* Status */
 .athletes-table th:last-child {
-    width: 15%; /* Actions column */
+  width: 15%; /* Actions column */
 }
 
 .athletes-table td {
@@ -453,16 +471,36 @@
     min-width: 1000px;
   }
 
-      .athletes-table th:nth-child(1) { width: 12%; } /* Name */
-    .athletes-table th:nth-child(2) { width: 14%; } /* Email */
-    .athletes-table th:nth-child(3) { width: 9%; }  /* Phone */
-    .athletes-table th:nth-child(4) { width: 9%; }  /* Team */
-    .athletes-table th:nth-child(5) { width: 7%; }  /* Gender */
-    .athletes-table th:nth-child(6) { width: 6%; }  /* Age */
-    .athletes-table th:nth-child(7) { width: 10%; } /* Bodyweight */
-    .athletes-table th:nth-child(8) { width: 11%; } /* Competition */
-    .athletes-table th:nth-child(9) { width: 7%; }  /* Status */
-    .athletes-table th:last-child { width: 15%; } /* Actions */
+  .athletes-table th:nth-child(1) {
+    width: 12%;
+  } /* Name */
+  .athletes-table th:nth-child(2) {
+    width: 14%;
+  } /* Email */
+  .athletes-table th:nth-child(3) {
+    width: 9%;
+  } /* Phone */
+  .athletes-table th:nth-child(4) {
+    width: 9%;
+  } /* Team */
+  .athletes-table th:nth-child(5) {
+    width: 7%;
+  } /* Gender */
+  .athletes-table th:nth-child(6) {
+    width: 6%;
+  } /* Age */
+  .athletes-table th:nth-child(7) {
+    width: 10%;
+  } /* Bodyweight */
+  .athletes-table th:nth-child(8) {
+    width: 11%;
+  } /* Competition */
+  .athletes-table th:nth-child(9) {
+    width: 7%;
+  } /* Status */
+  .athletes-table th:last-child {
+    width: 15%;
+  } /* Actions */
 }
 
 @media (max-width: 768px) {

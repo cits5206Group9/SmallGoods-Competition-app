@@ -1,121 +1,192 @@
 // Flights Management JavaScript
-document.addEventListener("DOMContentLoaded", function () {
-  // DOM Elements
-  const competitionSelect = document.getElementById("competition-select");
-  const eventSelect = document.getElementById("event-select");
-  const flightsContainer = document.getElementById("flights-container");
-  const flightsList = document.getElementById("flights-list");
-  const flightsGrid = document.getElementById("flights-grid");
-  const emptyState = document.getElementById("empty-state");
-  const addFlightBtn = document.getElementById("add-flight-btn");
-  const flightModal = document.getElementById("flight-modal");
-  const flightForm = document.getElementById("flight-form");
-  const deleteFlightModal = document.getElementById("delete-flight-modal");
-  const flightAthletesSection = document.getElementById(
-    "flight-athletes-section"
-  );
-
-  let currentEventId = null;
-  let currentFlightId = null;
-  let deleteFlightId = null;
-  let flightsSortable = null;
-  let attemptsSortable = null;
-  let availableAthletesPage = 1;
-  let availableAthletesPagination = null;
-
-  // Initialize
-  init();
-
-  function init() {
-    bindEvents();
-    loadCompetitions();
-    // Load all flights by default
-    showAllFlights();
+class FlightManager {
+  constructor() {
+    this.searchTimeout;
+    this.currentEventId = null;
+    this.currentFlightId = null;
+    this.deleteFlightId = null;
+    this.flightsSortable = null;
+    this.attemptsSortable = null;
+    this.availableAthletesPage = 1;
+    this.availableAthletesPagination = null;
+    this.allFlights = []; // Store all flights for filtering
+    this.filteredFlights = []; // Store filtered flights
+    this.currentPage = 1;
+    this.flightsPerPage = 12;
+    this.competitionSelect = document.getElementById("competition-select");
+    this.eventSelect = document.getElementById("event-select");
+    this.flightsContainer = document.getElementById("flights-container");
+    this.flightsList = document.getElementById("flights-list");
+    this.flightsGrid = document.getElementById("flights-grid");
+    this.emptyState = document.getElementById("empty-state");
+    this.addFlightBtn = document.getElementById("add-flight-btn");
+    this.flightModal = document.getElementById("flight-modal");
+    this.flightForm = document.getElementById("flight-form");
+    this.deleteFlightModal = document.getElementById("delete-flight-modal");
+    this.flightAthletesSection = document.getElementById(
+      "flight-athletes-section"
+    );
+    this.flightSearch = document.getElementById("flight-search");
+    this.competitionFilter = document.getElementById("competition-filter");
+    this.statusFilter = document.getElementById("status-filter");
+    this.eventFilter = document.getElementById("event-filter");
+    this.init();
   }
-
-  function bindEvents() {
-    // Competition and event selection
-    competitionSelect.addEventListener("change", handleCompetitionChange);
-    eventSelect.addEventListener("change", handleEventChange);
-
-    // Show all flights button
-    document
-      .getElementById("show-all-flights")
-      .addEventListener("click", showAllFlights);
-
-    // Add flight button
-    addFlightBtn.addEventListener("click", showAddFlightModal);
-
-    // Modal close buttons
-    document.querySelectorAll(".close").forEach((closeBtn) => {
-      closeBtn.addEventListener("click", closeModals);
-    });
-
-    // Cancel buttons
-    document
-      .getElementById("cancel-flight-btn")
-      .addEventListener("click", closeModals);
-    document
-      .getElementById("cancel-delete-flight-btn")
-      .addEventListener("click", closeModals);
-
-    // Form submission
-    flightForm.addEventListener("submit", handleFlightFormSubmit);
-
-    // Delete confirmation
-    document
-      .getElementById("confirm-delete-flight-btn")
-      .addEventListener("click", confirmDeleteFlight);
-
-    // Attempt order controls
-    document
-      .getElementById("sort-by-weight")
-      .addEventListener("click", () => sortAttempts("weight"));
-    document
-      .getElementById("sort-by-name")
-      .addEventListener("click", () => sortAttempts("name"));
-    document
-      .getElementById("randomize-order")
-      .addEventListener("click", () => sortAttempts("random"));
-
-    // Click outside modal to close
-    window.addEventListener("click", function (event) {
-      if (event.target === flightModal || event.target === deleteFlightModal) {
-        closeModals();
-      }
-    });
+  init() {
+    this.bindEvents();
+    this.loadCompetitions();
+    // Load all flights by default on page load
+    this.showAllFlights();
   }
-
-  async function loadCompetitions() {
+  async loadCompetitions() {
     try {
       const response = await fetch("/admin/competitions");
       if (!response.ok) throw new Error("Failed to load competitions");
 
       const competitions = await response.json();
 
-      competitionSelect.innerHTML =
+      this.competitionSelect.innerHTML =
         '<option value="">Select Competition</option>';
       competitions.forEach((competition) => {
         const option = document.createElement("option");
         option.value = competition.id;
         option.textContent = competition.name;
-        competitionSelect.appendChild(option);
+        this.competitionSelect.appendChild(option);
       });
     } catch (error) {
       console.error("Error loading competitions:", error);
-      showNotification("Error loading competitions", "error");
+      this.showNotification("Error loading competitions", "error");
     }
   }
+  bindEvents() {
+    // Competition and event selection
+    this.competitionSelect.addEventListener("change", () =>
+      this.handleCompetitionChange()
+    );
+    this.eventSelect.addEventListener("change", () => this.handleEventChange());
 
-  async function handleCompetitionChange() {
-    const competitionId = competitionSelect.value;
+    // Add flight button
+    this.addFlightBtn.addEventListener("click", () =>
+      this.showAddFlightModal()
+    );
+
+    // Search and filters
+    if (this.flightSearch) {
+      this.flightSearch.addEventListener(
+        "input",
+        this.debounce(() => this.applyFlightFilters(), 300)
+      );
+    }
+    if (this.competitionFilter) {
+      this.competitionFilter.addEventListener("change", () =>
+        this.applyFlightFilters()
+      );
+    }
+    if (this.statusFilter) {
+      this.statusFilter.addEventListener("change", () =>
+        this.applyFlightFilters()
+      );
+    }
+    if (this.eventFilter) {
+      this.eventFilter.addEventListener("change", () =>
+        this.applyFlightFilters()
+      );
+    }
+
+    // Modal close buttons
+    document.querySelectorAll(".close").forEach((closeBtn) => {
+      closeBtn.addEventListener("click", () => this.closeModals());
+    });
+
+    // Cancel buttons
+    const cancelFlightBtn = document.getElementById("cancel-flight-btn");
+    const cancelDeleteFlightBtn = document.getElementById(
+      "cancel-delete-flight-btn"
+    );
+
+    if (cancelFlightBtn) {
+      cancelFlightBtn.addEventListener("click", () => this.closeModals());
+    }
+    if (cancelDeleteFlightBtn) {
+      cancelDeleteFlightBtn.addEventListener("click", () => this.closeModals());
+    }
+
+    // Form submission
+    if (this.flightForm) {
+      this.flightForm.addEventListener("submit", (e) =>
+        this.handleFlightFormSubmit(e)
+      );
+    }
+
+    // Available athletes search
+    const availableSearch = document.getElementById("available-search");
+    if (availableSearch) {
+      availableSearch.addEventListener("input", (e) =>
+        this.handleAvailableAthletesSearch(e)
+      );
+    }
+
+    // Delete confirmation
+    const confirmDeleteBtn = document.getElementById(
+      "confirm-delete-flight-btn"
+    );
+    if (confirmDeleteBtn) {
+      confirmDeleteBtn.addEventListener("click", () =>
+        this.confirmDeleteFlight()
+      );
+    }
+
+    // Attempt order controls
+    const sortByWeightBtn = document.getElementById("sort-by-weight");
+    const sortByNameBtn = document.getElementById("sort-by-name");
+    const randomizeOrderBtn = document.getElementById("randomize-order");
+
+    if (sortByWeightBtn) {
+      sortByWeightBtn.addEventListener("click", () =>
+        this.sortAttempts("weight")
+      );
+    }
+    if (sortByNameBtn) {
+      sortByNameBtn.addEventListener("click", () => this.sortAttempts("name"));
+    }
+    if (randomizeOrderBtn) {
+      randomizeOrderBtn.addEventListener("click", () =>
+        this.sortAttempts("random")
+      );
+    }
+
+    // Click outside modal to close
+    window.addEventListener("click", (event) => {
+      if (
+        event.target === this.flightModal ||
+        event.target === this.deleteFlightModal
+      ) {
+        this.closeModals();
+      }
+    });
+  }
+
+  debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+      const later = () => {
+        clearTimeout(timeout);
+        func(...args);
+      };
+      clearTimeout(timeout);
+      timeout = setTimeout(later, wait);
+    };
+  }
+
+  async handleCompetitionChange() {
+    const competitionId = this.competitionSelect.value;
 
     // Reset event select
-    eventSelect.innerHTML = '<option value="">Select Event</option>';
-    eventSelect.disabled = !competitionId;
+    this.eventSelect.innerHTML = '<option value="">Select Event</option>';
+    this.eventSelect.disabled = !competitionId;
 
     // Hide flights
-    showEmptyState();
+    this.showEmptyState();
 
     if (!competitionId) return;
 
@@ -131,36 +202,34 @@ document.addEventListener("DOMContentLoaded", function () {
         const option = document.createElement("option");
         option.value = event.id;
         option.textContent = event.name;
-        eventSelect.appendChild(option);
+        this.eventSelect.appendChild(option);
       });
 
-      eventSelect.disabled = false;
+      this.eventSelect.disabled = false;
     } catch (error) {
       console.error("Error loading events:", error);
-      showNotification("Error loading events", "error");
+      this.showNotification("Error loading events", "error");
     }
   }
-
-  async function handleEventChange() {
-    const eventId = eventSelect.value;
-    currentEventId = eventId;
+  async handleEventChange() {
+    const eventId = this.eventSelect.value;
+    this.currentEventId = eventId;
 
     if (!eventId) {
-      showEmptyState();
+      this.showEmptyState();
       return;
     }
 
-    await loadFlights(eventId);
+    await this.loadFlights(eventId);
   }
-
-  async function loadFlights(eventId) {
+  async loadFlights(eventId) {
     try {
       if (!eventId) {
-        showEmptyState("Please select an event to view flights");
+        this.showEmptyState("Please select an event to view flights");
         return;
       }
 
-      showLoading(flightsContainer);
+      this.showLoading(this.flightsContainer);
 
       const response = await fetch(`/admin/events/${eventId}/flights`);
       if (!response.ok) throw new Error("Failed to load flights");
@@ -168,77 +237,236 @@ document.addEventListener("DOMContentLoaded", function () {
       const flights = await response.json();
 
       if (flights.length === 0) {
-        showEmptyState("No flights found for this event");
+        this.showEmptyState("No flights found for this event");
       } else {
-        displayFlights(flights);
+        this.displayFlights(flights);
       }
     } catch (error) {
       console.error("Error loading flights:", error);
-      showNotification("Error loading flights", "error");
-      showEmptyState();
+      this.showNotification("Error loading flights", "error");
+      this.showEmptyState();
     } finally {
-      hideLoading(flightsContainer);
+      this.hideLoading(this.flightsContainer);
     }
   }
 
-  async function showAllFlights() {
+  async showAllFlights() {
     try {
-      showLoading(flightsContainer);
-
+      this.showLoading(this.flightsContainer);
       const response = await fetch("/admin/flights/all");
       if (!response.ok) throw new Error("Failed to load all flights");
-
       const flights = await response.json();
 
       if (flights.length === 0) {
-        showEmptyState("No flights found");
+        this.showEmptyState("No flights found");
       } else {
-        displayFlights(flights);
+        this.displayFlights(flights);
         // Clear event selection since we're showing all flights
-        currentEventId = null;
-        eventSelect.value = "";
-        competitionSelect.value = "";
+        this.currentEventId = null;
+        this.eventSelect.value = "";
+        this.competitionSelect.value = "";
       }
     } catch (error) {
       console.error("Error loading all flights:", error);
-      showNotification("Error loading all flights", "error");
-      showEmptyState();
+      this.showNotification("Error loading all flights", "error");
+      this.showEmptyState();
     } finally {
-      hideLoading(flightsContainer);
+      this.hideLoading(this.flightsContainer);
     }
   }
 
-  function displayFlights(flights) {
-    emptyState.style.display = "none";
-    flightsList.style.display = "block";
-    flightAthletesSection.style.display = "none";
+  displayFlights(flights) {
+    this.emptyState.style.display = "none";
+    this.flightsList.style.display = "block";
+    this.flightAthletesSection.style.display = "none";
 
-    // Sort flights by order
-    flights.sort((a, b) => a.order - b.order);
+    // Store all flights for filtering
+    this.allFlights = flights;
 
-    flightsGrid.innerHTML = "";
+    // Populate event filter when showing all flights
+    if (flights.length > 0 && flights[0].event_name) {
+      this.populateEventFilter(flights);
+    }
 
-    flights.forEach((flight) => {
-      const flightCard = createFlightCard(flight);
-      flightsGrid.appendChild(flightCard);
-    });
-
-    // Initialize sortable
-    initializeFlightsSortable();
+    // Apply filters and pagination
+    this.applyFlightFilters();
   }
 
-  function createFlightCard(flight) {
+  populateEventFilter(flights) {
+    if (!this.eventFilter) return;
+
+    const uniqueEvents = [
+      ...new Set(flights.map((f) => f.event_name).filter(Boolean)),
+    ];
+    this.eventFilter.innerHTML = '<option value="">All Events</option>';
+
+    uniqueEvents.forEach((eventName) => {
+      const option = document.createElement("option");
+      option.value = eventName;
+      option.textContent = eventName;
+      this.eventFilter.appendChild(option);
+    });
+  }
+
+  applyFlightFilters() {
+    if (!this.allFlights.length) return;
+
+    const searchTerm = this.flightSearch
+      ? this.flightSearch.value.toLowerCase()
+      : "";
+    const competitionValue = this.competitionFilter
+      ? this.competitionFilter.value
+      : "";
+    const statusValue = this.statusFilter ? this.statusFilter.value : "";
+    const eventValue = this.eventFilter ? this.eventFilter.value : "";
+
+    this.filteredFlights = this.allFlights.filter((flight) => {
+      const matchesSearch =
+        !searchTerm ||
+        flight.name.toLowerCase().includes(searchTerm) ||
+        (flight.event_name &&
+          flight.event_name.toLowerCase().includes(searchTerm)) ||
+        (flight.competition_name &&
+          flight.competition_name.toLowerCase().includes(searchTerm));
+
+      const matchesCompetition =
+        !competitionValue || flight.competition_name === competitionValue;
+
+      const matchesStatus =
+        !statusValue ||
+        (statusValue === "active" && flight.is_active) ||
+        (statusValue === "inactive" && !flight.is_active);
+
+      const matchesEvent = !eventValue || flight.event_name === eventValue;
+
+      return (
+        matchesSearch && matchesCompetition && matchesStatus && matchesEvent
+      );
+    });
+
+    // Reset to first page when filters change
+    this.currentPage = 1;
+    this.renderFlightCards();
+  }
+
+  renderFlightCards() {
+    // Sort flights by order
+    this.filteredFlights.sort((a, b) => a.order - b.order);
+
+    const startIndex = (this.currentPage - 1) * this.flightsPerPage;
+    const endIndex = startIndex + this.flightsPerPage;
+    const pageFlights = this.filteredFlights.slice(startIndex, endIndex);
+
+    this.flightsGrid.innerHTML = "";
+
+    pageFlights.forEach((flight) => {
+      const flightCard = this.createFlightCard(flight);
+      this.flightsGrid.appendChild(flightCard);
+    });
+
+    // Update pagination
+    this.updateFlightPagination();
+
+    // Initialize sortable
+    this.initializeFlightsSortable();
+  }
+
+  updateFlightPagination() {
+    const paginationContainer = document.getElementById("flights-pagination");
+    const paginationInfo = document.getElementById("flights-pagination-info");
+    const paginationControls = document.getElementById(
+      "flights-pagination-controls"
+    );
+
+    if (!paginationContainer || !paginationInfo || !paginationControls) return;
+
+    const totalFlights = this.filteredFlights.length;
+    const totalPages = Math.ceil(totalFlights / this.flightsPerPage);
+
+    if (totalFlights === 0) {
+      paginationContainer.style.display = "none";
+      return;
+    }
+
+    paginationContainer.style.display = totalPages > 1 ? "flex" : "none";
+
+    const startIndex = (this.currentPage - 1) * this.flightsPerPage + 1;
+    const endIndex = Math.min(
+      this.currentPage * this.flightsPerPage,
+      totalFlights
+    );
+
+    paginationInfo.textContent = `Showing ${startIndex} to ${endIndex} of ${totalFlights} flights`;
+
+    // Generate pagination controls
+    paginationControls.innerHTML = "";
+
+    if (totalPages > 1) {
+      // Previous button
+      if (this.currentPage > 1) {
+        const prevBtn = document.createElement("button");
+        prevBtn.className = "page-link";
+        prevBtn.textContent = "Previous";
+        prevBtn.addEventListener("click", () => {
+          this.currentPage--;
+          this.renderFlightCards();
+        });
+        paginationControls.appendChild(prevBtn);
+      }
+
+      // Page numbers
+      for (let i = 1; i <= totalPages; i++) {
+        if (
+          i === 1 ||
+          i === totalPages ||
+          (i >= this.currentPage - 2 && i <= this.currentPage + 2)
+        ) {
+          const pageBtn = document.createElement("button");
+          pageBtn.className = `page-link ${
+            i === this.currentPage ? "active" : ""
+          }`;
+          pageBtn.textContent = i;
+          pageBtn.addEventListener("click", () => {
+            this.currentPage = i;
+            this.renderFlightCards();
+          });
+          paginationControls.appendChild(pageBtn);
+        } else if (i === this.currentPage - 3 || i === this.currentPage + 3) {
+          const ellipsis = document.createElement("span");
+          ellipsis.className = "page-ellipsis";
+          ellipsis.textContent = "...";
+          paginationControls.appendChild(ellipsis);
+        }
+      }
+
+      // Next button
+      if (this.currentPage < totalPages) {
+        const nextBtn = document.createElement("button");
+        nextBtn.className = "page-link";
+        nextBtn.textContent = "Next";
+        nextBtn.addEventListener("click", () => {
+          this.currentPage++;
+          this.renderFlightCards();
+        });
+        paginationControls.appendChild(nextBtn);
+      }
+    }
+  }
+
+  createFlightCard(flight) {
     const card = document.createElement("div");
     card.className = `flight-card ${flight.is_active ? "active" : ""}`;
     card.dataset.flightId = flight.id;
     card.dataset.flightOrder = flight.order;
 
     // Add event info if available (when showing all flights)
-    const eventInfo = flight.event_name ? `
+    const eventInfo = flight.event_name
+      ? `
         <div class="flight-event-info">
             <small>${flight.competition_name} - ${flight.event_name}</small>
         </div>
-    ` : '';
+    `
+      : "";
 
     card.innerHTML = `
             <div class="flight-card-header">
@@ -274,34 +502,34 @@ document.addEventListener("DOMContentLoaded", function () {
     // Bind events
     card
       .querySelector(".edit-flight")
-      .addEventListener("click", handleEditFlight);
+      .addEventListener("click", (e) => this.handleEditFlight(e));
     card
       .querySelector(".manage-athletes")
-      .addEventListener("click", handleManageAthletes);
+      .addEventListener("click", (e) => this.handleManageAthletes(e));
     card
       .querySelector(".delete-flight")
-      .addEventListener("click", handleDeleteFlight);
+      .addEventListener("click", (e) => this.handleDeleteFlight(e));
 
     return card;
   }
 
-  function initializeFlightsSortable() {
-    if (flightsSortable) {
-      flightsSortable.destroy();
+  initializeFlightsSortable() {
+    if (this.flightsSortable) {
+      this.flightsSortable.destroy();
     }
 
-    flightsSortable = new Sortable(flightsGrid, {
+    this.flightsSortable = new Sortable(this.flightsGrid, {
       animation: 150,
       ghostClass: "sortable-ghost",
       chosenClass: "sortable-chosen",
       onEnd: function (evt) {
-        updateFlightOrder();
+        this.updateFlightOrder();
       },
     });
   }
 
-  async function updateFlightOrder() {
-    const flightCards = flightsGrid.querySelectorAll(".flight-card");
+  async updateFlightOrder() {
+    const flightCards = this.flightsGrid.querySelectorAll(".flight-card");
     const updates = [];
 
     flightCards.forEach((card, index) => {
@@ -326,42 +554,42 @@ document.addEventListener("DOMContentLoaded", function () {
 
       if (!response.ok) throw new Error("Failed to update flight order");
 
-      showNotification("Flight order updated successfully", "success");
+      this.showNotification("Flight order updated successfully", "success");
     } catch (error) {
       console.error("Error updating flight order:", error);
-      showNotification("Error updating flight order", "error");
+      this.showNotification("Error updating flight order", "error");
       // Reload flights to reset order
-      loadFlights(currentEventId);
+      this.loadFlights(this.currentEventId);
     }
   }
 
-  async function showAddFlightModal() {
-    currentFlightId = null;
+  async showAddFlightModal() {
+    this.currentFlightId = null;
     document.getElementById("flight-modal-title").textContent =
       "Add New Flight";
     document.getElementById("save-flight-btn").textContent = "Save Flight";
-    flightForm.reset();
+    this.flightForm.reset();
 
     // Populate event dropdown
-    await populateEventDropdown();
+    await this.populateEventDropdown();
 
     // Set default order
-    const flightCards = flightsGrid.querySelectorAll(".flight-card");
+    const flightCards = this.flightsGrid.querySelectorAll(".flight-card");
     document.getElementById("flight_order").value = flightCards.length + 1;
 
     // Pre-select current event if available
-    if (currentEventId) {
-      document.getElementById("flight_event_id").value = currentEventId;
+    if (this.currentEventId) {
+      document.getElementById("flight_event_id").value = this.currentEventId;
     }
 
-    flightModal.style.display = "block";
+    this.flightModal.style.display = "block";
     document.getElementById("flight_name").focus();
   }
 
-  async function populateEventDropdown() {
+  async populateEventDropdown() {
     try {
-      const eventSelect = document.getElementById("flight_event_id");
-      eventSelect.innerHTML = '<option value="">Select Event</option>';
+      this.eventSelect = document.getElementById("flight_event_id");
+      this.eventSelect.innerHTML = '<option value="">Select Event</option>';
 
       // Get all competitions first
       const competitionsResponse = await fetch("/admin/competitions");
@@ -388,35 +616,35 @@ document.addEventListener("DOMContentLoaded", function () {
               optgroup.appendChild(option);
             });
 
-            eventSelect.appendChild(optgroup);
+            this.eventSelect.appendChild(optgroup);
           }
         }
       }
     } catch (error) {
       console.error("Error loading events:", error);
-      showNotification("Error loading events", "error");
+      this.showNotification("Error loading events", "error");
     }
   }
 
-  async function handleEditFlight(event) {
+  async handleEditFlight(event) {
     const flightId = event.target.closest("button").dataset.flightId;
-    currentFlightId = flightId;
+    this.currentFlightId = flightId;
 
     document.getElementById("flight-modal-title").textContent = "Edit Flight";
     document.getElementById("save-flight-btn").textContent = "Update Flight";
 
     // Populate event dropdown first
-    await populateEventDropdown();
+    await this.populateEventDropdown();
 
     // Load flight data
-    loadFlightData(flightId);
+    this.loadFlightData(flightId);
 
-    flightModal.style.display = "block";
+    this.flightModal.style.display = "block";
   }
 
-  async function loadFlightData(flightId) {
+  async loadFlightData(flightId) {
     try {
-      showLoading(flightForm);
+      this.showLoading(this.flightForm);
       const response = await fetch(`/admin/flights/${flightId}`);
 
       if (!response.ok) throw new Error("Failed to load flight data");
@@ -429,17 +657,17 @@ document.addEventListener("DOMContentLoaded", function () {
       document.getElementById("flight_event_id").value = flight.event_id;
     } catch (error) {
       console.error("Error loading flight data:", error);
-      showNotification("Error loading flight data", "error");
+      this.showNotification("Error loading flight data", "error");
     } finally {
-      hideLoading(flightForm);
+      this.hideLoading(this.flightForm);
     }
   }
 
-  async function handleFlightFormSubmit(event) {
+  async handleFlightFormSubmit(event) {
     event.preventDefault();
 
-    const formData = new FormData(flightForm);
-    const eventId = formData.get("event_id") || currentEventId;
+    const formData = new FormData(this.flightForm);
+    const eventId = formData.get("event_id") || this.currentEventId;
 
     const flightData = {
       name: formData.get("flight_name"),
@@ -453,13 +681,13 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     try {
-      showLoading(flightForm);
+      this.showLoading(this.flightForm);
 
-      const url = currentFlightId
-        ? `/admin/flights/${currentFlightId}`
+      const url = this.currentFlightId
+        ? `/admin/flights/${this.currentFlightId}`
         : "/admin/flights";
 
-      const method = currentFlightId ? "PUT" : "POST";
+      const method = this.currentFlightId ? "PUT" : "POST";
 
       const response = await fetch(url, {
         method: method,
@@ -476,43 +704,43 @@ document.addEventListener("DOMContentLoaded", function () {
       }
 
       const result = await response.json();
-      showNotification(result.message, "success");
-      
+      this.showNotification(result.message, "success");
+
       // Store current state before closing modal
-      const wasUpdating = currentFlightId !== null;
-      closeModals();
+      const wasUpdating = this.currentFlightId !== null;
+      this.closeModals();
 
       // Instead of reloading the whole view, update the table directly
-      if (currentEventId) {
-        await loadFlights(currentEventId);
+      if (this.currentEventId) {
+        await this.loadFlights(this.currentEventId);
       } else {
         // If no event selected, reload all flights to show the new/updated flight
-        await showAllFlights();
+        await this.showAllFlights();
       }
     } catch (error) {
       console.error("Error saving flight:", error);
-      showNotification(error.message, "error");
+      this.showNotification(error.message, "error");
     } finally {
-      hideLoading(flightForm);
+      this.hideLoading(this.flightForm);
     }
   }
 
-  function handleDeleteFlight(event) {
-    deleteFlightId = event.target.closest("button").dataset.flightId;
+  handleDeleteFlight(event) {
+    this.deleteFlightId = event.target.closest("button").dataset.flightId;
     const card = event.target.closest(".flight-card");
     const flightName = card.querySelector(".flight-name").textContent;
 
     document.getElementById("delete-flight-name").textContent = flightName;
-    deleteFlightModal.style.display = "block";
+    this.deleteFlightModal.style.display = "block";
   }
 
-  async function confirmDeleteFlight() {
-    if (!deleteFlightId) return;
+  async confirmDeleteFlight() {
+    if (!this.deleteFlightId) return;
 
     try {
-      showLoading(deleteFlightModal);
+      this.showLoading(this.deleteFlightModal);
 
-      const response = await fetch(`/admin/flights/${deleteFlightId}`, {
+      const response = await fetch(`/admin/flights/${this.deleteFlightId}`, {
         method: "DELETE",
         headers: {
           "X-Requested-With": "XMLHttpRequest",
@@ -525,28 +753,28 @@ document.addEventListener("DOMContentLoaded", function () {
       }
 
       const result = await response.json();
-      showNotification(result.message, "success");
-      closeModals();
+      this.showNotification(result.message, "success");
+      this.closeModals();
 
       // Reload flights based on current view
-      if (currentEventId) {
-        await loadFlights(currentEventId);
+      if (this.currentEventId) {
+        await this.loadFlights(this.currentEventId);
       } else {
         // If no event selected, reload all flights
-        await showAllFlights();
+        await this.showAllFlights();
       }
     } catch (error) {
       console.error("Error deleting flight:", error);
-      showNotification(error.message, "error");
+      this.showNotification(error.message, "error");
     } finally {
-      hideLoading(deleteFlightModal);
-      deleteFlightId = null;
+      this.hideLoading(this.deleteFlightModal);
+      this.deleteFlightId = null;
     }
   }
 
-  async function handleManageAthletes(event) {
+  async handleManageAthletes(event) {
     const flightId = event.target.closest("button").dataset.flightId;
-    currentFlightId = flightId;
+    this.currentFlightId = flightId;
 
     const card = event.target.closest(".flight-card");
     const flightName = card.querySelector(".flight-name").textContent;
@@ -558,48 +786,102 @@ document.addEventListener("DOMContentLoaded", function () {
     ).textContent = `Order: ${flightOrder}`;
 
     // Load flight athletes
-    await loadFlightAthletes(flightId);
+    await this.loadFlightAthletes(flightId);
 
     // Show athletes section
-    flightsList.style.display = "none";
-    flightAthletesSection.style.display = "block";
+    this.flightsList.style.display = "none";
+    this.flightAthletesSection.style.display = "block";
   }
 
-  async function loadFlightAthletes(flightId) {
+  async loadFlightAthletes(flightId) {
     try {
-      showLoading(flightAthletesSection);
+      this.showLoading(this.flightAthletesSection);
 
-      // Load available athletes with pagination
-      const searchTerm = document.getElementById("available-search").value;
+      // First, load flight data to get the event ID
+      const flightResponse = await fetch(`/admin/flights/${flightId}/athletes`);
+      if (!flightResponse.ok) throw new Error("Failed to load flight athletes");
+      const flightData = await flightResponse.json();
+
+      // Get the event ID from the flight data, or use this.currentEventId as fallback
+      const eventId = flightData.flight?.event_id || this.currentEventId;
+
+      if (!eventId) {
+        // Show flight info but no available athletes
+        if (flightData.flight) {
+          document.getElementById("current-flight-name").textContent =
+            flightData.flight.name;
+          document.getElementById(
+            "current-flight-order"
+          ).textContent = `Order: ${flightData.flight.order || "Unknown"}`;
+
+          const flightInfo = document.getElementById("current-flight-info");
+          if (flightInfo) {
+            flightInfo.textContent = "No event assigned to this flight";
+            flightInfo.style.display = "block";
+            flightInfo.style.color = "#dc3545"; // Red color for warning
+          }
+        }
+
+        // Show flight athletes but empty available athletes
+        this.displayAvailableAthletes([]);
+        this.displayAvailableAthletesPagination();
+        this.displayFlightAthletes(flightData.athletes || flightData);
+        this.initializeAttemptOrder(flightData.athletes || flightData);
+        this.showNotification(
+          "This flight has no event assigned. Available athletes cannot be loaded.",
+          "warning"
+        );
+        return;
+      }
+
+      // Now load available athletes using the correct event ID
+      const searchTerm =
+        document.getElementById("available-search")?.value || "";
       const availableResponse = await fetch(
-        `/admin/events/${currentEventId}/available-athletes?page=${availableAthletesPage}&search=${encodeURIComponent(
-          searchTerm
-        )}`
+        `/admin/events/${eventId}/available-athletes?page=${
+          this.availableAthletesPage
+        }&search=${encodeURIComponent(searchTerm)}`
       );
       if (!availableResponse.ok)
         throw new Error("Failed to load available athletes");
       const availableData = await availableResponse.json();
       const availableAthletes = availableData.athletes || availableData; // Handle both old and new format
-      availableAthletesPagination = availableData.pagination || null;
+      this.availableAthletesPagination = availableData.pagination || null;
 
-      // Load flight athletes
-      const flightResponse = await fetch(`/admin/flights/${flightId}/athletes`);
-      if (!flightResponse.ok) throw new Error("Failed to load flight athletes");
-      const flightAthletes = await flightResponse.json();
+      // Update flight info display
+      if (flightData.flight) {
+        document.getElementById("current-flight-name").textContent =
+          flightData.flight.name;
+        document.getElementById("current-flight-order").textContent = `Order: ${
+          flightData.flight.order || "Unknown"
+        }`;
 
-      displayAvailableAthletes(availableAthletes);
-      displayAvailableAthletesPagination();
-      displayFlightAthletes(flightAthletes);
-      initializeAttemptOrder(flightAthletes);
+        // Show event and competition info if available
+        const flightInfo = document.getElementById("current-flight-info");
+        if (flightInfo && flightData.flight.event_name) {
+          flightInfo.textContent = `${flightData.flight.competition_name} - ${flightData.flight.event_name}`;
+          flightInfo.style.display = "block";
+        }
+      }
+
+      this.displayAvailableAthletes(availableAthletes);
+      this.displayAvailableAthletesPagination();
+      this.displayFlightAthletes(flightData.athletes || flightData); // Handle new format
+      this.initializeAttemptOrder(flightData.athletes || flightData);
     } catch (error) {
       console.error("Error loading flight athletes:", error);
-      showNotification("Error loading athletes", "error");
+      console.error("Current event ID:", this.currentEventId);
+      console.error("Flight ID:", flightId);
+      this.showNotification(
+        `Error loading athletes: ${error.message}`,
+        "error"
+      );
     } finally {
-      hideLoading(flightAthletesSection);
+      this.hideLoading(this.flightAthletesSection);
     }
   }
 
-  function displayAvailableAthletes(athletes) {
+  displayAvailableAthletes(athletes) {
     const container = document.getElementById("available-athletes-list");
     container.innerHTML = "";
 
@@ -609,12 +891,12 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   }
 
-  function displayAvailableAthletesPagination() {
+  displayAvailableAthletesPagination() {
     const container = document.getElementById("available-athletes-pagination");
 
     if (
-      !availableAthletesPagination ||
-      availableAthletesPagination.pages <= 1
+      !this.availableAthletesPagination ||
+      this.availableAthletesPagination.pages <= 1
     ) {
       container.style.display = "none";
       return;
@@ -624,13 +906,13 @@ document.addEventListener("DOMContentLoaded", function () {
     container.innerHTML = "";
 
     // Previous button
-    if (availableAthletesPagination.has_prev) {
+    if (this.availableAthletesPagination.has_prev) {
       const prevBtn = document.createElement("button");
       prevBtn.className = "btn btn-sm btn-secondary";
       prevBtn.textContent = "Previous";
       prevBtn.onclick = () => {
-        availableAthletesPage = availableAthletesPagination.page - 1;
-        loadFlightAthletes(currentFlightId);
+        this.availableAthletesPage = this.availableAthletesPagination.page - 1;
+        this.loadFlightAthletes(this.currentFlightId);
       };
       container.appendChild(prevBtn);
     }
@@ -638,24 +920,24 @@ document.addEventListener("DOMContentLoaded", function () {
     // Page info
     const pageInfo = document.createElement("span");
     pageInfo.className = "pagination-info";
-    pageInfo.textContent = `Page ${availableAthletesPagination.page} of ${availableAthletesPagination.pages}`;
+    pageInfo.textContent = `Page ${this.availableAthletesPagination.page} of ${this.availableAthletesPagination.pages}`;
     pageInfo.style.margin = "0 1rem";
     container.appendChild(pageInfo);
 
     // Next button
-    if (availableAthletesPagination.has_next) {
+    if (this.availableAthletesPagination.has_next) {
       const nextBtn = document.createElement("button");
       nextBtn.className = "btn btn-sm btn-secondary";
       nextBtn.textContent = "Next";
       nextBtn.onclick = () => {
-        availableAthletesPage = availableAthletesPagination.page + 1;
-        loadFlightAthletes(currentFlightId);
+        this.availableAthletesPage = this.availableAthletesPagination.page + 1;
+        this.loadFlightAthletes(this.currentFlightId);
       };
       container.appendChild(nextBtn);
     }
   }
 
-  function displayFlightAthletes(athletes) {
+  displayFlightAthletes(athletes) {
     const container = document.getElementById("flight-athletes-list");
     container.innerHTML = "";
 
@@ -665,21 +947,33 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   }
 
-  function createAthleteItem(athlete, type) {
+  createAthleteItem(athlete, type) {
     const item = document.createElement("div");
     item.className = "athlete-item";
     item.dataset.athleteId = athlete.id;
+
+    const competitionInfo = athlete.competition_name
+      ? `<div class="athlete-competition">${athlete.competition_name}</div>`
+      : "";
+
+    const emailInfo = athlete.email
+      ? `<div class="athlete-email">${athlete.email}</div>`
+      : "";
 
     item.innerHTML = `
             <div class="athlete-info">
                 <div class="athlete-name">${athlete.first_name} ${
       athlete.last_name
     }</div>
+                ${emailInfo}
                 <div class="athlete-details">
                     ${athlete.team || "No Team"} • ${
       athlete.bodyweight || "No Weight"
-    }kg • ${athlete.gender || "Unknown"}
+    }kg • ${athlete.gender || "Unknown"}${
+      athlete.age ? ` • Age ${athlete.age}` : ""
+    }
                 </div>
+                ${competitionInfo}
             </div>
             <div class="athlete-actions">
                 ${
@@ -696,17 +990,26 @@ document.addEventListener("DOMContentLoaded", function () {
       actionBtn.addEventListener("click", () => addAthleteToFlight(athlete.id));
     } else {
       actionBtn.addEventListener("click", () =>
-        removeAthleteFromFlight(athlete.id)
+        this.removeAthleteFromFlight(athlete.id)
       );
     }
 
     return item;
   }
 
-  async function addAthleteToFlight(athleteId) {
+  handleAvailableAthletesSearch() {
+    // Reset to first page when searching
+    this.availableAthletesPage = 1;
+    // Reload athletes with new search term
+    if (this.currentFlightId) {
+      this.loadFlightAthletes(this.currentFlightId);
+    }
+  }
+
+  async addAthleteToFlight(athleteId) {
     try {
       const response = await fetch(
-        `/admin/flights/${currentFlightId}/athletes/${athleteId}`,
+        `/admin/flights/${this.currentFlightId}/athletes/${athleteId}`,
         {
           method: "POST",
           headers: {
@@ -721,21 +1024,21 @@ document.addEventListener("DOMContentLoaded", function () {
         throw new Error(errorData.message || "Failed to add athlete to flight");
       }
 
-      showNotification("Athlete added to flight", "success");
-      await loadFlightAthletes(currentFlightId);
+      this.showNotification("Athlete added to flight", "success");
+      await this.loadFlightAthletes(this.currentFlightId);
     } catch (error) {
       console.error("Error adding athlete to flight:", error);
-      showNotification(
+      this.showNotification(
         error.message || "Error adding athlete to flight",
         "error"
       );
     }
   }
 
-  async function removeAthleteFromFlight(athleteId) {
+  async removeAthleteFromFlight(athleteId) {
     try {
       const response = await fetch(
-        `/admin/flights/${currentFlightId}/athletes/${athleteId}`,
+        `/admin/flights/${this.currentFlightId}/athletes/${athleteId}`,
         {
           method: "DELETE",
           headers: {
@@ -751,18 +1054,18 @@ document.addEventListener("DOMContentLoaded", function () {
         );
       }
 
-      showNotification("Athlete removed from flight", "success");
-      await loadFlightAthletes(currentFlightId);
+      this.showNotification("Athlete removed from flight", "success");
+      await this.loadFlightAthletes(this.currentFlightId);
     } catch (error) {
       console.error("Error removing athlete from flight:", error);
-      showNotification(
+      this.showNotification(
         error.message || "Error removing athlete from flight",
         "error"
       );
     }
   }
 
-  function initializeAttemptOrder(athletes) {
+  initializeAttemptOrder(athletes) {
     const container = document.getElementById("attempt-order-list");
     container.innerHTML = "";
 
@@ -788,28 +1091,28 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 
     // Initialize sortable for attempt order
-    if (attemptsSortable) {
-      attemptsSortable.destroy();
+    if (this.attemptsSortable) {
+      this.attemptsSortable.destroy();
     }
 
-    attemptsSortable = new Sortable(container, {
+    this.attemptsSortable = new Sortable(container, {
       animation: 150,
       handle: ".drag-handle",
       ghostClass: "sortable-ghost",
       onEnd: function (evt) {
-        updateAttemptOrder();
+        this.updateAttemptOrder();
       },
     });
   }
 
-  function updateAttemptOrder() {
+  updateAttemptOrder() {
     const items = document.querySelectorAll(".attempt-item");
     items.forEach((item, index) => {
       item.querySelector(".attempt-number").textContent = index + 1;
     });
   }
 
-  async function sortAttempts(sortType) {
+  async sortAttempts(sortType) {
     const container = document.getElementById("attempt-order-list");
     const items = Array.from(container.querySelectorAll(".attempt-item"));
 
@@ -850,35 +1153,35 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   }
 
-  function showEmptyState(message = "No Competition or Event Selected") {
-    emptyState.querySelector("h3").textContent = message;
-    emptyState.style.display = "block";
-    flightsList.style.display = "none";
-    flightAthletesSection.style.display = "none";
+  showEmptyState(message = "No Competition or Event Selected") {
+    this.emptyState.querySelector("h3").textContent = message;
+    this.emptyState.style.display = "block";
+    this.flightsList.style.display = "none";
+    this.flightAthletesSection.style.display = "none";
   }
 
-  function closeModals() {
-    flightModal.style.display = "none";
-    deleteFlightModal.style.display = "none";
-    currentFlightId = null;
-    deleteFlightId = null;
+  closeModals() {
+    this.flightModal.style.display = "none";
+    this.deleteFlightModal.style.display = "none";
+    this.currentFlightId = null;
+    this.deleteFlightId = null;
 
     // If in athletes management, go back to flights list
-    if (flightAthletesSection.style.display !== "none") {
-      flightAthletesSection.style.display = "none";
-      flightsList.style.display = "block";
+    if (this.flightAthletesSection.style.display !== "none") {
+      this.flightAthletesSection.style.display = "none";
+      this.flightsList.style.display = "block";
     }
   }
 
-  function showLoading(element) {
+  showLoading(element) {
     element.classList.add("loading");
   }
 
-  function hideLoading(element) {
+  hideLoading(element) {
     element.classList.remove("loading");
   }
 
-  function showNotification(message, type = "info") {
+  showNotification(message, type = "info") {
     const notification = document.createElement("div");
     notification.className = `notification notification-${type}`;
     notification.textContent = message;
@@ -913,18 +1216,22 @@ document.addEventListener("DOMContentLoaded", function () {
       }, 300);
     }, 3000);
   }
+  initSearchDebounce() {
+    document
+      .getElementById("available-search")
+      .addEventListener("input", function () {
+        clearTimeout(this.searchTimeout);
+        this.searchTimeout = setTimeout(() => {
+          this.availableAthletesPage = 1; // Reset to first page on search
+          if (this.currentFlightId) {
+            this.loadFlightAthletes(this.currentFlightId);
+          }
+        }, 300); // Debounce search for 300ms
+      });
+  }
+}
 
+document.addEventListener("DOMContentLoaded", function () {
+  new FlightManager();
   // Search functionality for available athletes
-  let searchTimeout;
-  document
-    .getElementById("available-search")
-    .addEventListener("input", function () {
-      clearTimeout(searchTimeout);
-      searchTimeout = setTimeout(() => {
-        availableAthletesPage = 1; // Reset to first page on search
-        if (currentFlightId) {
-          loadFlightAthletes(currentFlightId);
-        }
-      }, 300); // Debounce search for 300ms
-    });
 });

@@ -247,53 +247,41 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   function applyFilters() {
-    const searchTerm = athleteSearch.value.toLowerCase();
+    const searchTerm = athleteSearch.value.trim();
     const competitionId = competitionFilter.value;
     const gender = genderFilter.value;
     const status = statusFilter.value;
 
-    const rows = document.querySelectorAll("#athletes-table tbody tr");
+    // Build URL with current filters
+    const url = new URL(window.location.href);
+    url.searchParams.delete("page"); // Reset to first page when applying filters
 
-    rows.forEach((row) => {
-      const name = row
-        .querySelector("td:nth-child(1)")
-        .textContent.toLowerCase();
-      const email = row
-        .querySelector("td:nth-child(2)")
-        .textContent.toLowerCase();
-      const team = row
-        .querySelector("td:nth-child(4)")
-        .textContent.toLowerCase();
-      const athleteGender = row.querySelector("td:nth-child(5)").textContent;
-      const statusBadge = row.querySelector(".status-badge");
-      const athleteStatus = statusBadge.classList.contains("active")
-        ? "active"
-        : "inactive";
+    if (searchTerm) {
+      url.searchParams.set("search", searchTerm);
+    } else {
+      url.searchParams.delete("search");
+    }
 
-      const matchesSearch =
-        !searchTerm ||
-        name.includes(searchTerm) ||
-        email.includes(searchTerm) ||
-        team.includes(searchTerm);
+    if (competitionId) {
+      url.searchParams.set("competition_id", competitionId);
+    } else {
+      url.searchParams.delete("competition_id");
+    }
 
-      const matchesGender = !gender || athleteGender === gender;
-      const matchesStatus = !status || athleteStatus === status;
+    if (gender) {
+      url.searchParams.set("gender", gender);
+    } else {
+      url.searchParams.delete("gender");
+    }
 
-      // Note: Competition filter would need additional data attribute on rows
-      // For now, just show all if no competition selected
-      const matchesCompetition = !competitionId;
+    if (status) {
+      url.searchParams.set("status", status);
+    } else {
+      url.searchParams.delete("status");
+    }
 
-      if (
-        matchesSearch &&
-        matchesGender &&
-        matchesStatus &&
-        matchesCompetition
-      ) {
-        row.style.display = "";
-      } else {
-        row.style.display = "none";
-      }
-    });
+    // Navigate to the new URL
+    window.location.href = url.toString();
   }
 
   function closeModals() {
@@ -388,6 +376,9 @@ document.addEventListener("DOMContentLoaded", function () {
   function updateAthleteInTable(athlete) {
     const row = document.querySelector(`tr[data-athlete-id="${athlete.id}"]`);
     if (row) {
+      // Update data attribute for competition ID
+      row.setAttribute("data-competition-id", athlete.competition_id || "");
+
       // Update the row cells with new data
       const cells = row.querySelectorAll("td");
       cells[0].textContent = `${athlete.first_name} ${athlete.last_name}`;
@@ -432,6 +423,7 @@ document.addEventListener("DOMContentLoaded", function () {
   function createAthleteRow(athlete) {
     const row = document.createElement("tr");
     row.dataset.athleteId = athlete.id;
+    row.dataset.competitionId = athlete.competition_id || "";
 
     row.innerHTML = `
             <td>${athlete.first_name} ${athlete.last_name}</td>
