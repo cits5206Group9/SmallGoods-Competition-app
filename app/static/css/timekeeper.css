@@ -1,0 +1,229 @@
+/* ============================================================================
+   SmallGoods — Timekeeper (matches competition_create.css look & feel)
+   File: app/static/css/timekeeper.css
+   ========================================================================== */
+
+/* ---- Base ---- */
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  background: #f6f8fb;
+  color: #1f2a44;
+}
+
+/* ---- Container / grid ---- */
+.container-fluid { max-width: 1024px; margin: 0 auto; padding: 0 16px; }
+.row { display: flex; flex-wrap: wrap; margin-left: -8px; margin-right: -8px; }
+[class^="col-"], [class*=" col-"] { padding-left: 8px; padding-right: 8px; width: 100%; }
+.col-12 { width: 100%; }
+
+@media (min-width: 768px) {
+  .col-md-6 { width: 50%; }
+  .col-md-3 { width: 25%; }
+}
+
+/* ---- Spacing helpers ---- */
+.mb-3 { margin-bottom: .75rem; }
+.mb-4 { margin-bottom: 1rem; }
+.mt-3 { margin-top: .75rem; }
+.mt-4 { margin-top: 1rem; }
+.py-5 { padding-top: 2rem; padding-bottom: 2rem; }
+
+/* ---- Text helpers ---- */
+.text-center { text-align: center; }
+.text-muted  { color: #6c757d; }
+
+/* ---- Headings (remove underline, keep neutral weights like admin pages) ---- */
+h1 {
+  margin: 0 0 1rem;
+  text-align: center;
+  color: #16233f;
+  position: relative;
+}
+/* Remove decorative underline entirely */
+h1::after { content: none !important; }
+
+h5 { margin: 0; color: #1b2a4a; font-size: 1rem;}
+h6 { margin: 0 0 .5rem; color: #1b2a4a; }
+
+/* ---- Cards (styled like competition_create.css panels/cards) ---- */
+.card {
+  background: #fafafa;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  padding: 0;               /* header + body manage their own padding */
+  box-shadow: none;
+}
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: .75rem .9rem;
+  border-bottom: 1px solid #e9ecef;
+  background: transparent;  /* same as competition_create.css vibe */
+  border-top-left-radius: 8px; border-top-right-radius: 8px;
+}
+.card-body { padding: .8rem; }
+
+/* -----------------------------------------------------------------------------
+   TIMER CONTROLS (Tiles) — bigger icon + label
+   -------------------------------------------------------------------------- */
+.tc-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(150px, 1fr));
+  gap: 16px;
+}
+@media (max-width: 1024px) { .tc-grid { grid-template-columns: repeat(2, minmax(150px, 1fr)); } }
+@media (max-width: 560px)  { .tc-grid { grid-template-columns: 1fr; } }
+
+.tile {
+  min-height: 148px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  border: 1px solid #e9ecef; border-radius: 12px;
+  background: #fff; color: #22335a; text-align: center;
+  padding: 1rem;
+  transition: background-color .15s ease, border-color .15s ease, transform .05s ease;
+}
+.tile:hover  { background: #c9dcf7; border-color: #7aafd3; }
+.tile:active { transform: translateY(1px); }
+
+.tile-ico   { font-size: 2.5rem; line-height: 1; color: #2980b9; margin-bottom: .5rem; }
+.tile-title { font-size: 1.25rem; color: #1f2a44; }
+
+/* ---- Status / timer displays ---- */
+.status-wrap { display: grid; gap: 18px; }
+.status-top  { display: grid; grid-template-columns: 1fr; gap: 18px; }
+.muted-sub   { margin-top: .5rem; text-align: center; color: #6c757d; }
+
+/* Big hero timer (Current Status) */
+.display-time--hero {
+  background: #eef3ff;
+  border: 1px solid #d9e4ff;
+  border-radius: 14px;
+  color: #2980b9;
+  text-align: center;
+  padding: .2rem 0.5rem;
+  /* LARGE like before */
+  font-size: clamp(56px, 7vw, 108px);
+}
+
+/* Secondary display (Break) – also large */
+#breakClock.display-time,
+#breakClock {
+  background: #eef3ff;
+  border: 1px solid #d9e4ff;
+  border-radius: 14px;
+  color: #2980b9;
+  text-align: center;
+  padding: 0.1rem 1rem;
+  font-size: clamp(40px, 5vw, 80px);
+}
+
+.status-bottom { display: grid; grid-template-columns: 1fr; gap: 18px; }
+
+/* ---- Buttons (reuse competition_create tone) ---- */
+.btn {
+  background: #e9ecef;
+  border: 1px solid #ced4da;
+  color: #333;
+  padding: 0.6rem 0.9rem;
+  border-radius: 12px;
+  cursor: pointer;
+}
+.btn:hover { background: #dee2e6; }
+.btn.primary {
+  background: #3498db; border-color: #2980b9; color: #fff;
+}
+.btn.primary:hover { background: #2980b9; }
+.btn.danger  { background: #dc3545; border-color: #c82333; color: #fff; }
+.btn.small   { padding: .25rem .5rem; font-size: .9rem; }
+
+.btn-row { display: flex; gap: .6rem; flex-wrap: wrap; margin-top: .75rem; justify-content: center; }
+
+/* ---- Inputs for HH:MM:SS rows ---- */
+.timer-set { display: grid; grid-template-columns: auto 1fr auto; gap: .6rem .7rem; align-items: center; margin: .2rem 0 .6rem; }
+.input-hms {
+  height: 44px; width: 10.5rem; padding: .55rem .75rem;
+  border: 1px solid #ced4da; border-radius: 10px; background: #fff; color: #23314f;font-size: 1.3rem;
+}
+.input-hms:focus { outline: none; border-color: #9ec1ff; box-shadow: 0 0 0 3px rgba(66,133,244,.15); }
+
+/* ---- Countdown toggle button ---- */
+.attempt-controls { display:flex; justify-content:center; margin-top:.85rem; }
+#btnAttemptToggle {
+  background:#3498db; border:1px solid #2980b9; color:#fff;
+  padding:.75rem 1.25rem; border-radius:14px; font-size: 1.1rem;
+}
+#btnAttemptToggle.is-on { background:#2980b9; }
+
+/* ---- Break section panel ---- */
+.panel {
+  background: #fff;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  padding: 1rem;
+}
+.panel h5 { margin: 0 0 .75rem; }
+
+/* Break set row */
+.break-set { display:flex; justify-content:center; align-items:center; gap:.8rem; margin-top:.8rem; }
+.break-set label { color: #1f2a44; }
+.break-set .input-hms { height: 48px; }
+.break-set #btnBreakApply { height: 48px; padding:0 1.25rem; }
+
+/* ---- Event / Timer Log table ---- */
+.tk-table { width: 100%; border-collapse: collapse; }
+.tk-table th, .tk-table td {
+  padding: .55rem .6rem;
+  border-bottom: 1px solid #e9ecef;
+  text-align: center;
+}
+.tk-table th { color: #6c757d; }
+
+/* ---- Mobile control dock ---- */
+.control-dock {
+  position: fixed; left: 0; right: 0; bottom: 0;
+  display: none; gap: 10px; padding: 10px 12px;
+  background: rgba(255,255,255,.96); border-top: 1px solid #e9ecef;
+  z-index: 999;
+}
+.dock-btn {
+  flex: 1 1 0;
+  height: 60px;              /* bigger buttons */
+  font-size: 1.8rem;         /* larger icons/text */
+  border-radius: 10px;
+  /* border-color:#2980b9 ; */    /* rounder corners */
+  background: #f8f9fa;       /* softer background */
+  color: #2980b9;
+}
+.dock-btn:hover { background: #3498db; color: #fff; border-color: #2980b9; }
+
+@media (max-width: 768px) {
+  .hide-on-mobile { display: none !important; }
+  .control-dock   { display: grid; grid-template-columns: repeat(4, 1fr); }
+  .tk-v1          { padding-bottom: 84px; }
+}
+
+/* ---- Flights tree (unchanged except for border color harmony) ---- */
+.tk-flight-tree{display:grid;gap:1rem}
+.tk-comp__title{ margin:.25rem 0 .5rem; }
+.tk-evt{padding:.5rem .75rem;background:#f7fafe;border:1px solid #e9ecef;border-radius:10px}
+.tk-evt__title{margin-bottom:.5rem}
+.tk-flight-list{display:flex;flex-wrap:wrap;gap:.5rem}
+.tk-flight{padding:.4rem .7rem;border-radius:999px;border:1px solid #ced4da;background:#fff;cursor:pointer}
+.tk-flight:hover{background:#eef5ff}
+.tk-flight.is-active{background:#3498db;color:#fff;border-color:#2980b9}
+
+/* Hotfix: keep the JS compatibility controls off-screen */
+.visually-hidden {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  margin: -1px !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  clip: rect(0 0 0 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
