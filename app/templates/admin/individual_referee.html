@@ -1,0 +1,273 @@
+{% extends "base.html" %}
+
+{% block title %}{{ referee.name }} - Small Goods Competition{% endblock %}
+
+{% block head %}
+    <style>
+        .individual-referee {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .logout-btn {
+            display: inline-block;
+            margin-bottom: 20px;
+            padding: 8px 16px;
+            background: #6c757d;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        
+        .logout-btn:hover {
+            background: #5a6268;
+            color: white;
+            text-decoration: none;
+        }
+        
+        .referee-header {
+            background: rgba(255,255,255,0.1);
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .referee-header h1 {
+            margin: 0 0 15px 0;
+            color: #fff;
+        }
+        
+        .referee-details {
+            background: rgba(255,255,255,0.05);
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+        }
+        
+        .referee-details p {
+            margin: 5px 0;
+            font-size: 14px;
+        }
+        
+        .decision-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin: 20px 0;
+        }
+        
+        .decision-btn {
+            padding: 15px 25px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            min-width: 120px;
+            transition: all 0.3s ease;
+            color: white;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+        }
+        
+        .decision-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+        }
+        
+        .decision-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .decision-btn.selected {
+            box-shadow: 0 0 0 3px #fff, 0 0 0 6px #007bff;
+        }
+        
+        .decision-btn.grey { background-color: #6c757d; }
+        .decision-btn.green { background-color: #28a745; }
+        .decision-btn.red { background-color: #dc3545; }
+        .decision-btn.yellow { background-color: #ffc107; color: #000; }
+        .decision-btn.blue { background-color: #007bff; }
+        .decision-btn.orange { background-color: #fd7e14; }
+        .decision-btn.purple { background-color: #6f42c1; }
+        .decision-btn.pink { background-color: #e83e8c; }
+    </style>
+{% endblock %}
+
+{% block content %}
+<div class="individual-referee">
+        <a href="{{ url_for('admin.general_referee_login') }}" class="logout-btn">← Back to Login</a>
+    
+    <div class="referee-header">
+        <h1>🎯 {{ referee.name }} ({{ referee.position or 'Referee' }})</h1>
+        <div class="referee-details">
+            <p><strong>Username:</strong> {{ referee.username }}</p>
+            <p><strong>Position:</strong> {{ referee.position or 'Not specified' }}</p>
+            <p><strong>Email:</strong> {{ referee.email or 'Not provided' }}</p>
+            <p><strong>Phone:</strong> {{ referee.phone or 'Not provided' }}</p>
+            <p><strong>Competition:</strong> <span id="competition-name">{{ referee.competition.name if referee.competition else 'Loading...' }}</span></p>
+        </div>
+    </div>
+    
+    <div class="current-attempt" id="current-attempt-display" style="display: none;">
+        <h3>Cast Your Decision</h3>
+        <div class="decision-buttons" id="decision-buttons">
+            <!-- Dynamic decision buttons will be populated here -->
+        </div>
+        
+        <div id="vote-status" style="display: none;">
+            <span id="vote-message">Decision submitted successfully!</span>
+        </div>
+    </div>
+    
+    <div id="waiting-display">
+        <div style="text-align: center; padding: 50px;">
+            <h3>⏳ Waiting for competition to start...</h3>
+            <p>Stand by for decisions</p>
+        </div>
+    </div>
+</div>
+
+<script>
+class IndividualReferee {
+    constructor(refereeId, competitionId) {
+        this.refereeId = refereeId;
+        this.competitionId = competitionId;
+        this.hasVoted = false;
+        this.decisionOptions = [];
+        this.init();
+    }
+    
+    async init() {
+        await this.loadDecisionOptions();
+        this.loadCompetitionInfo();
+    }
+    
+    async loadDecisionOptions() {
+        try {
+            const response = await fetch(`/admin/api/competitions/${this.competitionId}/referee-config`);
+            const config = await response.json();
+            
+            this.decisionOptions = config.decision_options || [];
+            this.renderDecisionButtons();
+        } catch (error) {
+            console.error('Error loading decision options:', error);
+            this.decisionOptions = [
+                { label: 'Good Lift', value: true, color: 'green' },
+                { label: 'No Lift', value: false, color: 'red' }
+            ];
+            this.renderDecisionButtons();
+        }
+    }
+    
+    renderDecisionButtons() {
+        const container = document.getElementById('decision-buttons');
+        container.innerHTML = '';
+        
+        this.decisionOptions.forEach((option) => {
+            const button = document.createElement('button');
+            button.className = `decision-btn ${option.color}`;
+            button.dataset.decision = JSON.stringify(option);
+            button.textContent = option.label;
+            
+            button.addEventListener('click', () => {
+                this.castDecision(option);
+            });
+            
+            container.appendChild(button);
+        });
+        
+        // Show the decision section
+        document.getElementById('waiting-display').style.display = 'none';
+        document.getElementById('current-attempt-display').style.display = 'block';
+    }
+    
+    async loadCompetitionInfo() {
+        try {
+            if (this.competitionId) {
+                const response = await fetch(`/admin/api/competitions/${this.competitionId}`);
+                const competition = await response.json();
+                document.getElementById('competition-name').textContent = competition.name;
+            }
+        } catch (error) {
+            console.error('Error loading competition info:', error);
+        }
+    }
+    
+    async castDecision(decisionOption) {
+        if (this.hasVoted) return;
+        
+        try {
+            const response = await fetch('/admin/api/referee-decision', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    referee_id: this.refereeId,
+                    competition_id: this.competitionId,
+                    decision: decisionOption,
+                    timestamp: new Date().toISOString()
+                })
+            });
+            
+            if (response.ok) {
+                this.hasVoted = true;
+                
+                document.querySelectorAll('.decision-btn').forEach(btn => {
+                    btn.classList.remove('selected');
+                    btn.disabled = true;
+                });
+                
+                document.querySelector(`[data-decision='${JSON.stringify(decisionOption)}']`).classList.add('selected');
+                
+                document.getElementById('vote-status').style.display = 'block';
+                document.getElementById('vote-message').textContent = `Decision "${decisionOption.label}" submitted successfully!`;
+                
+                this.showNotification(`Decision "${decisionOption.label}" submitted successfully!`, 'success');
+            } else {
+                const errorData = await response.json();
+                throw new Error(errorData.message || 'Failed to submit decision');
+            }
+        } catch (error) {
+            console.error('Error casting decision:', error);
+            this.showNotification('Error submitting decision. Please try again.', 'error');
+        }
+    }
+    
+    showNotification(message, type) {
+        const notification = document.createElement('div');
+        notification.style.cssText = `
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 15px 25px;
+            border-radius: 8px;
+            color: white;
+            font-weight: bold;
+            z-index: 1000;
+            ${type === 'success' ? 'background: #27ae60;' : 'background: #e74c3c;'}
+        `;
+        notification.textContent = message;
+        document.body.appendChild(notification);
+        
+        setTimeout(() => notification.remove(), 3000);
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const refereeId = {{ referee.id }};
+    const competitionId = {{ referee.competition.id if referee.competition else 'null' }};
+    
+    if (competitionId) {
+        window.referee = new IndividualReferee(refereeId, competitionId);
+    } else {
+        document.body.innerHTML += '<div style="text-align: center; padding: 50px;"><h3>Error: No competition assigned to this referee</h3></div>';
+    }
+});
+</script>
+{% endblock %}
