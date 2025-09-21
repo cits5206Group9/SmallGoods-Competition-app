@@ -10,11 +10,11 @@ endblock %} {% block css %}
 />
 {% endblock %} {% block content %}
 
-<!-- Data Storage Script - Populate localStorage with SSR data -->
+<!-- Data Storage Script - Populate JavaScript with SSR data -->
 <script>
-console.log("Storing flight management data in localStorage");
+console.log("Setting up flight management data from server...");
 
-// Populate localStorage with server-side rendered data
+// Make data available to JavaScript
 window.flightManagementData = {
   competitions: {{ competitions | tojson }},
   events: {{ events | tojson }},
@@ -22,22 +22,21 @@ window.flightManagementData = {
   flights: {{ flights | tojson }}
 };
 
-console.log("Flight management data:", window.flightManagementData);
-console.log("Competitions:", window.flightManagementData.competitions);
-console.log("Events:", window.flightManagementData.events);
-console.log("Athletes:", window.flightManagementData.athletes);
-console.log("Flights:", window.flightManagementData.flights);
+console.log("Flight management data loaded:");
+console.log("  - Competitions:", window.flightManagementData.competitions.length, "items");
+console.log("  - Events:", window.flightManagementData.events.length, "items"); 
+console.log("  - Athletes:", window.flightManagementData.athletes.length, "items");
+console.log("  - Flights:", window.flightManagementData.flights.length, "items");
 
-// Store in localStorage for persistence and sharing across pages
-localStorage.setItem('competitions', JSON.stringify(window.flightManagementData.competitions));
-localStorage.setItem('events', JSON.stringify(window.flightManagementData.events));
-localStorage.setItem('athletes', JSON.stringify(window.flightManagementData.athletes));
-localStorage.setItem('flights', JSON.stringify(window.flightManagementData.flights));
+// Verify hierarchical structure
+console.log("Competition hierarchy preview:");
+window.flightManagementData.competitions.slice(0, 2).forEach(comp => {
+  console.log(`  Competition "${comp.name}" (ID: ${comp.id}):`);
+  console.log(`    - Events: ${comp.events ? comp.events.length : 0}`);
+  console.log(`    - Direct flights: ${comp.flights ? comp.flights.length : 0}`);
+});
 
-// Set last updated timestamp
-localStorage.setItem('flightDataLastUpdated', Date.now().toString());
-
-console.log("Data stored in localStorage successfully");
+console.log("Data setup complete - no localStorage used");
 </script>
 
 <div class="flights-management">

@@ -120,12 +120,14 @@ class Flight(db.Model):
     """Groups of athletes competing together"""
     id = db.Column(db.Integer, primary_key=True)
     event_id = db.Column(db.Integer, db.ForeignKey("event.id"), nullable=True)
+    competition_id = db.Column(db.Integer, db.ForeignKey("competition.id"), nullable=True)
     name = db.Column(db.String(50), nullable=False)
     order = db.Column(db.Integer, nullable=False)
     is_active = db.Column(db.Boolean, default=False)
     
     # Relationships
     athlete_flights = db.relationship("AthleteFlight", backref="flight", lazy=True)
+    competition = db.relationship("Competition", backref="flights", lazy=True)
 
 class Athlete(db.Model):
     """Competition participants"""

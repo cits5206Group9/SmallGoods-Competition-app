@@ -234,30 +234,91 @@ def flights_management():
         # Get all flights with their relationships
         flights = Flight.query.options(
             db.joinedload(Flight.event).joinedload(Event.competition),
-            db.joinedload(Flight.athlete_flights).joinedload(AthleteFlight.athlete)
+            db.joinedload(Flight.athlete_flights).joinedload(AthleteFlight.athlete),
+            db.joinedload(Flight.competition)  # Direct competition relationship
         ).order_by(Flight.order).all()
         print(f"Found {len(flights)} flights")
         
-        # Prepare data for template and localStorage
+        # Build hierarchical competition data structure
         competitions_data = []
         for comp in competitions:
+            # Get events for this competition
             comp_events = []
             for event in comp.events:
+                # Get flights for this event
+                event_flights = []
+                for flight in flights:
+                    if flight.event_id == event.id:
+                        # Get athletes for this flight
+                        flight_athletes = []
+                        if hasattr(flight, 'athlete_flights') and flight.athlete_flights:
+                            for af in flight.athlete_flights:
+                                if hasattr(af, 'athlete') and af.athlete:
+                                    flight_athletes.append({
+                                        'id': af.athlete.id,
+                                        'name': f"{af.athlete.first_name} {af.athlete.last_name}",
+                                        'first_name': af.athlete.first_name,
+                                        'last_name': af.athlete.last_name,
+                                        'order': getattr(af, 'order', 0) or 0
+                                    })
+                        
+                        event_flights.append({
+                            'id': flight.id,
+                            'name': flight.name,
+                            'order': flight.order,
+                            'is_active': flight.is_active,
+                            'event_id': flight.event_id,
+                            'competition_id': event.competition_id,
+                            'athlete_count': len(flight_athletes),
+                            'athletes': flight_athletes
+                        })
+                
                 comp_events.append({
                     'id': event.id,
                     'name': event.name,
                     'type': event.scoring_type.value if event.scoring_type else None,
-                    'competition_id': comp.id
+                    'competition_id': comp.id,
+                    'flights': event_flights
                 })
+            
+            # Get flights directly associated with this competition (not through events)
+            direct_flights = []
+            for flight in flights:
+                if hasattr(flight, 'competition_id') and flight.competition_id == comp.id and not flight.event_id:
+                    # Get athletes for this flight
+                    flight_athletes = []
+                    if hasattr(flight, 'athlete_flights') and flight.athlete_flights:
+                        for af in flight.athlete_flights:
+                            if hasattr(af, 'athlete') and af.athlete:
+                                flight_athletes.append({
+                                    'id': af.athlete.id,
+                                    'name': f"{af.athlete.first_name} {af.athlete.last_name}",
+                                    'first_name': af.athlete.first_name,
+                                    'last_name': af.athlete.last_name,
+                                    'order': getattr(af, 'order', 0) or 0
+                                })
+                    
+                    direct_flights.append({
+                        'id': flight.id,
+                        'name': flight.name,
+                        'order': flight.order,
+                        'is_active': flight.is_active,
+                        'event_id': None,
+                        'competition_id': comp.id,
+                        'athlete_count': len(flight_athletes),
+                        'athletes': flight_athletes
+                    })
             
             competitions_data.append({
                 'id': comp.id,
                 'name': comp.name,
                 'config': comp.config,
-                'events': comp_events
+                'events': comp_events,
+                'flights': direct_flights  # Flights directly under competition
             })
-        print(f"Prepared {len(competitions_data)} competitions data")
+        print(f"Prepared {len(competitions_data)} competitions data with hierarchy")
         
+        # Flat events data for easy access
         events_data = []
         for event in events:
             events_data.append({
@@ -269,12 +330,14 @@ def flights_management():
             })
         print(f"Prepared {len(events_data)} events data")
         
+        # Flat athletes data for easy access
         athletes_data = []
         for athlete in athletes:
             athletes_data.append({
                 'id': athlete.id,
                 'first_name': athlete.first_name,
                 'last_name': athlete.last_name,
+                'full_name': f"{athlete.first_name} {athlete.last_name}",
                 'email': athlete.email,
                 'phone': athlete.phone,
                 'team': athlete.team,
@@ -287,6 +350,7 @@ def flights_management():
             })
         print(f"Prepared {len(athletes_data)} athletes data")
         
+        # Flat flights data with proper competition/event relationships
         flights_data = []
         for flight in flights:
             # Get athlete count and athletes list safely
@@ -300,8 +364,31 @@ def flights_management():
                         athletes_list.append({
                             'id': af.athlete.id,
                             'name': f"{af.athlete.first_name} {af.athlete.last_name}",
-                            'order': getattr(af, 'order', 0) or 0  # Use order field
+                            'first_name': af.athlete.first_name,
+                            'last_name': af.athlete.last_name,
+                            'order': getattr(af, 'order', 0) or 0
                         })
+            
+            # Determine competition info - check both direct competition and event-based competition
+            competition_id = None
+            competition_name = None
+            event_name = None
+            
+            # First check if flight has direct competition relationship
+            if hasattr(flight, 'competition_id') and flight.competition_id:
+                competition_id = flight.competition_id
+                # Find competition name from our competitions data
+                competition = next((c for c in competitions if c.id == competition_id), None)
+                if competition:
+                    competition_name = competition.name
+            
+            # Then check if flight has event relationship
+            if flight.event:
+                event_name = flight.event.name
+                if flight.event.competition:
+                    # Event-based competition takes precedence if both exist
+                    competition_id = flight.event.competition_id
+                    competition_name = flight.event.competition.name
             
             flight_data = {
                 'id': flight.id,
@@ -309,16 +396,16 @@ def flights_management():
                 'order': flight.order,
                 'is_active': flight.is_active,
                 'event_id': flight.event_id,
-                'event_name': flight.event.name if flight.event else None,
-                'competition_id': flight.event.competition_id if flight.event and flight.event.competition else None,
-                'competition_name': flight.event.competition.name if flight.event and flight.event.competition else None,
+                'event_name': event_name,
+                'competition_id': competition_id,
+                'competition_name': competition_name,
                 'athlete_count': athlete_count,
                 'athletes': athletes_list
             }
             flights_data.append(flight_data)
-        print(f"Prepared {len(flights_data)} flights data")
-        
-        print("Rendering template with data...")
+        print(flights_data)
+
+        print("Rendering template with hierarchical data...")
         return render_template('admin/flights_management.html',
                              competitions=competitions_data,
                              events=events_data,
@@ -576,6 +663,12 @@ def create_flight():
         if event_id == '' or event_id == 'null':
             event_id = None
         
+        # Get competition_id 
+        competition_id = data.get('competition_id')
+        if competition_id == '' or competition_id == 'null':
+            competition_id = None
+        
+        # If event is provided, validate it and get competition from event
         if event_id:
             try:
                 event_id = int(event_id)
@@ -585,15 +678,35 @@ def create_flight():
                         'status': 'error',
                         'message': 'Event not found'
                     }), 404
+                # Set competition_id from event if not provided
+                if not competition_id:
+                    competition_id = event.competition_id
             except (ValueError, TypeError):
                 return jsonify({
                     'status': 'error', 
                     'message': 'Invalid event ID format'
                 }), 400
         
+        # If competition_id is provided, validate it
+        if competition_id:
+            try:
+                competition_id = int(competition_id)
+                competition = Competition.query.get(competition_id)
+                if not competition:
+                    return jsonify({
+                        'status': 'error',
+                        'message': 'Competition not found'
+                    }), 404
+            except (ValueError, TypeError):
+                return jsonify({
+                    'status': 'error',
+                    'message': 'Invalid competition ID format'
+                }), 400
+        
         # Create new flight
         flight = Flight(
             event_id=event_id,
+            competition_id=competition_id,
             name=data.get('name', '').strip(),
             order=int(data.get('order', 1)),
             is_active=bool(data.get('is_active', False))
@@ -602,10 +715,27 @@ def create_flight():
         db.session.add(flight)
         db.session.commit()
         
+        # Reload with relationships
+        flight = Flight.query.options(
+            db.joinedload(Flight.event).joinedload(Event.competition),
+            db.joinedload(Flight.competition)
+        ).get(flight.id)
+        
         return jsonify({
             'status': 'success',
             'message': 'Flight created successfully',
-            'flight_id': flight.id
+            'flight': {
+                'id': flight.id,
+                'name': flight.name,
+                'order': flight.order,
+                'is_active': flight.is_active,
+                'event_id': flight.event_id,
+                'event_name': flight.event.name if flight.event else None,
+                'competition_id': flight.competition_id or (flight.event.competition_id if flight.event and flight.event.competition else None),
+                'competition_name': (flight.competition.name if flight.competition 
+                                   else (flight.event.competition.name if flight.event and flight.event.competition else None)),
+                'athlete_count': 0
+            }
         }), 201
         
     except ValueError as e:
@@ -621,11 +751,45 @@ def create_flight():
             'message': 'Failed to create flight: ' + str(e)
         }), 500
 
+@admin_bp.route('/flights/reorder', methods=['POST'])
+def reorder_flights():
+    """Update flight order"""
+    try:
+        data = request.get_json()
+        updates = data.get('updates', [])
+        
+        for update in updates:
+            flight_id = update.get('id')
+            new_order = update.get('order')
+            
+            flight = Flight.query.get(flight_id)
+            if flight:
+                flight.order = new_order
+        
+        db.session.commit()
+        
+        return jsonify({
+            'status': 'success',
+            'message': 'Flight order updated successfully'
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'status': 'error',
+            'message': 'Failed to update flight order: ' + str(e)
+        }), 500
+
+
+
 @admin_bp.route('/flights/<int:flight_id>', methods=['GET'])
 def get_flight(flight_id):
     """Get flight details by ID"""
     try:
-        flight = Flight.query.get(flight_id)
+        flight = Flight.query.options(
+            joinedload(Flight.event).joinedload(Event.competition),
+            joinedload(Flight.competition)
+        ).get(flight_id)
         
         if not flight:
             return jsonify({
@@ -633,12 +797,34 @@ def get_flight(flight_id):
                 'message': 'Flight not found'
             }), 404
         
+        # Determine competition info - check both direct competition and event-based competition
+        competition_id = None
+        competition_name = None
+        event_name = None
+        
+        # First check if flight has direct competition relationship
+        if hasattr(flight, 'competition_id') and flight.competition_id:
+            competition_id = flight.competition_id
+            if hasattr(flight, 'competition') and flight.competition:
+                competition_name = flight.competition.name
+        
+        # Then check if flight has event relationship
+        if flight.event:
+            event_name = flight.event.name
+            if flight.event.competition:
+                # Event-based competition takes precedence if both exist
+                competition_id = flight.event.competition_id
+                competition_name = flight.event.competition.name
+
         return jsonify({
             'id': flight.id,
-            'event_id': flight.event_id,
             'name': flight.name,
             'order': flight.order,
-            'is_active': flight.is_active
+            'is_active': flight.is_active,
+            'event_id': flight.event_id,
+            'event_name': event_name,
+            'competition_id': competition_id,
+            'competition_name': competition_name
         }), 200
         
     except Exception as e:
@@ -668,6 +854,19 @@ def update_flight(flight_id):
             flight.order = int(data['order'])
         if 'is_active' in data:
             flight.is_active = bool(data['is_active'])
+        if 'competition_id' in data:
+            competition_id = data['competition_id']
+            if competition_id:
+                # Check if competition exists
+                competition = Competition.query.get(int(competition_id))
+                if not competition:
+                    return jsonify({
+                        'status': 'error',
+                        'message': 'Competition not found'
+                    }), 404
+                flight.competition_id = int(competition_id)
+            else:
+                flight.competition_id = None
         if 'event_id' in data:
             event_id = data['event_id']
             if event_id:
@@ -679,15 +878,37 @@ def update_flight(flight_id):
                         'message': 'Event not found'
                     }), 404
                 flight.event_id = int(event_id)
+                # Update competition_id from event if not explicitly set
+                if 'competition_id' not in data:
+                    flight.competition_id = event.competition_id
             else:
                 # Allow setting event_id to None
                 flight.event_id = None
         
         db.session.commit()
         
+        # Reload with relationships
+        flight = Flight.query.options(
+            db.joinedload(Flight.event).joinedload(Event.competition),
+            db.joinedload(Flight.competition),
+            db.joinedload(Flight.athlete_flights)
+        ).get(flight_id)
+        
         return jsonify({
             'status': 'success',
-            'message': 'Flight updated successfully'
+            'message': 'Flight updated successfully',
+            'flight': {
+                'id': flight.id,
+                'name': flight.name,
+                'order': flight.order,
+                'is_active': flight.is_active,
+                'event_id': flight.event_id,
+                'event_name': flight.event.name if flight.event else None,
+                'competition_id': flight.competition_id or (flight.event.competition_id if flight.event and flight.event.competition else None),
+                'competition_name': (flight.competition.name if flight.competition 
+                                   else (flight.event.competition.name if flight.event and flight.event.competition else None)),
+                'athlete_count': len(flight.athlete_flights) if flight.athlete_flights else 0
+            }
         }), 200
         
     except ValueError as e:
@@ -758,34 +979,34 @@ def get_event_flights(event_id):
             'message': 'Failed to retrieve flights: ' + str(e)
         }), 500
 
-@admin_bp.route('/flights/reorder', methods=['POST'])
-def reorder_flights():
-    """Update flight order"""
-    try:
-        data = request.get_json()
-        updates = data.get('updates', [])
+# @admin_bp.route('/flights/reorder', methods=['POST'])
+# def reorder_flights():
+#     """Update flight order"""
+#     try:
+#         data = request.get_json()
+#         updates = data.get('updates', [])
         
-        for update in updates:
-            flight_id = update.get('id')
-            new_order = update.get('order')
+#         for update in updates:
+#             flight_id = update.get('id')
+#             new_order = update.get('order')
             
-            flight = Flight.query.get(flight_id)
-            if flight:
-                flight.order = new_order
+#             flight = Flight.query.get(flight_id)
+#             if flight:
+#                 flight.order = new_order
         
-        db.session.commit()
+#         db.session.commit()
         
-        return jsonify({
-            'status': 'success',
-            'message': 'Flight order updated successfully'
-        }), 200
+#         return jsonify({
+#             'status': 'success',
+#             'message': 'Flight order updated successfully'
+#         }), 200
         
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({
-            'status': 'error',
-            'message': 'Failed to update flight order: ' + str(e)
-        }), 500
+#     except Exception as e:
+#         db.session.rollback()
+#         return jsonify({
+#             'status': 'error',
+#             'message': 'Failed to update flight order: ' + str(e)
+#         }), 500
 
 @admin_bp.route('/flights/all', methods=['GET'])
 def get_all_flights():

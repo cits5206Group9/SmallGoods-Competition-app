@@ -14,11 +14,11 @@ class FlightManager {
     this.currentPage = 1;
     this.flightsPerPage = 12;
     
-    // Data structures from localStorage/SSR
-    this.competitions = []; // Store all competitions with their events
-    this.events = []; // Store all events
-    this.athletes = []; // Store all athletes with their allocations
-    this.flights = []; // Store all flights
+    // Data structures - no localStorage, just in-memory
+    this.competitions = [];
+    this.events = [];
+    this.athletes = [];
+    this.flights = [];
     
     // DOM elements
     this.competitionSelect = document.getElementById("competition-select");
@@ -45,6 +45,7 @@ class FlightManager {
     
     this.init();
   }
+
   init() {
     this.bindEvents();
     this.initializeData();
@@ -54,76 +55,51 @@ class FlightManager {
 
   initializeData() {
     try {
-      // Load data from localStorage (set by SSR)
-      this.competitions = JSON.parse(localStorage.getItem('competitions') || '[]');
-      this.events = JSON.parse(localStorage.getItem('events') || '[]');
-      this.athletes = JSON.parse(localStorage.getItem('athletes') || '[]');
-      this.flights = JSON.parse(localStorage.getItem('flights') || '[]');
+      // Load data from SSR window object
+      if (window.flightManagementData) {
+        this.competitions = window.flightManagementData.competitions || [];
+        this.events = window.flightManagementData.events || [];
+        this.athletes = window.flightManagementData.athletes || [];
+        this.flights = window.flightManagementData.flights || [];
+        
+        console.log('Loaded data from SSR:', {
+          competitions: this.competitions.length,
+          events: this.events.length,
+          athletes: this.athletes.length,
+          flights: this.flights.length
+        });
+        
+        this.renderFlights();
+      } else {
+        console.log('No SSR data found, loading from API...');
+        this.loadAllData();
+      }
       
-      console.log('Loaded data from localStorage:', {
-        competitions: this.competitions.length,
-        events: this.events.length,
-        athletes: this.athletes.length,
-        flights: this.flights.length
-      });
-      
-      this.renderFlights();
     } catch (error) {
-      console.error('Error loading data from localStorage:', error);
-      // Fallback to API if localStorage fails
+      console.error('Error loading data:', error);
       this.loadAllData();
     }
   }
 
   async loadAllData() {
-    console.log('Loading data from API as fallback...');
+    console.log('Loading fresh data from API...');
     try {
-      // Load competitions with their events
-      await this.loadCompetitionsWithEvents();
-      // Load all athletes with their allocations
-      await this.loadAllAthletes();
+      // Refresh the page to get latest data from SSR
+      window.location.reload();
     } catch (error) {
       console.error("Error loading initial data:", error);
       this.showNotification("Error loading data", "error");
     }
   }
 
-  // Data synchronization methods
-  updateLocalStorage() {
-    try {
-      localStorage.setItem('competitions', JSON.stringify(this.competitions));
-      localStorage.setItem('events', JSON.stringify(this.events));
-      localStorage.setItem('athletes', JSON.stringify(this.athletes));
-      localStorage.setItem('flights', JSON.stringify(this.flights));
-      console.log('Updated localStorage with current data');
-    } catch (error) {
-      console.error('Error updating localStorage:', error);
-    }
-  }
-
-  addFlight(flight) {
-    this.flights.push(flight);
-    this.updateLocalStorage();
-    this.renderFlights();
-  }
-
-  updateFlight(updatedFlight) {
-    const index = this.flights.findIndex(f => f.id === updatedFlight.id);
-    if (index !== -1) {
-      this.flights[index] = updatedFlight;
-      this.updateLocalStorage();
-      this.renderFlights();
-    }
-  }
-
-  deleteFlight(flightId) {
-    this.flights = this.flights.filter(f => f.id !== flightId);
-    this.updateLocalStorage();
-    this.renderFlights();
+  async refreshAllData() {
+    console.log('Refreshing all data...');
+    // Simply reload the page to get fresh SSR data
+    window.location.reload();
   }
 
   renderFlights() {
-    // Use the local flights data instead of making API calls
+    // Use the loaded flights data
     this.displayFlights(this.flights);
     
     // Populate dropdowns with current data
@@ -177,6 +153,59 @@ class FlightManager {
       console.error("Error loading athletes:", error);
       this.showNotification("Error loading athletes", "error");
     }
+  }
+
+  // Function to get unallocated athletes for a specific competition
+  getUnallocatedAthletes(competitionId = null) {
+    // Get all athletes in flights to identify allocated ones
+    const allocatedAthleteIds = new Set();
+    
+    this.flights.forEach(flight => {
+      if (flight.athletes && Array.isArray(flight.athletes)) {
+        flight.athletes.forEach(athlete => {
+          allocatedAthleteIds.add(athlete.id);
+        });
+      }
+    });
+    
+    // Filter athletes to get unallocated ones
+    let unallocatedAthletes = this.athletes.filter(athlete => {
+      const isNotAllocated = !allocatedAthleteIds.has(athlete.id);
+      
+      // If competition filter is specified, also filter by competition
+      if (competitionId) {
+        return isNotAllocated && athlete.competition_id === competitionId;
+      }
+      
+      return isNotAllocated;
+    });
+    
+    console.log(`Found ${unallocatedAthletes.length} unallocated athletes${competitionId ? ` for competition ${competitionId}` : ''}`);
+    return unallocatedAthletes;
+  }
+
+  // Function to ensure competition and event information is available
+  enrichFlightData(flight) {
+    if (!flight.competition_name && flight.competition_id) {
+      const competition = this.competitions.find(c => c.id === flight.competition_id);
+      if (competition) {
+        flight.competition_name = competition.name;
+      }
+    }
+    
+    if (!flight.event_name && flight.event_id) {
+      const event = this.events.find(e => e.id === flight.event_id);
+      if (event) {
+        flight.event_name = event.name;
+        // Also ensure competition info from event
+        if (!flight.competition_id && event.competition_id) {
+          flight.competition_id = event.competition_id;
+          flight.competition_name = event.competition_name;
+        }
+      }
+    }
+    
+    return flight;
   }
 
   populateCompetitionDropdowns() {
@@ -461,13 +490,39 @@ class FlightManager {
     // Store all flights for filtering
     this.allFlights = flights;
 
-    // Populate event filter when showing all flights
-    if (flights.length > 0 && flights[0].event_name) {
-      this.populateEventFilter(flights);
-    }
+    // Populate filter dropdowns when showing all flights
+    this.populateEventFilter(flights);
+    this.populateCompetitionFilter(flights);
 
     // Apply filters and pagination
     this.applyFlightFilters();
+  }
+
+  populateCompetitionFilter(flights) {
+    if (!this.competitionFilter) return;
+
+    // Get unique competition names from flights
+    const uniqueCompetitions = [
+      ...new Set(flights.map((f) => f.competition_name).filter(Boolean)),
+    ];
+    
+    // Save the current value
+    const currentValue = this.competitionFilter.value;
+    
+    // Clear and rebuild options
+    this.competitionFilter.innerHTML = '<option value="">All Competitions</option>';
+
+    uniqueCompetitions.forEach((competitionName) => {
+      const option = document.createElement("option");
+      option.value = competitionName;
+      option.textContent = competitionName;
+      this.competitionFilter.appendChild(option);
+    });
+    
+    // Restore the current value if it still exists
+    if (currentValue && uniqueCompetitions.includes(currentValue)) {
+      this.competitionFilter.value = currentValue;
+    }
   }
 
   populateEventFilter(flights) {
@@ -632,31 +687,59 @@ class FlightManager {
   }
 
   createFlightCard(flight) {
+    // Enrich flight data to ensure competition and event info is available
+    flight = this.enrichFlightData(flight);
+    
     const card = document.createElement("div");
     card.className = `flight-card ${flight.is_active ? "active" : ""}`;
     card.dataset.flightId = flight.id;
     card.dataset.flightOrder = flight.order;
+    card.dataset.competitionId = flight.competition_id || '';
+    card.dataset.eventId = flight.event_id || '';
 
-    // Add event info if available (when showing all flights)
-    const eventInfo = flight.event_name
-      ? `
+    // Build competition and event info display with fallbacks
+    let competitionInfo = flight.competition_name || 'No Competition';
+    let eventInfo = flight.event_name || 'No Event';
+    
+    // If we still don't have competition info, try to get it from hierarchical data
+    if (!flight.competition_name && flight.competition_id) {
+      const competition = this.competitions.find(c => c.id === flight.competition_id);
+      if (competition) {
+        competitionInfo = competition.name;
+      }
+    }
+    
+    // If we still don't have event info, try to get it from flat events data
+    if (!flight.event_name && flight.event_id) {
+      const event = this.events.find(e => e.id === flight.event_id);
+      if (event) {
+        eventInfo = event.name;
+        // Also update competition info if available from event
+        if (!flight.competition_name && event.competition_name) {
+          competitionInfo = event.competition_name;
+        }
+      }
+    }
+    
+    // Create the event info section for display
+    const eventInfoSection = `
         <div class="flight-event-info">
-            <small>${flight.competition_name} - ${flight.event_name}</small>
+            <small><strong>Competition:</strong> ${competitionInfo}</small>
+            <small><strong>Event:</strong> ${eventInfo}</small>
         </div>
-    `
-      : "";
+    `;
 
     card.innerHTML = `
             <div class="flight-card-header">
                 <div class="flight-name">${flight.name}</div>
                 <div class="flight-order">Order: ${flight.order}</div>
             </div>
-            ${eventInfo}
+            ${eventInfoSection}
             <div class="flight-info">
                 <p class="athlete-count"><strong>${
                   flight.athlete_count || 0
                 }</strong> athletes</p>
-                <p>Status: ${flight.is_active ? "Active" : "Inactive"}</p>
+                <p>Status: <span class="status-badge ${flight.is_active ? 'active' : 'inactive'}">${flight.is_active ? "Active" : "Inactive"}</span></p>
             </div>
             <div class="flight-actions">
                 <button class="btn btn-sm btn-secondary edit-flight" data-flight-id="${
@@ -692,31 +775,59 @@ class FlightManager {
   }
 
   initializeFlightsSortable() {
+    console.log('Initializing flights sortable...');
+    
+    // Destroy existing sortable if it exists
     if (this.flightsSortable) {
       this.flightsSortable.destroy();
+      this.flightsSortable = null;
     }
 
+    // Check if flights grid exists
+    if (!this.flightsGrid) {
+      console.warn('Flights grid not found for sortable initialization');
+      return;
+    }
+
+    // Create new sortable instance
     this.flightsSortable = new Sortable(this.flightsGrid, {
       animation: 150,
       ghostClass: "sortable-ghost",
       chosenClass: "sortable-chosen",
-      onEnd: function (evt) {
-        this.updateFlightOrder();
+      dragClass: "sortable-drag",
+      onStart: (evt) => {
+        console.log('Drag started on flight:', evt.item.dataset.flightId);
+        evt.item.classList.add('dragging');
+      },
+      onEnd: (evt) => {
+        console.log('Drag ended on flight:', evt.item.dataset.flightId);
+        evt.item.classList.remove('dragging');
+        
+        // Only update if position actually changed
+        if (evt.newIndex !== evt.oldIndex) {
+          this.updateFlightOrder();
+        }
       },
     });
+    
+    console.log('Flights sortable initialized successfully');
   }
 
   async updateFlightOrder() {
+    console.log('Updating flight order...');
     const flightCards = this.flightsGrid.querySelectorAll(".flight-card");
     const updates = [];
 
     flightCards.forEach((card, index) => {
-      const flightId = card.dataset.flightId;
+      const flightId = parseInt(card.dataset.flightId);
       const newOrder = index + 1;
       updates.push({ id: flightId, order: newOrder });
 
       // Update display
-      card.querySelector(".flight-order").textContent = `Order: ${newOrder}`;
+      const orderElement = card.querySelector(".flight-order");
+      if (orderElement) {
+        orderElement.textContent = `Order: ${newOrder}`;
+      }
       card.dataset.flightOrder = newOrder;
     });
 
@@ -733,11 +844,16 @@ class FlightManager {
       if (!response.ok) throw new Error("Failed to update flight order");
 
       this.showNotification("Flight order updated successfully", "success");
+      console.log('Flight order updated successfully');
+      
     } catch (error) {
       console.error("Error updating flight order:", error);
       this.showNotification("Error updating flight order", "error");
-      // Reload flights to reset order
-      this.loadFlights(this.currentEventId);
+      
+      // Refresh page if reorder fails
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
     }
   }
 
@@ -791,23 +907,50 @@ class FlightManager {
   async loadFlightData(flightId) {
     try {
       this.showLoading(this.flightForm);
-      const response = await fetch(`/admin/flights/${flightId}`);
+      
+      // Find flight in local data first
+      const flight = this.flights.find(f => f.id === parseInt(flightId));
+      
+      if (flight) {
+        // Populate form with flight data
+        document.getElementById("flight_name").value = flight.name || '';
+        document.getElementById("flight_order").value = flight.order || 1;
+        document.getElementById("flight_is_active").checked = flight.is_active || false;
 
-      if (!response.ok) throw new Error("Failed to load flight data");
-
-      const flight = await response.json();
-
-      document.getElementById("flight_name").value = flight.name;
-      document.getElementById("flight_order").value = flight.order;
-      document.getElementById("flight_is_active").checked = flight.is_active;
-
-      // Set competition and event if available
-      if (flight.event_id) {
-        const event = this.allEvents.find(e => e.id === flight.event_id);
-        if (event) {
-          document.getElementById("flight_competition_id").value = event.competition_id;
+        // Set competition if available
+        if (flight.competition_id) {
+          document.getElementById("flight_competition_id").value = flight.competition_id;
           this.handleModalCompetitionChange(); // Populate event dropdown
-          document.getElementById("flight_event_id").value = flight.event_id;
+        }
+        
+        // Set event if available  
+        if (flight.event_id) {
+          // Wait a bit for the event dropdown to be populated
+          setTimeout(() => {
+            document.getElementById("flight_event_id").value = flight.event_id;
+          }, 100);
+        }
+      } else {
+        // Fallback to API if not found in local data
+        const response = await fetch(`/admin/flights/${flightId}`);
+        if (!response.ok) throw new Error("Failed to load flight data");
+        
+        const flightData = await response.json();
+        
+        document.getElementById("flight_name").value = flightData.name || '';
+        document.getElementById("flight_order").value = flightData.order || 1;
+        document.getElementById("flight_is_active").checked = flightData.is_active || false;
+
+        // Set competition and event if available
+        if (flightData.competition_id) {
+          document.getElementById("flight_competition_id").value = flightData.competition_id;
+          this.handleModalCompetitionChange();
+        }
+        
+        if (flightData.event_id) {
+          setTimeout(() => {
+            document.getElementById("flight_event_id").value = flightData.event_id;
+          }, 100);
         }
       }
     } catch (error) {
@@ -840,11 +983,14 @@ class FlightManager {
       name: formData.get("flight_name"),
       order: parseInt(formData.get("flight_order")),
       is_active: formData.has("is_active"),
+      competition_id: parseInt(competitionId)
     };
 
     // Only add event_id if it's provided and not empty
     if (eventId && eventId.trim() !== "") {
       flightData.event_id = parseInt(eventId);
+    } else {
+      flightData.event_id = null;
     }
 
     try {
@@ -871,20 +1017,21 @@ class FlightManager {
       }
 
       const result = await response.json();
-      this.showNotification(result.message, "success");
+      
+      this.showNotification(
+        this.currentFlightId ? result.message || "Flight updated successfully" 
+                            : result.message || "Flight created successfully", 
+        "success"
+      );
 
-      // Update local data structure
-      if (this.currentFlightId) {
-        // Update existing flight
-        this.updateFlight(result.flight);
-      } else {
-        // Add new flight
-        this.addFlight(result.flight);
-      }
-
-      // Store current state before closing modal
-      const wasUpdating = this.currentFlightId !== null;
+      // Close modal
       this.closeModals();
+      
+      // Refresh the page to get latest data with proper relationships
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
+      
     } catch (error) {
       console.error("Error saving flight:", error);
       this.showNotification(error.message, "error");
@@ -922,16 +1069,21 @@ class FlightManager {
 
       const result = await response.json();
       this.showNotification(result.message, "success");
-      this.closeModals();
 
-      // Update local data structure
-      this.deleteFlight(parseInt(this.deleteFlightId));
+      // Close modal
+      this.deleteFlightModal.style.display = "none";
+      this.deleteFlightId = null;
+
+      // Refresh the page to get latest data
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
+
     } catch (error) {
       console.error("Error deleting flight:", error);
       this.showNotification(error.message, "error");
     } finally {
       this.hideLoading(this.deleteFlightModal);
-      this.deleteFlightId = null;
     }
   }
 
@@ -1164,8 +1316,21 @@ class FlightManager {
         throw new Error(errorData.message || "Failed to add athlete to flight");
       }
 
+      const result = await response.json();
+      
+      // Update athlete's competition_id if it changed
+      if (result.athlete && result.athlete.competition_id) {
+        this.updateAthleteCompetition(athleteId, result.athlete.competition_id);
+      }
+
       this.showNotification("Athlete added to flight", "success");
+      
+      // Reload flight athletes to sync with database
       await this.loadFlightAthletes(this.currentFlightId);
+      
+      // Also refresh the main flights view to update athlete counts
+      await this.refreshFlightData();
+      
     } catch (error) {
       console.error("Error adding athlete to flight:", error);
       this.showNotification(
@@ -1195,13 +1360,78 @@ class FlightManager {
       }
 
       this.showNotification("Athlete removed from flight", "success");
+      
+      // Reload flight athletes to sync with database
       await this.loadFlightAthletes(this.currentFlightId);
+      
+      // Also refresh the main flights view to update athlete counts
+      await this.refreshFlightData();
+      
     } catch (error) {
       console.error("Error removing athlete from flight:", error);
       this.showNotification(
         error.message || "Error removing athlete from flight",
         "error"
       );
+    }
+  }
+
+  // Function to refresh flight data from the server
+  async refreshFlightData() {
+    try {
+      console.log('Refreshing flight data from server...');
+      const response = await fetch('/admin/flights/all');
+      if (response.ok) {
+        const data = await response.json();
+        this.flights = data;
+        this.updateLocalStorage();
+        
+        // Update the display immediately
+        this.renderFlights();
+        console.log('Flight data refreshed successfully');
+      }
+    } catch (error) {
+      console.error('Error refreshing flight data:', error);
+    }
+  }
+
+  // Function to refresh all data from server
+  async refreshAllData() {
+    try {
+      console.log('Refreshing all data from server...');
+      
+      // Load flights
+      const flightsResponse = await fetch('/admin/flights/all');
+      if (flightsResponse.ok) {
+        this.flights = await flightsResponse.json();
+      }
+      
+      // Load competitions  
+      const competitionsResponse = await fetch('/admin/competitions');
+      if (competitionsResponse.ok) {
+        this.competitions = await competitionsResponse.json();
+      }
+      
+      // Load events
+      const eventsResponse = await fetch('/admin/events');
+      if (eventsResponse.ok) {
+        this.events = await eventsResponse.json();
+      }
+      
+      // Load athletes
+      const athletesResponse = await fetch('/admin/athletes');
+      if (athletesResponse.ok) {
+        const athletesData = await athletesResponse.json();
+        this.athletes = athletesData.athletes || athletesData;
+      }
+      
+      // Update localStorage with fresh data
+      this.updateLocalStorage();
+      this.renderFlights();
+      
+      console.log('All data refreshed successfully');
+    } catch (error) {
+      console.error('Error refreshing all data:', error);
     }
   }
 
@@ -1368,6 +1598,22 @@ class FlightManager {
           }
         }, 300); // Debounce search for 300ms
       });
+  }
+  
+  // Debug function to check localStorage sync
+  debugLocalStorage() {
+    console.log('=== localStorage Debug Info ===');
+    console.log('Competitions:', this.competitions.length);
+    console.log('Events:', this.events.length);
+    console.log('Athletes:', this.athletes.length);
+    console.log('Flights:', this.flights.length);
+    console.log('Last Updated:', new Date(parseInt(localStorage.getItem('flightDataLastUpdated') || '0')));
+    
+    console.log('=== Sample Data ===');
+    console.log('First Competition:', this.competitions[0]);
+    console.log('First Event:', this.events[0]);
+    console.log('First Athlete:', this.athletes[0]);
+    console.log('First Flight:', this.flights[0]);
   }
 }
 
