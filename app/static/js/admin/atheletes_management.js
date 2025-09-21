@@ -194,7 +194,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
       const result = await response.json();
       showNotification(result.message, "success");
-      
+
       // Store currentAthleteId before closing modals since closeModals() resets it
       const isUpdate = currentAthleteId !== null;
       closeModals();
@@ -233,7 +233,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
       const result = await response.json();
       showNotification(result.message, "success");
-      
+
       // Remove the row from the table before closing modal
       removeAthleteFromTable(deleteAthleteId);
       closeModals();
@@ -386,9 +386,7 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   function updateAthleteInTable(athlete) {
-    const row = document.querySelector(
-      `tr[data-athlete-id="${athlete.id}"]`
-    );
+    const row = document.querySelector(`tr[data-athlete-id="${athlete.id}"]`);
     if (row) {
       // Update the row cells with new data
       const cells = row.querySelectorAll("td");

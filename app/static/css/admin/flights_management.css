@@ -150,6 +150,20 @@
   font-weight: 500;
 }
 
+.flight-event-info {
+  margin-bottom: 0.75rem;
+  padding: 0.5rem;
+  background: #f8f9fa;
+  border-radius: 4px;
+  border-left: 3px solid #3498db;
+}
+
+.flight-event-info small {
+  color: #6c757d;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
 .flight-info {
   margin-bottom: 1rem;
 }
@@ -527,7 +541,8 @@
   display: flex;
   justify-content: flex-end;
   gap: 1rem;
-  padding: 1.5rem;
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
   border-top: 1px solid #dee2e6;
 }
 
