@@ -84,6 +84,21 @@
         .nav-list { width:100%; }
         .footer-inner { flex-direction:column; text-align:center; }
       }
+
+      .container.page-main {
+        width: 100%;
+        max-width: 1200px !important;   /* was limited by .container */
+      }
+
+      /* optional: keep it comfy on very large screens too */
+      @media (min-width: 1400px) {
+        .container.page-main { max-width: 1280px !important; }
+      }
+
+      /* keep the footer lock */
+      html, body { height: 100%; margin: 0; }
+      body { display: flex; flex-direction: column; min-height: 100vh; }
+      .page-main { flex: 1; }
     </style>
   </head>
 
@@ -129,7 +144,7 @@
       </div>
     </header>
 
-    <main class="page-main">
+    <main class="container page-main">
       {% block content %}{% endblock %}
     </main>
 
