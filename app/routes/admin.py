@@ -30,9 +30,9 @@ def live_event():
 def data():
     return render_template('admin/data.html')
 
-@admin_bp.route('/timer')
-def timer():
-    return render_template('admin/timer.html')
+#@admin_bp.route('/timer')
+#def timer():
+    #return render_template('admin/timer.html')
 
 @admin_bp.route('/referee')
 def referee():
@@ -132,3 +132,8 @@ def save_competition_model():
             'status': 'error',
             'message': str(e)
         }), 400
+        
+        
+        
+# ensure /admin/timer gets registered on admin_bp
+from . import timer
