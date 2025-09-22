@@ -1,0 +1,528 @@
+/* Athletes Management Styles */
+.athletes-management {
+  padding: 2rem;
+  max-width: 100%; /* 10% margin on each side = 80% width */
+  margin: 0 auto;
+}
+
+.header-section {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid #e9ecef;
+}
+
+.header-section h1 {
+  color: #2c3e50;
+  margin: 0;
+}
+
+/* Search and Filter Section */
+.search-section {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  margin-bottom: 2rem;
+}
+
+.search-controls {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr;
+  gap: 1rem;
+  align-items: end;
+}
+
+.search-controls input,
+.search-controls select {
+  padding: 0.75rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 0.9rem;
+}
+
+.search-controls input:focus,
+.search-controls select:focus {
+  outline: none;
+  border-color: #3498db;
+  box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+}
+
+/* Table Styles */
+.table-container {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  overflow-x: auto;
+  margin-bottom: 2rem;
+  width: 100%;
+}
+
+.athletes-table {
+  width: 100%;
+  min-width: 1300px; /* Increased minimum width for better spacing */
+  border-collapse: collapse;
+  font-size: 0.9rem;
+  table-layout: fixed; /* Fixed layout for consistent column widths */
+}
+
+.athletes-table th {
+  background-color: #f8f9fa;
+  padding: 0.75rem 0.5rem;
+  text-align: left;
+  font-weight: 600;
+  color: #495057;
+  border-bottom: 2px solid #dee2e6;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Equal width columns for better display */
+.athletes-table th:nth-child(1) {
+  width: 11%;
+} /* Name */
+.athletes-table th:nth-child(2) {
+  width: 14%;
+} /* Email */
+.athletes-table th:nth-child(3) {
+  width: 9%;
+} /* Phone */
+.athletes-table th:nth-child(4) {
+  width: 9%;
+} /* Team */
+.athletes-table th:nth-child(5) {
+  width: 7%;
+} /* Gender */
+.athletes-table th:nth-child(6) {
+  width: 6%;
+} /* Age */
+.athletes-table th:nth-child(7) {
+  width: 10%;
+} /* Bodyweight */
+.athletes-table th:nth-child(8) {
+  width: 12%;
+} /* Competition */
+.athletes-table th:nth-child(9) {
+  width: 7%;
+} /* Status */
+.athletes-table th:last-child {
+  width: 15%; /* Actions column */
+}
+
+.athletes-table td {
+  padding: 0.75rem 0.5rem;
+  border-bottom: 1px solid #dee2e6;
+  vertical-align: middle;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 0; /* Enable text-overflow ellipsis */
+}
+
+.athletes-table td:last-child {
+  text-align: center;
+  white-space: nowrap;
+  overflow: visible; /* Allow actions to be fully visible */
+  max-width: none; /* Remove width restriction for actions column */
+  vertical-align: left; /* Ensure proper vertical alignment */
+}
+
+.athletes-table tbody tr:hover {
+  background-color: #f8f9fa;
+}
+
+/* Status Badge */
+.status-badge {
+  padding: 0.25rem 0.5rem;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-transform: uppercase;
+}
+
+.status-badge.active {
+  background-color: #d4edda;
+  color: #155724;
+}
+
+.status-badge.inactive {
+  background-color: #f8d7da;
+  color: #721c24;
+}
+
+/* Action Buttons */
+.actions {
+  display: flex;
+  /* justify-content: center; */
+  gap: 0.25rem;
+  align-items: center;
+  width: 100%;
+  padding: 0 0.25rem;
+  height: 100%; /* Take full height of the cell */
+}
+
+.actions .btn {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.7rem;
+  min-width: 55px; /* Increased minimum width */
+  flex-shrink: 0; /* Prevent button shrinking */
+  border-radius: 3px;
+  white-space: nowrap; /* Prevent text wrapping */
+}
+
+/* Button Styles */
+.btn {
+  display: inline-block;
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 4px;
+  text-decoration: none;
+  text-align: center;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.btn-primary {
+  background-color: #3498db;
+  color: white;
+}
+
+.btn-primary:hover {
+  background-color: #2980b9;
+}
+
+.btn-secondary {
+  background-color: #6c757d;
+  color: white;
+}
+
+.btn-secondary:hover {
+  background-color: #5a6268;
+}
+
+.btn-danger {
+  background-color: #e74c3c;
+  color: white;
+}
+
+.btn-danger:hover {
+  background-color: #c0392b;
+}
+
+.btn-sm {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.8rem;
+}
+
+/* Modal Styles */
+.modal {
+  display: none;
+  position: fixed;
+  z-index: 1000;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+}
+
+.modal-content {
+  background-color: white;
+  margin: 5% auto;
+  padding: 0;
+  border-radius: 8px;
+  width: 90%;
+  max-width: 600px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem;
+  border-bottom: 1px solid #dee2e6;
+}
+
+.modal-header h2 {
+  margin: 0;
+  color: #2c3e50;
+}
+
+.close {
+  font-size: 1.5rem;
+  font-weight: bold;
+  cursor: pointer;
+  color: #999;
+}
+
+.close:hover {
+  color: #000;
+}
+
+.modal-body {
+  padding: 1.5rem;
+}
+
+/* Form Styles */
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  padding: 1.5rem;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.form-group.full-width {
+  grid-column: 1 / -1;
+}
+
+.form-group label {
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+  color: #495057;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+  padding: 0.75rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 0.9rem;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+  outline: none;
+  border-color: #3498db;
+  box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.checkbox-label input[type="checkbox"] {
+  margin-right: 0.5rem;
+  width: auto;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+  padding: 1.5rem;
+  border-top: 1px solid #dee2e6;
+}
+
+/* Pagination */
+.pagination-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.pagination-info {
+  color: #6c757d;
+  font-size: 0.9rem;
+}
+
+.pagination {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.page-link {
+  padding: 0.5rem 0.75rem;
+  text-decoration: none;
+  color: #3498db;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+}
+
+.page-link:hover {
+  background-color: #e9ecef;
+}
+
+.page-link.active {
+  background-color: #3498db;
+  color: white;
+  border-color: #3498db;
+}
+
+.page-ellipsis {
+  padding: 0.5rem 0.75rem;
+  color: #6c757d;
+}
+
+/* Back Link */
+.back-link {
+  display: inline-block;
+  margin-top: 2rem;
+  color: #3498db;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.back-link:hover {
+  text-decoration: underline;
+}
+
+/* Icons */
+.icon-plus::before {
+  content: "➕";
+}
+.icon-edit::before {
+  content: "✏️";
+}
+.icon-delete::before {
+  content: "🗑️";
+}
+
+/* Responsive Design */
+@media (max-width: 1200px) {
+  .search-controls {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .athletes-management {
+    padding: 1rem;
+  }
+
+  .header-section {
+    flex-direction: column;
+    gap: 1rem;
+    align-items: stretch;
+  }
+
+  .athletes-table {
+    font-size: 0.8rem;
+  }
+
+  .athletes-table th,
+  .athletes-table td {
+    padding: 0.5rem 0.25rem;
+  }
+
+  .modal-content {
+    width: 95%;
+    margin: 2% auto;
+  }
+}
+
+/* Loading States */
+.loading {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.loading::after {
+  content: "";
+  display: block;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 20px;
+  height: 20px;
+  border: 2px solid #f3f3f3;
+  border-top: 2px solid #3498db;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% {
+    transform: translate(-50%, -50%) rotate(0deg);
+  }
+  100% {
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
+}
+
+/* Responsive Design for smaller screens */
+@media (max-width: 1200px) {
+  .athletes-table {
+    min-width: 1000px;
+  }
+
+  .athletes-table th:nth-child(1) {
+    width: 12%;
+  } /* Name */
+  .athletes-table th:nth-child(2) {
+    width: 14%;
+  } /* Email */
+  .athletes-table th:nth-child(3) {
+    width: 9%;
+  } /* Phone */
+  .athletes-table th:nth-child(4) {
+    width: 9%;
+  } /* Team */
+  .athletes-table th:nth-child(5) {
+    width: 7%;
+  } /* Gender */
+  .athletes-table th:nth-child(6) {
+    width: 6%;
+  } /* Age */
+  .athletes-table th:nth-child(7) {
+    width: 10%;
+  } /* Bodyweight */
+  .athletes-table th:nth-child(8) {
+    width: 11%;
+  } /* Competition */
+  .athletes-table th:nth-child(9) {
+    width: 7%;
+  } /* Status */
+  .athletes-table th:last-child {
+    width: 15%;
+  } /* Actions */
+}
+
+@media (max-width: 768px) {
+  .search-controls {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
+
+  .athletes-table {
+    font-size: 0.8rem;
+    min-width: 800px; /* Reduced for mobile but still readable */
+  }
+
+  .actions {
+    flex-direction: column; /* Stack buttons vertically on mobile */
+    gap: 0.1rem;
+  }
+
+  .actions .btn {
+    font-size: 0.65rem;
+    padding: 0.2rem 0.4rem;
+    min-width: 50px; /* Increased from 45px */
+    width: 100%; /* Full width when stacked */
+  }
+}
