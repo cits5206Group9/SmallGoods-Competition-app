@@ -42,7 +42,6 @@ class User(db.Model):
 
     # Relationships
     referee_assignments = db.relationship("RefereeAssignment", backref="user", lazy=True)
-    workouts = db.relationship("Workout", backref="user", lazy=True)
 
 # Competition Structure
 class Competition(db.Model):
@@ -51,7 +50,6 @@ class Competition(db.Model):
     name = db.Column(db.String(200), nullable=False)
     description = db.Column(db.Text)
     start_date = db.Column(db.Date, nullable=False)
-    end_date = db.Column(db.Date)
     sport_type = db.Column(db.Enum(SportType), nullable=False)
     is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -68,65 +66,29 @@ class Event(db.Model):
     name = db.Column(db.String(150), nullable=False)
     weight_category = db.Column(db.String(50))
     gender = db.Column(db.String(10))
-    scoring_type = db.Column(db.Enum(ScoringType), nullable=False)
     is_active = db.Column(db.Boolean, default=False)
-    current_lift_id = db.Column(db.Integer, db.ForeignKey("lift.id"))
 
     # Relationships
-    lifts = db.relationship("Lift", backref="event", lazy=True, cascade="all, delete-orphan", foreign_keys="[Lift.event_id]")
     flights = db.relationship("Flight", backref="event", lazy=True, cascade="all, delete-orphan")
-    current_lift = db.relationship("Lift", foreign_keys=[current_lift_id], post_update=True)
-
-class SportCategory(db.Model):
-    """Olympic or PowerLifting"""
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(100), nullable=False)
-    is_active = db.Column(db.Boolean, default=False)
-
-    # Relationships
-    exercises = db.relationship("Exercise", backref="sport_category", lazy=True, cascade="all, delete-orphan")
-
-class Exercise(db.Model):
-    """Specific exercises"""
-    id = db.Column(db.Integer, primary_key=True)
-    sport_category_id = db.Column(db.Integer, db.ForeignKey("sport_category.id"), nullable=False)
-    name = db.Column(db.String(100), nullable=False)
-    order = db.Column(db.Integer, nullable=False)
-    attempt_time_limit = db.Column(db.Integer, default=60)
-    break_time_default = db.Column(db.Integer, default=120)
-
-    # Relationships
-    competition_types = db.relationship("CompetitionType", backref="exercise", lazy=True, cascade="all, delete-orphan")
-
-class Lift(db.Model):
-    """Types of lifts in an event"""
-    id = db.Column(db.Integer, primary_key=True)
-    event_id = db.Column(db.Integer, db.ForeignKey("event.id"), nullable=False)
-    name = db.Column(db.String(100), nullable=False)
-    order = db.Column(db.Integer, nullable=False)
-    max_attempts = db.Column(db.Integer, default=3)
-    attempt_time_seconds = db.Column(db.Integer, default=60)
-    break_time_seconds = db.Column(db.Integer, default=120)
-    
-    # Relationships
-    attempts = db.relationship("Attempt", backref="lift", lazy=True, foreign_keys="[Attempt.lift_id]")
 
 class Flight(db.Model):
     """Groups of athletes competing together"""
     id = db.Column(db.Integer, primary_key=True)
-    event_id = db.Column(db.Integer, db.ForeignKey("event.id"), nullable=False)
+    event_id = db.Column(db.Integer, db.ForeignKey("event.id"), nullable=True)
+    competition_id = db.Column(db.Integer, db.ForeignKey("competition.id"), nullable=True)
     name = db.Column(db.String(50), nullable=False)
     order = db.Column(db.Integer, nullable=False)
     is_active = db.Column(db.Boolean, default=False)
     
     # Relationships
     athlete_flights = db.relationship("AthleteFlight", backref="flight", lazy=True)
+    competition = db.relationship("Competition", backref="flights", lazy=True)
 
 class Athlete(db.Model):
     """Competition participants"""
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
-    competition_id = db.Column(db.Integer, db.ForeignKey("competition.id"), nullable=False)
+    competition_id = db.Column(db.Integer, db.ForeignKey("competition.id"), nullable=True)
     first_name = db.Column(db.String(80), nullable=False)
     last_name = db.Column(db.String(80), nullable=False)
     gender = db.Column(db.String(10))
@@ -142,22 +104,18 @@ class Athlete(db.Model):
     # Relationships
     flights = db.relationship("AthleteFlight", backref="athlete", lazy=True)
     entries = db.relationship("AthleteEntry", backref="athlete", lazy=True)
-
-# Competition Types and Entries
-class CompetitionType(db.Model):
-    """Competition type configuration"""
-    id = db.Column(db.Integer, primary_key=True)
-    exercise_id = db.Column(db.Integer, db.ForeignKey("exercise.id"), nullable=False)
-    name = db.Column(db.String(100), nullable=False)
-    is_active = db.Column(db.Boolean, default=False)
-
-    # Relationships
-    athlete_entries = db.relationship("AthleteEntry", backref="competition_type", lazy=True, cascade="all, delete-orphan")
+    
+    @property
+    def attempts(self):
+        """Get all attempts for this athlete across all entries"""
+        all_attempts = []
+        for entry in self.entries:
+            all_attempts.extend(entry.attempts)
+        return all_attempts
 
 class AthleteEntry(db.Model):
     """Athletes entered in specific competition types"""
     id = db.Column(db.Integer, primary_key=True)
-    competition_type_id = db.Column(db.Integer, db.ForeignKey("competition_type.id"), nullable=False)
     athlete_id = db.Column(db.Integer, db.ForeignKey("athlete.id"), nullable=False)
     entry_order = db.Column(db.Integer)
     is_active = db.Column(db.Boolean, default=True)
@@ -171,6 +129,7 @@ class AthleteFlight(db.Model):
     athlete_id = db.Column(db.Integer, db.ForeignKey("athlete.id"), nullable=False)
     flight_id = db.Column(db.Integer, db.ForeignKey("flight.id"), nullable=False)
     lot_number = db.Column(db.Integer)
+    order = db.Column(db.Integer, default=0)  # Order within the flight for attempts
 
 # Attempt and Referee System
 class Attempt(db.Model):
@@ -184,11 +143,6 @@ class Attempt(db.Model):
     athlete_entry_id = db.Column(
         db.Integer, 
         db.ForeignKey("athlete_entry.id", name="fk_attempt_athlete_entry_id"), 
-        nullable=False
-    )
-    lift_id = db.Column(
-        db.Integer, 
-        db.ForeignKey("lift.id", name="fk_attempt_lift_id"), 
         nullable=False
     )
     attempt_number = db.Column(db.Integer, nullable=False)
@@ -207,7 +161,6 @@ class RefereeAssignment(db.Model):
     """Referee assignments"""
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
-    competition_type_id = db.Column(db.Integer, db.ForeignKey("competition_type.id"), nullable=False)
     referee_position = db.Column(db.String(20))
     is_active = db.Column(db.Boolean, default=True)
 
@@ -227,7 +180,6 @@ class RefereeDecision(db.Model):
 class Timer(db.Model):
     """Timer management"""
     id = db.Column(db.Integer, primary_key=True)
-    competition_type_id = db.Column(db.Integer, db.ForeignKey("competition_type.id"), nullable=False)
     timer_type = db.Column(db.String(20), nullable=False)
     duration_seconds = db.Column(db.Integer, nullable=False)
     remaining_seconds = db.Column(db.Integer, nullable=False)
@@ -239,7 +191,6 @@ class Timer(db.Model):
     current_athlete_id = db.Column(db.Integer, db.ForeignKey("athlete.id"))
 
     # Relationships
-    competition_type = db.relationship("CompetitionType", backref="timers")
     current_attempt = db.relationship("Attempt", foreign_keys=[current_attempt_id])
     current_athlete = db.relationship("Athlete", foreign_keys=[current_athlete_id])
 
@@ -294,22 +245,3 @@ class Referee(db.Model):
 
     def __repr__(self):
         return f'<Referee {self.name} ({self.username})>'
-
-# Legacy Support
-class Workout(db.Model):
-    """Legacy workout tracking"""
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
-    date = db.Column(db.Date, default=datetime.utcnow)
-    notes = db.Column(db.Text)
-
-class WorkoutExercise(db.Model):
-    """Legacy workout exercises"""
-    id = db.Column(db.Integer, primary_key=True)
-    workout_id = db.Column(db.Integer, db.ForeignKey("workout.id"), nullable=False)
-    sets = db.Column(db.Integer, default=3)
-    reps = db.Column(db.Integer, default=10)
-    weight = db.Column(db.Float, default=0.0)
-
-    # Relationships
-    workout = db.relationship("Workout", backref="items")

@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, request, jsonify, session, redirect, url_for
 from ..extensions import db
-from ..models import Competition, SportType, Exercise, CompetitionType, Referee
+from ..models import Competition, SportType, Referee
 from ..utils.referee_generator import generate_sample_referee_data, generate_random_username, generate_random_password
 from datetime import datetime
 
@@ -89,7 +89,6 @@ def save_competition_model():
         competition.sport_type = SportType(data['sport_type'])
         competition.description = f"Sport type: {data['sport_type']}"
         competition.start_date = datetime.now().date()
-        competition.end_date = datetime.now().date()
         competition.is_active = True
         
         # Store the complete configuration including events, movements, and groups
@@ -136,8 +135,7 @@ def get_competitions():
                 'name': comp.name,
                 'sport_type': comp.sport_type.value if comp.sport_type else None,
                 'is_active': comp.is_active,
-                'start_date': comp.start_date.isoformat() if comp.start_date else None,
-                'end_date': comp.end_date.isoformat() if comp.end_date else None
+                'start_date': comp.start_date.isoformat() if comp.start_date else None
             }
             for comp in competitions
         ])
@@ -165,7 +163,6 @@ def get_competition_details(competition_id):
             'description': competition.description,
             'is_active': competition.is_active,
             'start_date': competition.start_date.isoformat() if competition.start_date else None,
-            'end_date': competition.end_date.isoformat() if competition.end_date else None,
             'events': events,
             'config': competition.config
         })
