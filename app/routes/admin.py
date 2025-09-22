@@ -414,7 +414,6 @@ def flights_management():
                              events=[],
                              athletes=[],
                              flights=[])
->>>>>>> deddd38 (Link Flight with athletes)
 
 # Athlete API Routes
 @admin_bp.route('/athletes', methods=['POST'])
@@ -1048,9 +1047,6 @@ def get_competition_events(competition_id):
             'status': 'error',
             'message': 'Failed to retrieve events: ' + str(e)
         }), 500
-<<<<<<< HEAD
->>>>>>> 9480c1c (athelete flights managment v3)
-=======
 
 @admin_bp.route('/flights/<int:flight_id>/available-athletes', methods=['GET'])
 def get_available_athletes_for_flight(flight_id):
@@ -1399,9 +1395,6 @@ def remove_athlete_from_flight(flight_id, athlete_id):
             'status': 'error',
             'message': 'Failed to remove athlete from flight: ' + str(e)
         }), 500
-<<<<<<< HEAD
->>>>>>> 78cb8ad (1.Add pagination for athletes management page)
-=======
 
 @admin_bp.route('/flights/<int:flight_id>/athletes/reorder', methods=['POST'])
 def reorder_flight_athletes(flight_id):

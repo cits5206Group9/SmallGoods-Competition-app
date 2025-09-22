@@ -1,444 +1,532 @@
 from flask import Blueprint, render_template, request, jsonify
+from sqlalchemy.orm import joinedload
+from datetime import datetime, timedelta
+
 from ..extensions import db
-from ..models import Competition, CompetitionDay, SportCategory, Exercise, CompetitionType
-from datetime import datetime
+from ..models import (
+    Athlete,
+    AthleteEntry,
+    Competition,
+    Event,
+    Flight,
+    Attempt,
+    AttemptResult,
+    CompetitionType,
+    Exercise,
+    SportCategory,
+    Lift,
+    AthleteFlight,
+)
 
-athlete_bp = Blueprint('athlete', __name__, url_prefix='/athlete')
+from .admin import (
+    get_competitions,
+    get_competition_model,
+    get_competition_events,
+    get_event_flights,
+    get_flight_athletes,
+)
 
-# --- Athlete Routes --- #
+athlete_bp = Blueprint("athlete", __name__, url_prefix="/athlete")
 
-# Mock data for athlete events
-athlete_events_data = [
-        {
-            'type': 'Weightlifting',
-            'flight': 'Flight 1',
-            'opener': '25',
-            'rank': 4,
-            'attempts': {
-                'snatch': [
-                    {'order': 1, 'weight': 25, 'result': 'Success'},
-                    {'order': 2, 'weight': 28, 'result': 'Success'},
-                    {'order': 3, 'weight': 30, 'result': None, 'time': 300}
-                ],
-                'clean_and_jerk': [
-                    {'order': 1, 'weight': 35, 'result': None},
-                    {'order': 2, 'weight': 40, 'result': None},
-                    {'order': 3, 'weight': 45, 'result': None}
-                ]
-            }
-        },
-        {
-            'type': 'Powerlifting',
-            'flight': 'Flight 2',
-            'opener': '40',
-            'rank': 3,
-            'attempts': {
-                'squat': [
-                    {'order': 1, 'weight': 40, 'result': None},
-                    {'order': 2, 'weight': 160, 'result': None},
-                    {'order': 3, 'weight': 170, 'result': None}
-                ],
-                'bench_press': [
-                    {'order': 1, 'weight': 100, 'result': None},
-                    {'order': 2, 'weight': 105, 'result': None},
-                    {'order': 3, 'weight': 110, 'result': None}
-                ],
-                'deadlift': [
-                    {'order': 1, 'weight': 180, 'result': None},
-                    {'order': 2, 'weight': 190, 'result': None},
-                    {'order': 3, 'weight': 200, 'result': None}
-                ]
-            }
-        }
-    ]
+# Helpers ---------------------------------------------------------------------------
+
+# NOTE: Only user detail uses mock data for now.
+MOCK_USER_ID = 1  # replace with real auth when available
 
 
-def determine_competition_status(event):
+def resolve_current_athlete():
     """
-    Determine competition status based on attempt results
-    Returns: 'Not Started', 'In Progress', or 'Completed'
+    Resolve the current athlete row from the DB.
+    This would use the authenticated user's email.
     """
-    if not event.get('attempts'):
-        return 'Not Registered'
-    # TODO: CHANGE TO THIS AFTER DB IS READY
-    # if not event.attempts.count():
-    #     return 'Not Registered'
-
-    total_attempts = 0
-    completed_attempts = 0
-    has_next = False
-
-    # Check all attempts in all lift types
-    for lift_type, attempts in event['attempts'].items():
-        for attempt in attempts:
-            total_attempts += 1
-            if attempt.get('result'):
-                completed_attempts += 1
-            elif attempt.get('status') == 'Next':
-                has_next = True
-
-    # Determine status based on attempt completion
-    if completed_attempts == 0:
-        return 'Not Started'
-    elif completed_attempts == total_attempts:
-        return 'Completed'
-    elif has_next or completed_attempts > 0:
-        return 'In Progress'
-    else:
-        return 'Pending'
-
-    # TODO: CHANGE TO THIS AFTER DB IS READY
-    # total_attempts = event.attempts.count()
-    # completed_attempts = event.attempts.filter(Attempt.final_result.isnot(None)).count()
-    # has_next = event.attempts.filter(Attempt.status == 'Next').first() is not None
-
-    # if completed_attempts == 0:
-    #     return 'Not Started'
-    # elif completed_attempts == total_attempts:
-    #     return 'Completed'
-    # elif has_next or completed_attempts > 0:
-    #     return 'In Progress'
-    # else:
-    #     return 'Pending'
-
-
-def determine_attempt_status(attempts, current_attempt):
-    """Helper function to determine attempt status based on order and completion"""
-    if current_attempt.get('result'):
-    # TODO: CHANGE TO THIS AFTER DB IS READY
-    # if current_attempt.final_result:
-        return 'Completed'
+    # Mock user login data - in production this would come from session/auth
+    mock_user_email = "amy@email.com"
     
-    # Find the first non-completed attempt in this lift type
-    pending_attempts = [a for a in attempts if not a.get('result')]
-    if pending_attempts and pending_attempts[0]['order'] == current_attempt['order']:
-    # pending_attempts = [a for a in attempts if not a.final_result]
-    # if pending_attempts and pending_attempts[0].attempt_number == current_attempt.attempt_number:
-        return 'Next'
-    
-    return 'Pending'
-
-# def find_next_attempt():
-#     """Helper function to query the next attempt from database"""
-#     return Attempt.query.join(
-#         AthleteEntry
-#     ).filter(
-#         AthleteEntry.athlete_id == current_user.id,
-#         Attempt.final_result.is_(None)
-#     ).order_by(
-#         Attempt.attempt_number
-#     ).first()
+    return (
+        Athlete.query.options(
+            joinedload(Athlete.competition),
+            joinedload(Athlete.entries).joinedload(AthleteEntry.competition_type),
+            joinedload(Athlete.flights)
+        )
+        .filter(
+            Athlete.email == mock_user_email # In production, this would use the authenticated user's ID.
+        )
+        .first()
+    )
 
 
-@athlete_bp.route('/next-attempt-timer')
-def get_next_attempt_timer():
-    try:
-        # TODO: CHANGE TO THIS AFTER DB IS READY
-        # Example with SQLAlchemy:
-        """
-        next_attempt = find_next_attempt()
-        if next_attempt:
-            return jsonify({
-                'time': next_attempt.time_remaining or 600,
-                'event_type': next_attempt.athlete_entry.competition_type.exercise.sport_category.name,
-                'lift_type': next_attempt.lift_type,
-                'order': next_attempt.attempt_number,
-                'weight': next_attempt.requested_weight
-            })
-        return jsonify({'error': 'No next attempt found'})
-    except Exception as e:
-        print(f"Error fetching next attempt timer: {str(e)}")
-        return jsonify({'error': 'Error fetching timer data'}), 500
-        """
-        
-        # Using mock data for now
-        for event in athlete_events_data:
-            if event['type'] == 'Weightlifting':
-                # Determine status for snatch attempts
-                snatch_attempts = event['attempts']['snatch']
-                for attempt in snatch_attempts:
-                    attempt['status'] = determine_attempt_status(snatch_attempts, attempt)
-                    if attempt['status'] == 'Next':
-                        return jsonify({
-                            'time': attempt.get('time', 300),  # Default to 300 if not specified
-                            'event_type': 'Weightlifting',
-                            'lift_type': 'Snatch',
-                            'order': attempt['order'],
-                            'weight': attempt['weight']
-                        })
-                
-                # Determine status for clean_and_jerk attempts
-                clean_and_jerk_attempts = event['attempts']['clean_and_jerk']
-                for attempt in clean_and_jerk_attempts:
-                    attempt['status'] = determine_attempt_status(clean_and_jerk_attempts, attempt)
-                    if attempt['status'] == 'Next':
-                        return jsonify({
-                            'time': attempt.get('time', 300),  # Default to 300 if not specified
-                            'event_type': 'Weightlifting',
-                            'lift_type': 'Clean & Jerk',
-                            'order': attempt['order'],
-                            'weight': attempt['weight']
-                        })
-                        
-        return jsonify({'error': 'No next attempt found'})
-    except Exception as e:
-        print(f"Error fetching next attempt timer: {str(e)}")
-        return jsonify({'error': 'Error fetching timer data'}), 500
-
-
-@athlete_bp.route('/update-attempt-weight', methods=['POST'])
-def update_attempt_weight():
-    try:
-        attempt_id = request.form.get('attempt_id')
-        new_weight = float(request.form.get('weight'))
-        # TODO: CHANGE TO THIS AFTER DB IS READY, NOT SURE IF BELOW IS CORRECT SO CHECK LATER
-        """
-        attempt = Attempt.query.get_or_404(request.form.get('attempt_id'))
-        
-        # Verify this attempt belongs to current user
-        if attempt.athlete_entry.athlete_id != current_user.id:
-            flash('Unauthorized access', 'error')
-            return redirect(url_for('athlete.athlete_dashboard'))
-        
-        attempt.requested_weight = float(request.form.get('weight'))
-        db.session.commit()
-        
-        flash(f'Successfully updated weight to {attempt.requested_weight}kg', 'success')
-        """
-
-        # Find the attempt in mock data (change to DB query later)
-        for event in athlete_events_data:
-            attempts = event['attempts']
-            for lift_type in attempts:
-                for attempt in attempts[lift_type]:
-                    if attempt.get('id') == attempt_id:
-                        attempt['weight'] = new_weight
-                        return jsonify({
-                            'success': True,
-                            'weight': new_weight,
-                            'message': f'Successfully updated weight to {new_weight}kg'
-                        })
-        
-        return jsonify({
-            'success': False,
-            'error': 'Attempt not found'
-        }), 404
-        
-    except Exception as e:
-        print(f"Error updating attempt weight: {str(e)}")
-        return jsonify({
-            'success': False,
-            'error': 'Error updating weight'
-        }), 500
-
-@athlete_bp.route('/event-detail')
-def get_event_detail():
-    try:
-        event_type = request.args.get('event_type', '').lower()
-        
-        if event_type == 'weightlifting':
-            event_type = 'Weightlifting'
-        elif event_type == 'powerlifting':
-            event_type = 'Powerlifting'
-
-        # Find the event in athlete_events_data
-        matching_events = [event for event in athlete_events_data if event['type'] == event_type]
-        
-        if matching_events:
-            event = matching_events[0]
-            return jsonify({
-                'type': event['type'],
-                'flight': event.get('flight'),
-                'opener': event.get('opener'),
-                'status': event.get('status'),
-                'attempts': event.get('attempts', {})
-            })
-        
-        return jsonify({
-            'type': event_type,
-            'flight': None,
-            'opener': None,
-            'status': 'Not Registered',
-            'attempts': {}
-        })
-    except Exception as e:
-        print(f"Error fetching event detail: {str(e)}")
-        return jsonify({'error': 'Error fetching event data'}), 500
-    
-    # TODO: CHANGE TO THIS AFTER DB IS READY
+def get_my_flights(athlete_id, competition_id):
     """
-    try:
-        event_type = request.args.get('event_type')
-        if not event_type:
-            return jsonify({'error': 'Event type is required'}), 400
+    Return a list of flights (with event/competition info) the athlete is assigned to,
+    using admin.py's endpoints to keep JSON shapes consistent.
+    """
+    my_flights = []
 
-        # Get athlete's event entry for the specified event type
-        event = AthleteEntry.query.join(
-            CompetitionType,
-            Exercise,
-            SportCategory
-        ).filter(
-            AthleteEntry.athlete_id == current_user.id,
-            SportCategory.name == event_type
-        ).first()
+    # 1) List all events for this competition via admin helper
+    comp_events_resp = get_competition_events(competition_id)
+    comp_events = comp_events_resp.get_json() if hasattr(comp_events_resp, "get_json") else []
 
-        if event:
-            # Get all attempts for this event
-            attempts = event.attempts.order_by(Attempt.attempt_number).all()
-            for attempt in attempts:
-                attempt.status = determine_attempt_status(attempts, attempt)
+    for ev in comp_events or []:
+        event_id = ev["id"]
 
-            return jsonify({
-                'type': event_type,
-                'flight': event.flight,
-                'opener': event.opener,
-                'status': determine_competition_status(event),
-                'attempts': {
-                    'snatch': [
-                        {
-                            'order': a.attempt_number,
-                            'weight': a.requested_weight,
-                            'result': a.final_result,
-                            'status': a.status,
-                            'time': a.time_remaining
-                        } for a in attempts if a.lift_type == 'snatch'
-                    ],
-                    'clean_and_jerk': [
-                        {
-                            'order': a.attempt_number,
-                            'weight': a.requested_weight,
-                            'result': a.final_result,
-                            'status': a.status,
-                            'time': a.time_remaining
-                        } for a in attempts if a.lift_type == 'clean_and_jerk'
-                    ]
-                } if event_type == 'Weightlifting' else {
-                    'squat': [
-                        {
-                            'order': a.attempt_number,
-                            'weight': a.requested_weight,
-                            'result': a.final_result,
-                            'status': a.status,
-                            'time': a.time_remaining
-                        } for a in attempts if a.lift_type == 'squat'
-                    ],
-                    'bench_press': [
-                        {
-                            'order': a.attempt_number,
-                            'weight': a.requested_weight,
-                            'result': a.final_result,
-                            'status': a.status,
-                            'time': a.time_remaining
-                        } for a in attempts if a.lift_type == 'bench_press'
-                    ],
-                    'deadlift': [
-                        {
-                            'order': a.attempt_number,
-                            'weight': a.requested_weight,
-                            'result': a.final_result,
-                            'status': a.status,
-                            'time': a.time_remaining
-                        } for a in attempts if a.lift_type == 'deadlift'
-                    ]
+        # 2) For each event, fetch its flights (admin helper)
+        flights_resp = get_event_flights(event_id)
+        flights = flights_resp.get_json() if hasattr(flights_resp, "get_json") else []
+
+        # 3) For each flight, fetch its athletes (admin helper) and see if we're in it
+        for f in flights or []:
+            fa_resp = get_flight_athletes(f["id"])
+            fa = fa_resp.get_json() if hasattr(fa_resp, "get_json") else {}
+            athlete_rows = (fa or {}).get("athletes", [])
+            if any(a["id"] == athlete_id for a in athlete_rows):
+                # normalize a compact record for the dashboard
+                my_flights.append(
+                    {
+                        "flight_id": f["id"],
+                        "flight_name": f["name"],
+                        "flight_order": f.get("order"),
+                        "event_id": event_id,
+                        "event_name": ev["name"],
+                    }
+                )
+
+    # Fallback: if admin endpoints above are unavailable for any reason,
+    # read from DB directly.
+    if not my_flights:
+        q = (
+            db.session.query(Flight, Event)
+            .join(Event, Flight.event_id == Event.id)
+            .join(AthleteFlight, AthleteFlight.flight_id == Flight.id)
+            .filter(AthleteFlight.athlete_id == athlete_id)
+            .order_by(Event.id.asc(), Flight.order.asc())
+        )
+        for flight, event in q.all():
+            my_flights.append(
+                {
+                    "flight_id": flight.id,
+                    "flight_name": flight.name,
+                    "flight_order": flight.order,
+                    "event_id": event.id,
+                    "event_name": event.name,
                 }
-            })
-        """
-@athlete_bp.route('/')
+            )
+
+    return my_flights
+
+
+def next_pending_attempt(athlete_id):
+    """
+    Find the athlete's next pending attempt across all entries.
+    Returns an Attempt row with relationships loaded, or None.
+    """
+    return (
+        Attempt.query.options(
+            joinedload(Attempt.athlete_entry)
+            .joinedload(AthleteEntry.competition_type)
+            .joinedload(CompetitionType.exercise)
+            .joinedload(Exercise.sport_category),
+            joinedload(Attempt.lift),
+        )
+        .join(AthleteEntry, Attempt.athlete_entry_id == AthleteEntry.id)
+        .filter(
+            AthleteEntry.athlete_id == athlete_id,
+            Attempt.final_result.is_(None),  # not completed yet
+        )
+        .order_by(Attempt.started_at.is_(True), Attempt.attempt_number.asc())
+        .first()
+    )
+
+
+def attempt_time_remaining(attempt: Attempt) -> int:
+    """
+    Compute time remaining (seconds) for an attempt based on the exercise's attempt_time_limit
+    and when the attempt started (if started_at is set). If not started, return the full limit.
+    """
+    # Default to the exercise's configured time limit; fall back to 60s
+    try:
+        time_limit = (
+            attempt.athlete_entry.competition_type.exercise.attempt_time_limit or 60
+        )
+    except Exception:
+        time_limit = 60
+
+    if attempt.started_at:
+        elapsed = (datetime.utcnow() - attempt.started_at).total_seconds()
+        remaining = max(0, int(time_limit - elapsed))
+    else:
+        remaining = int(time_limit)
+
+    return remaining
+
+
+# Views / API ---------------------------------------------------------------------------
+
+@athlete_bp.route("/")
 def athlete_dashboard():
-    athlete_data = {
-        'name': 'Ann',
-        'id': 'ann@email.com',
-        'gender': 'F'
-    }
-    
-    competition_data = {
-        'name': '2025 SG Throwdown',
-        'date': 'Sept 12-15, 2025',
-    }
-    
-    # Update attempt statuses for all events
-    for event in athlete_events_data:
-        if event['type'] == 'Weightlifting':
-            for lift_type in ['snatch', 'clean_and_jerk']:
-                attempts = event['attempts'][lift_type]
-                for attempt in attempts:
-                    attempt['status'] = determine_attempt_status(attempts, attempt)
-        elif event['type'] == 'Powerlifting':
-            for lift_type in ['squat', 'bench_press', 'deadlift']:
-                attempts = event['attempts'][lift_type]
-                for attempt in attempts:
-                    attempt['status'] = determine_attempt_status(attempts, attempt)
-        
-        # Update event status
-        event['status'] = determine_competition_status(event)
+    """
+    Athlete dashboard.
+    - Athlete details: mock-based user data + DB athlete row if present.
+    - Competition/event/flight: pulled through admin.py helpers.
+    """
+    athlete_row = resolve_current_athlete()
 
-    # Find next attempt for timer
-    next_attempt = None
-    for event in athlete_events_data:
-        if event['type'] == 'Weightlifting':
-            for lift_type in ['snatch', 'clean_and_jerk']:
-                for attempt in event['attempts'][lift_type]:
-                    if attempt['status'] == 'Next':
-                        next_attempt = {
-                            'event_type': 'Weightlifting',
-                            'lift_type': lift_type.replace('_', ' ').title(),
-                            'order': attempt['order'],
-                            'weight': attempt['weight'],
-                            'time': attempt.get('time', 300)
+    # Format athlete data with configuration, providing defaults if no athlete found
+    athlete_config = {
+        'id': None,
+        'profile': {
+            'first_name': 'Demo',
+            'last_name': 'Athlete',
+            'team': '—',
+            'gender': '—',
+            'bodyweight': None,
+            'age': None,
+            'email': None,
+            'phone': None
+        },
+        'competition_state': {
+            'current_attempt_number': None,
+            'is_active': False
+        },
+        'entries': []
+    }
+
+    if athlete_row:
+        # Build full athlete configuration
+        athlete_config = {
+            'id': athlete_row.id,
+            'profile': {
+                'first_name': athlete_row.first_name,
+                'last_name': athlete_row.last_name,
+                'team': athlete_row.team,
+                'gender': athlete_row.gender,
+                'bodyweight': athlete_row.bodyweight,
+                'age': athlete_row.age,
+                'email': athlete_row.email,
+                'phone': athlete_row.phone
+            },
+            'competition_state': {
+                'current_attempt_number': athlete_row.current_attempt_number,
+                'is_active': athlete_row.is_active
+            },
+            'entries': []
+        }
+
+        # Add entry configurations
+        for entry in athlete_row.entries:
+            entry_config = {
+                'id': entry.id,
+                'competition_type': {
+                    'id': entry.competition_type.id,
+                    'name': entry.competition_type.name,
+                    'exercise': {
+                        'name': entry.competition_type.exercise.name,
+                        'sport_category': {
+                            'name': entry.competition_type.exercise.sport_category.name
                         }
-                        break
-                if next_attempt:
-                    break
-            if next_attempt:
-                break
-    
-    # TODO: CHANGE TO THIS AFTER DB IS READY
-    """
-    # Get athlete data from database
-    athlete = Athlete.query.get_or_404(current_user.id)
-    
-    # Get athlete's events with all related data
-    athlete_events = AthleteEntry.query.options(
-        joinedload('competition_type')
-        .joinedload('exercise')
-        .joinedload('sport_category')
-    ).filter_by(athlete_id=current_user.id).all()
-    
-    # Get current competition
-    competition = Competition.query.join(
-        CompetitionDay
-    ).filter(
-        CompetitionDay.date >= datetime.now()
-    ).first()
+                    }
+                },
+                'opening_weights': entry.opening_weights or {},
+                'attempts': [],
+                'scores': []
+            }
 
-    # Convert database objects to dict format matching current template
-    athlete_data = {
-        'name': f"{athlete.first_name}",
-        'id': athlete.email,
-        'gender': athlete.gender
-    }
-    
-    competition_data = {
-        'name': competition.name,
-        'date': competition.start_date.strftime('%B %d-%d, %Y')
-    }
+            # Add attempts
+            for attempt in sorted(entry.attempts, key=lambda x: x.attempt_number):
+                entry_config['attempts'].append({
+                    'id': attempt.id,
+                    'number': attempt.attempt_number,
+                    'requested_weight': attempt.requested_weight,
+                    'actual_weight': attempt.actual_weight,
+                    'result': attempt.final_result.value if attempt.final_result else None,
+                    'lift_name': attempt.lift.name if attempt.lift else None,
+                    'lifting_order': attempt.lifting_order
+                })
 
-    # Update attempt statuses
-    for event in athlete_events:
-        attempts = event.attempts.order_by(Attempt.attempt_number).all()
-        for attempt in attempts:
-            attempt.status = determine_attempt_status(attempts, attempt)
-        
-        event.status = determine_competition_status(event)
-    """
+            athlete_config['entries'].append(entry_config)
+
+    # Decide which competition to show
+    competition_id = None
+    competition_meta = None
+
+    if athlete_row and athlete_row.competition_id:
+        competition_id = athlete_row.competition_id
+    else:
+        # fallback to the most recent competition from admin helper
+        comps_resp = get_competitions()
+        comps = comps_resp.get_json() if hasattr(comps_resp, "get_json") else []
+        if comps:
+            # naive pick: last item (you may switch to active competition if you track that)
+            competition_id = comps[-1]["id"]
+
+    if competition_id:
+        comp_resp = get_competition_model(competition_id)
+        competition_meta = comp_resp.get_json() if hasattr(comp_resp, "get_json") else None
+
+    # My flights (joins events and flights using admin helpers)
+    my_flights = []
+    if competition_id and athlete_row:
+        my_flights = get_my_flights(athlete_row.id, competition_id)
+
+    # Next attempt preview
+    next_attempt = next_pending_attempt(athlete_row.id) if athlete_row else None
+    next_attempt_view = None
+    if next_attempt:
+        # Extract names defensively
+        try:
+            event_type = (
+                next_attempt.athlete_entry.competition_type.exercise.sport_category.name
+            )
+        except Exception:
+            event_type = None
+        try:
+            exercise_name = next_attempt.athlete_entry.competition_type.exercise.name
+        except Exception:
+            exercise_name = None
+
+        next_attempt_view = {
+            "attempt_id": next_attempt.id,
+            "attempt_number": next_attempt.attempt_number,
+            "requested_weight": next_attempt.requested_weight,
+            "event_type": event_type,
+            "exercise": exercise_name,
+            "time_remaining": attempt_time_remaining(next_attempt),
+        }
 
     return render_template(
-        'athlete/athlete.html',
-        athlete=athlete_data,
-        competition=competition_data,
-        athlete_events=athlete_events_data,
-        # TODO: CHANGE TO THIS AFTER DB IS READY
-        # athlete_events=athlete_events,
-        next_attempt=next_attempt
-        # next_attempt=find_next_attempt()
+        "athlete/athlete.html",
+        athlete=athlete_config,
+        competition=competition_meta,
+        my_flights=my_flights,
+        next_attempt=next_attempt_view,
     )
+
+
+@athlete_bp.route("/update-opening-weight", methods=["POST"])
+def update_opening_weight():
+    """
+    Update opening weight for the athlete for a given lift/exercise.
+    Uses AthleteEntry.opening_weights JSON column keyed by lift name or type.
+    Expected form/body:
+      - competition_type_id (int)
+      - lift_key (str)  e.g., "snatch", "clean_and_jerk", "squat", "bench", "deadlift"
+      - weight (float)
+    """
+    try:
+        competition_type_id = int(request.form.get("competition_type_id"))
+        lift_key = (request.form.get("lift_key") or "").strip()
+        weight = float(request.form.get("weight"))
+
+        # Input validation
+        if not lift_key:
+            return jsonify({"success": False, "error": "Lift key is required"}), 400
+        if weight <= 0:
+            return jsonify({"success": False, "error": "Weight must be positive"}), 400
+
+        athlete = resolve_current_athlete()
+        if not athlete:
+            return jsonify({"success": False, "error": "Athlete not found"}), 404
+
+        # Find entry with relationships loaded
+        entry = AthleteEntry.query.options(
+            joinedload(AthleteEntry.competition_type)
+            .joinedload(CompetitionType.exercise)
+            .joinedload(Exercise.sport_category)
+        ).filter_by(
+            competition_type_id=competition_type_id, 
+            athlete_id=athlete.id
+        ).first()
+
+        if not entry:
+            return (
+                jsonify(
+                    {
+                        "success": False,
+                        "error": "Athlete is not entered in this competition type",
+                    }
+                ),
+                404,
+            )
+
+        # Update opening weights
+        opening = dict(entry.opening_weights or {})
+        opening[lift_key] = weight
+        entry.opening_weights = opening
+        
+        # Also update first attempt if it exists and hasn't been completed
+        first_attempt = next(
+            (a for a in entry.attempts 
+             if a.attempt_number == 1 and 
+             a.lift and a.lift.name.lower() == lift_key.lower() and
+             a.final_result is None),
+            None
+        )
+        if first_attempt:
+            first_attempt.requested_weight = weight
+
+        db.session.commit()
+
+        # Return updated entry configuration
+        entry_config = {
+            'id': entry.id,
+            'competition_type': {
+                'id': entry.competition_type.id,
+                'name': entry.competition_type.name,
+                'exercise': {
+                    'name': entry.competition_type.exercise.name,
+                    'sport_category': {
+                        'name': entry.competition_type.exercise.sport_category.name
+                    }
+                }
+            },
+            'opening_weights': entry.opening_weights,
+            'attempts': [
+                {
+                    'id': attempt.id,
+                    'number': attempt.attempt_number,
+                    'requested_weight': attempt.requested_weight,
+                    'actual_weight': attempt.actual_weight,
+                    'result': attempt.final_result.value if attempt.final_result else None,
+                    'lift_name': attempt.lift.name if attempt.lift else None,
+                    'lifting_order': attempt.lifting_order
+                }
+                for attempt in sorted(entry.attempts, key=lambda x: x.attempt_number)
+            ]
+        }
+
+        return jsonify({
+            "success": True, 
+            "entry": entry_config
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "error": str(e)}), 400
+
+
+@athlete_bp.route("/update-attempt-weight", methods=["POST"])
+def update_attempt_weight():
+    """
+    Update the requested_weight of a specific attempt, if it isn't completed yet.
+    Expected form/body:
+      - attempt_id (int)
+      - weight (float)
+    Returns updated attempt configuration with full context.
+    """
+    try:
+        attempt_id = int(request.form.get("attempt_id"))
+        new_weight = float(request.form.get("weight"))
+
+        # Input validation
+        if new_weight <= 0:
+            return jsonify({"success": False, "error": "Weight must be positive"}), 400
+
+        athlete = resolve_current_athlete()
+        if not athlete:
+            return jsonify({"success": False, "error": "Athlete not found"}), 404
+
+        # Load attempt with all needed relationships
+        attempt = Attempt.query.options(
+            joinedload(Attempt.athlete_entry)
+            .joinedload(AthleteEntry.athlete),
+            joinedload(Attempt.athlete_entry)
+            .joinedload(AthleteEntry.competition_type)
+            .joinedload(CompetitionType.exercise)
+            .joinedload(Exercise.sport_category),
+            joinedload(Attempt.lift)
+        ).get(attempt_id)
+
+        if not attempt:
+            return jsonify({"success": False, "error": "Attempt not found"}), 404
+
+        # Authorize: the attempt must belong to our athlete
+        if attempt.athlete_entry.athlete_id != athlete.id:
+            return jsonify({"success": False, "error": "Unauthorized access"}), 403
+
+        # Attempt must not be finalized
+        if attempt.final_result is not None:
+            return (
+                jsonify(
+                    {
+                        "success": False,
+                        "error": "Cannot update a completed attempt",
+                    }
+                ),
+                400,
+            )
+
+        # Update weight
+        attempt.requested_weight = new_weight
+        db.session.commit()
+
+        # Return updated attempt configuration
+        attempt_config = {
+            'id': attempt.id,
+            'number': attempt.attempt_number,
+            'requested_weight': attempt.requested_weight,
+            'actual_weight': attempt.actual_weight,
+            'result': attempt.final_result.value if attempt.final_result else None,
+            'lift_name': attempt.lift.name if attempt.lift else None,
+            'lifting_order': attempt.lifting_order,
+            'time_remaining': attempt_time_remaining(attempt),
+            'entry': {
+                'id': attempt.athlete_entry.id,
+                'competition_type': {
+                    'id': attempt.athlete_entry.competition_type.id,
+                    'name': attempt.athlete_entry.competition_type.name,
+                    'exercise': {
+                        'name': attempt.athlete_entry.competition_type.exercise.name,
+                        'sport_category': {
+                            'name': attempt.athlete_entry.competition_type.exercise.sport_category.name
+                        }
+                    }
+                }
+            }
+        }
+
+        return jsonify({
+            "success": True,
+            "attempt": attempt_config
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "error": str(e)}), 400
+
+
+@athlete_bp.route("/next-attempt-timer")
+def get_next_attempt_timer():
+    """
+    Return the timer information for the athlete's next pending attempt.
+    """
+    try:
+        athlete = resolve_current_athlete()
+        if not athlete:
+            return jsonify({"error": "Athlete not found"}), 404
+
+        na = next_pending_attempt(athlete.id)
+        if not na:
+            return jsonify({"error": "No next attempt found"}), 404
+
+        # event type and names are loaded via joins in next_pending_attempt
+        event_type = None
+        try:
+            event_type = na.athlete_entry.competition_type.exercise.sport_category.name
+        except Exception:
+            pass
+
+        lift_type = None
+        try:
+            lift_type = na.lift.name if na.lift else None
+        except Exception:
+            pass
+
+        return jsonify(
+            {
+                "attempt_id": na.id,
+                "time": attempt_time_remaining(na),
+                "event_type": event_type,
+                "lift_type": lift_type,
+                "order": na.attempt_number,
+                "weight": na.requested_weight,
+            }
+        )
+    except Exception as e:
+        return jsonify({"error": "Error fetching timer data", "detail": str(e)}), 500
