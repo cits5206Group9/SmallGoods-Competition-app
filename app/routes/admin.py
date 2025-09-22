@@ -1,10 +1,8 @@
 from asyncio.log import logger
 from flask import Blueprint, render_template, request, jsonify, session, redirect, url_for
 from ..extensions import db
-from ..models import Competition, SportType, Referee
+from ..models import (Competition, Athlete, Flight, Event, SportType, AthleteFlight, ScoringType, Referee)
 from ..utils.referee_generator import generate_sample_referee_data, generate_random_username, generate_random_password
-from ..models import (Competition,Athlete, Flight, Event, SportType, AthleteFlight, ScoringType)
-
 from datetime import datetime
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import joinedload
@@ -659,7 +657,7 @@ def delete_athlete(athlete_id):
 
 # Competition API Routes
 @admin_bp.route('/competitions', methods=['GET'])
-def get_competitions():
+def get_competitions_basic():
     try:
         competitions = Competition.query.all()
         return jsonify([{
@@ -1285,6 +1283,13 @@ def regenerate_referee_credentials(referee_id):
                 'position': referee.position
             }
         })
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'message': f'Error regenerating credentials: {str(e)}'
+        }), 500
 
 # Flight API Routes
 @admin_bp.route('/flights', methods=['POST'])
@@ -2105,10 +2110,6 @@ def get_competition_referees_status(competition_id):
         return jsonify({
             'success': False,
             'message': f'Error getting referee status: {str(e)}'
-        }), 500
-
-            'status': 'error',
-            'message': 'Failed to remove athlete from flight: ' + str(e)
         }), 500
 
 @admin_bp.route('/flights/<int:flight_id>/athletes/reorder', methods=['POST'])
