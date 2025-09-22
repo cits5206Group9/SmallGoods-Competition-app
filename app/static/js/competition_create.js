@@ -5,6 +5,7 @@
   // Root UI elements
   const compNameEl = $('#comp-name');
   const sportTypeEl = $('#sport-type');
+  const compDateEl = $('#comp-date');
   const allowAthleteInputEl = $('#allow-athlete-input');
   const allowCoachAssignmentEl = $('#allow-coach-assignment');
   const enableAttemptOrderingEl = $('#enable-attempt-ordering');
@@ -79,6 +80,7 @@
   function serializeFromDOM() {
     const comp = {
       name: compNameEl.value.trim(),
+      comp_date: compDateEl.value,
       sport_type: sportTypeEl.value,
       features: {
         allowAthleteInput: !!allowAthleteInputEl.checked,
@@ -281,6 +283,7 @@
     // Reset DOM
     compNameEl.value = '';
     sportTypeEl.value = '';
+    compDateEl.value = '';
     allowAthleteInputEl.checked = true;
     allowCoachAssignmentEl.checked = true;
     enableAttemptOrderingEl.checked = true;
@@ -295,6 +298,7 @@
 
     compNameEl.value = data.name || '';
     sportTypeEl.value = data.sport_type || '';
+    compDateEl.value = data.comp_date || '';
     allowAthleteInputEl.checked = !!(data.features?.allowAthleteInput);
     allowCoachAssignmentEl.checked = !!(data.features?.allowCoachAssignment);
     enableAttemptOrderingEl.checked = !!(data.features?.enableAttemptOrdering);
@@ -355,7 +359,7 @@
   });
 
   // Top-level inputs update preview
-  [compNameEl, sportTypeEl, allowAthleteInputEl, allowCoachAssignmentEl, enableAttemptOrderingEl]
+  [compNameEl, sportTypeEl, compDateEl, allowAthleteInputEl, allowCoachAssignmentEl, enableAttemptOrderingEl]
     .forEach(el => el.addEventListener('input', renderPreview));
 
   saveLocalBtn.addEventListener('click', saveToLocal);
