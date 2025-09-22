@@ -1,9 +1,9 @@
 from asyncio.log import logger
 from flask import Blueprint, render_template, request, jsonify, session, redirect, url_for
 from ..extensions import db
-from ..models import (Competition, Athlete, Flight, Event, SportType, AthleteFlight, ScoringType, Referee)
+from ..models import (Competition, Athlete, Flight, Event, SportType, AthleteFlight, ScoringType, Referee,TimerLog)
 from ..utils.referee_generator import generate_sample_referee_data, generate_random_username, generate_random_password
-from datetime import datetime
+from datetime import datetime,timezone
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import joinedload
 
@@ -2154,3 +2154,54 @@ def reorder_flight_athletes(flight_id):
             'status': 'error',
             'message': 'Failed to reorder athletes: ' + str(e)
         }), 500
+        
+        
+        
+@admin_bp.post("/timer/log")
+def create_timer_log():
+    data = request.get_json(force=True) or {}
+    # expected keys (send what you have):
+    # competition_id, event_id, flight_id, athlete, action, start, stop, duration_sec
+
+    # parse times if you post ISO strings; optional:
+    def parse_ts(s):
+        if not s: return None
+        return datetime.fromisoformat(s.replace("Z","+00:00"))
+    row = TimerLog(
+        competition_id = data.get("competition_id"),
+        event_id       = data.get("event_id"),
+        flight_id      = data.get("flight_id"),
+        athlete        = (data.get("athlete") or "")[:120],
+        action         = data.get("action") or "Attempt",
+        start_ts       = parse_ts(data.get("start_iso")),
+        stop_ts        = parse_ts(data.get("stop_iso")),
+        duration_sec   = data.get("duration_sec"),
+        meta_json      = data.get("meta") or {},
+    )
+    db.session.add(row)
+    db.session.commit()
+    return jsonify({"ok": True, "id": row.id})
+
+
+@admin_bp.get("/timer/log")
+def list_timer_log():
+    q = TimerLog.query
+    flight_id = request.args.get("flight_id")
+    athlete   = request.args.get("athlete")
+    if flight_id:
+        q = q.filter(TimerLog.flight_id == int(flight_id))
+    if athlete:
+        q = q.filter(TimerLog.athlete.ilike(f"%{athlete}%"))
+    q = q.order_by(TimerLog.created_at.desc()).limit(200)
+    rows = [{
+        "id": r.id,
+        "athlete": r.athlete,
+        "action": r.action,
+        "start_iso": r.start_ts.isoformat() if r.start_ts else None,
+        "stop_iso":  r.stop_ts.isoformat()  if r.stop_ts  else None,
+        "duration_sec": r.duration_sec,
+        "competition_id": r.competition_id,
+        "event_id": r.event_id,
+        "flight_id": r.flight_id,
+    } for r in q.all()]
+    return jsonify(rows)
