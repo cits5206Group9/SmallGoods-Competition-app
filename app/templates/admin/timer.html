@@ -4,6 +4,34 @@
 {% block content %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/timekeeper.css') }}">
 
+<script>
+  // Temporary mock data for the flights tree (UI only; no DB calls)
+  window.TK_MOCK_FLIGHTS = [
+    {
+      id: 1,
+      name: "SG Open (Mock)",
+      events: [
+        {
+          id: 101,
+          name: "Snatch",
+          flights: [
+            { id: 1001, name: "Flight A", order: 1, is_active: true },
+            { id: 1002, name: "Flight B", order: 2, is_active: true }
+          ]
+        },
+        {
+          id: 102,
+          name: "Clean & Jerk",
+          flights: [
+            { id: 1101, name: "Flight A", order: 1, is_active: false }
+          ]
+        }
+      ]
+    }
+  ];
+</script>
+<script src="{{ url_for('static', filename='js/timekeeper.js') }}"></script>
+
 <!-- Fixed Mobile Control Dock (proxied buttons) -->
 <div class="control-dock" aria-label="Timer controls">
   <button class="dock-btn start"  onclick="document.getElementById('btnStart').click()">▶</button>
@@ -194,6 +222,88 @@
 <script>
   window.TK_DEFAULT_ATTEMPT = {{ default_attempt_seconds or 60 }};
   window.TK_DEFAULT_BREAK   = {{ default_break_seconds or 600 }};
+
+  // Temporary mock data for the flights tree (UI only; no DB calls)
+  window.TK_MOCK_FLIGHTS = [
+    {
+      id: 1,
+      name: "SG Open (Mock)",
+      events: [
+        {
+          id: 101,
+          name: "Snatch",
+          flights: [
+            { id: 1001, name: "Flight A", order: 1, is_active: true },
+            { id: 1002, name: "Flight B", order: 2, is_active: true }
+          ]
+        },
+        {
+          id: 102,
+          name: "Clean & Jerk",
+          flights: [
+            { id: 1101, name: "Flight A", order: 1, is_active: false }
+          ]
+        }
+      ]
+    }
+  ];
 </script>
+
+<script>
+/* Mock the API endpoints that timekeeper.js calls */
+(function () {
+  const mocks = window.TK_MOCK_FLIGHTS;
+  if (!Array.isArray(mocks)) return;
+
+  const json = (obj) =>
+    new Response(JSON.stringify(obj), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+
+  const origFetch = window.fetch;
+  window.fetch = function (input, init) {
+    const url = typeof input === "string" ? input : input.url;
+
+    // /admin/competitions
+    if (url.endsWith("/admin/competitions")) {
+      const comps = mocks.map((c) => ({ id: c.id, name: c.name }));
+      return Promise.resolve(json(comps));
+    }
+
+    // /admin/competitions/<id>/events
+    const m1 = url.match(/\/admin\/competitions\/(\d+)\/events$/);
+    if (m1) {
+      const compId = Number(m1[1]);
+      const comp = mocks.find((c) => c.id === compId);
+      const events = (comp?.events || []).map((e) => ({
+        id: e.id,
+        name: e.name,
+        competition_id: compId,
+      }));
+      return Promise.resolve(json(events));
+    }
+
+    // /admin/events/<id>/flights
+    const m2 = url.match(/\/admin\/events\/(\d+)\/flights$/);
+    if (m2) {
+      const eventId = Number(m2[1]);
+      let flights = [];
+      mocks.forEach((c) =>
+        (c.events || []).forEach((e) => {
+          if (e.id === eventId) flights = e.flights || [];
+        })
+      );
+      return Promise.resolve(json(flights));
+    }
+
+    // fall through to real fetch
+    return origFetch(input, init);
+  };
+})();
+</script>
+
+
 <script src="{{ url_for('static', filename='js/timekeeper.js') }}"></script>
 {% endblock %}
+
