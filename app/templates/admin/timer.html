@@ -4,34 +4,6 @@
 {% block content %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/timekeeper.css') }}">
 
-<script>
-  // Temporary mock data for the flights tree (UI only; no DB calls)
-  window.TK_MOCK_FLIGHTS = [
-    {
-      id: 1,
-      name: "SG Open (Mock)",
-      events: [
-        {
-          id: 101,
-          name: "Snatch",
-          flights: [
-            { id: 1001, name: "Flight A", order: 1, is_active: true },
-            { id: 1002, name: "Flight B", order: 2, is_active: true }
-          ]
-        },
-        {
-          id: 102,
-          name: "Clean & Jerk",
-          flights: [
-            { id: 1101, name: "Flight A", order: 1, is_active: false }
-          ]
-        }
-      ]
-    }
-  ];
-</script>
-<script src="{{ url_for('static', filename='js/timekeeper.js') }}"></script>
-
 <!-- Fixed Mobile Control Dock (proxied buttons) -->
 <div class="control-dock" aria-label="Timer controls">
   <button class="dock-btn start"  onclick="document.getElementById('btnStart').click()">▶</button>
@@ -47,91 +19,103 @@
         <span class="ico"></span> Timekeeper Dashboard
       </h1>
 
-      <!-- Available Competitions -->
-      <div class="card">
+      <!-- Flight selector toolbar (top only) -->
+      <div class="card mb-4">
         <div class="card-header">
-          <h5><span class="ico"></span> Available Competitions</h5>
+          <h5>Select Flight</h5>
+        </div>
+        <div class="card-body">
+          <div style="display:flex; gap:.75rem; flex-wrap:wrap; align-items:center">
+            <label>Competition
+              <select id="selComp" style="min-width:220px; margin-left:.5rem"></select>
+            </label>
+            <label>Event
+              <select id="selEvent" style="min-width:220px; margin-left:.5rem" disabled></select>
+            </label>
+            <label>Flight
+              <select id="selFlight" style="min-width:220px; margin-left:.5rem" disabled></select>
+            </label>
+            <button id="selGo" class="btn primary" disabled>Load</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Selected Flight (was “Available Competitions”) -->
+      <div class="card" id="tk-available-card" style="display:none">
+        <div class="card-header">
+          <h5><span class="ico"></span> Selected Flight</h5>
         </div>
         <div class="card-body" id="tk-competitions-body">
           <div class="text-center py-5" id="tk-competitions-empty">
             <div class="muted-ico"></div>
-            <h4 class="text-muted">No competitions available</h4>
-            <p class="text-muted">There are currently no active competitions requiring timekeeping.</p>
+            <h4 class="text-muted">No selection</h4>
+            <p class="text-muted">Choose a competition, event, and flight above.</p>
           </div>
-          <!-- flights list gets injected here -->
+
+
+          <!-- NEW: summary target (we will only update this, not the whole body) -->
+          <div id="tk-selected-summary" class="selected-wrap" style="display:none"></div>
+
+          <!-- Athlete editor lives here (shown after a flight is selected) -->
+          <div id="tk-athlete-editor" style="margin-top:1rem; display:none">
+            <div style="display:flex; gap:.75rem; align-items:center; flex-wrap:wrap">
+              <label style="font-weight:600">Athlete:
+                <input id="athleteName" type="text" placeholder="Type name…"
+                       style="margin-left:.5rem; padding:.35rem 1rem; border:1px solid #cfe0ff; border-radius:8px;">
+              </label>
+              <button class="btn" id="btnAthleteApply">Apply</button>
+              <span id="athleteApplied" class="text-muted" style="margin-left:.5rem"></span>
+            </div>
+          </div>
         </div>
       </div>
-
 
       <!-- Timer Controls -->
       <div class="card mt-4 hide-on-mobile">
         <div class="card-header">
           <h5><span class="ico"></span> Timer Controls</h5>
         </div>
-
         <div class="card-body">
-          <!-- Compact 4-up grid, stacks on mobile -->
           <div class="tc-grid">
             <button class="tile tile--start" id="btnStart" aria-label="Start Timer">
-              <span class="tile-ico">▶</span>
-              <span class="tile-title">Start</span>
-              <!--<span class="tile-sub">Begin timing an attempt</span>-->
+              <span class="tile-ico">▶</span><span class="tile-title">Start</span>
             </button>
-
             <button class="tile tile--pause" id="btnPause" aria-label="Pause Timer">
-              <span class="tile-ico">⏸</span>
-              <span class="tile-title">Pause</span>
-              <!--<span class="tile-sub">Temporarily pause the timer</span>-->
+              <span class="tile-ico">⏸</span><span class="tile-title">Pause</span>
             </button>
-
             <button class="tile tile--stop" id="btnBarLeft" aria-label="Stop Timer">
-              <span class="tile-ico">■</span>
-              <span class="tile-title">Stop</span>
-              <!--<span class="tile-sub">End the current attempt</span>-->
+              <span class="tile-ico">■</span><span class="tile-title">Stop</span>
             </button>
-
             <button class="tile tile--reset" id="btnReset" aria-label="Reset Timer">
-              <span class="tile-ico">↺</span>
-              <span class="tile-title">Reset</span>
-              <!--<span class="tile-sub">Reset to initial state</span>-->
+              <span class="tile-ico">↺</span><span class="tile-title">Reset</span>
             </button>
           </div>
         </div>
       </div>
 
-
-          <!-- Hidden “small” buttons exist for JS compatibility (kept off-screen) -->
-          <div class="visually-hidden">
-            <button id="btnResume"></button>
-            <button id="btnAdd10"></button>
-            <button id="btnSub10"></button>
-            <button id="btn60"></button>
-            <button id="btn120"></button>
-            <input type="number" id="attemptSetSec" value="{{ default_attempt_seconds or 60 }}">
-            <button id="btnApplyAttempt"></button>
-            <input type="number" id="breakSetSec" value="{{ default_break_seconds or 600 }}">
-            <button id="btnApplyBreak"></button>
-            <button id="btnBreakStart"></button>
-            <button id="btnBreakPause"></button>
-            <button id="btnBreakResume"></button>
-            <button id="btnBreakReset"></button>
-            <label><input type="checkbox" id="chkAnn">Ann</label>
-            <label><input type="checkbox" id="chkLoaded">Load</label>
-          </div>
-        </div>
+      <!-- Hidden compatibility controls -->
+      <div class="visually-hidden">
+        <button id="btnResume"></button>
+        <button id="btnAdd10"></button>
+        <button id="btnSub10"></button>
+        <button id="btn60"></button>
+        <button id="btn120"></button>
+        <input type="number" id="attemptSetSec" value="{{ default_attempt_seconds or 60 }}">
+        <button id="btnApplyAttempt"></button>
+        <input type="number" id="breakSetSec" value="{{ default_break_seconds or 600 }}">
+        <button id="btnApplyBreak"></button>
+        <button id="btnBreakStart"></button>
+        <button id="btnBreakPause"></button>
+        <button id="btnBreakResume"></button>
+        <button id="btnBreakReset"></button>
+        <label><input type="checkbox" id="chkAnn">Ann</label>
+        <label><input type="checkbox" id="chkLoaded">Load</label>
       </div>
 
-      
-
-      <!-- Current Status -->
       <!-- Current Status -->
       <div class="card mt-4">
-        <div class="card-header">
-          <h5>Current Status</h5>
-        </div>
-
+        <div class="card-header"><h5>Current Status</h5></div>
         <div class="card-body status-wrap">
-          <!-- BIG TIMER ONLY -->
           <div class="status-top only-timer">
             <div class="status-top__timer">
               <div class="display-time display-time--hero" id="attemptClock">00:00:00</div>
@@ -139,26 +123,20 @@
             </div>
           </div>
 
-          <!-- Countdown toggle + (hidden) set-time row for the main attempt timer -->
           <div class="attempt-controls">
             <button id="btnAttemptToggle" class="btn" type="button">Countdown: Off</button>
-
             <div class="timer-set attempt-set" id="attemptSetRow" style="display:none">
               <label for="attemptHMS"><strong>Set</strong></label>
               <input id="attemptHMS" class="input-hms" type="text" inputmode="numeric"
-                    placeholder="HH:MM:SS" value="00:01:00">
+                     placeholder="HH:MM:SS" value="00:01:00">
               <button class="btn" id="btnAttemptApply">Apply</button>
             </div>
           </div>
 
-
-
-          <!-- BREAK / BLOCK BELOW -->
           <div class="status-bottom one-col">
             <div class="panel">
               <h5>Break</h5>
               <div class="display-time small" id="breakClock">10:00</div>
-              <!-- new timer set -->
               <div class="timer-set break-set">
                 <label for="breakHMS">Set Time :</label>
                 <input id="breakHMS" type="text" inputmode="numeric" placeholder="HH:MM:SS" value="00:10:00" class="input-hms">
@@ -175,27 +153,23 @@
         </div>
       </div>
 
-
-
-
-      <!-- Event Log -->
+      <!-- Timer Log -->
       <div class="card mt-4">
-        <div class="card-header">
-          <h5>Timer Log</h5>
-        </div>
-
-        <!-- Add this small toolbar (optional but recommended) -->
-        <div class="card-body" style="padding-bottom:0.5rem">
-          <div style="display:flex; gap:1rem; align-items:center; flex-wrap:wrap">
-            <label style="font-weight:600">Athlete:
-              <input id="athleteName" type="text" placeholder="Type name…" style="margin-left:.5rem; padding:.35rem 1rem; border:1px solid #cfe0ff; border-radius:8px;">
-            </label>
-            <!-- <span class="text-muted" style="font-size:.9rem">Athlete name will be attached to new log rows.</span> -->
-          </div>
-        </div>
-
-        
+        <div class="card-header"><h5>Timer Log</h5></div>
+        <!-- (Athlete input was moved above; nothing here) -->
         <div class="card-body">
+
+          <!-- Search toolbar (add this above the table) -->
+          <div id="logSearchBar" style="display:flex;gap:.75rem;align-items:center;margin-bottom:.75rem;flex-wrap:wrap">
+            <label style="font-weight:600">
+              Search athlete:
+              <input id="logSearch" type="text" placeholder="Type name…" style="margin-left:.5rem;padding:.35rem 1rem;border:1px solid #cfe0ff;border-radius:8px">
+            </label>
+            <button id="logSearchClear" class="btn" type="button">Clear</button>
+            <span id="logSearchCount" class="text-muted" style="margin-left:.25rem"></span>
+          </div>
+
+          
           <table class="tk-table" id="logTable">
             <thead>
               <tr>
@@ -214,43 +188,62 @@
         </div>
       </div>
 
-
     </div>
   </div>
 </div>
 
-<script>
+<!-- <script>
   window.TK_DEFAULT_ATTEMPT = {{ default_attempt_seconds or 60 }};
-  window.TK_DEFAULT_BREAK   = {{ default_break_seconds or 600 }};
+  window.TK_DEFAULT_BREAK   = {{ default_break_seconds or 600 }}; -->
 
-  // Temporary mock data for the flights tree (UI only; no DB calls)
-  window.TK_MOCK_FLIGHTS = [
+  <!-- /* TEMP MOCK DATA (remove when DB is ready)  */ -->
+ <!--  window.TK_MOCK_FLIGHTS = [
     {
       id: 1,
-      name: "SG Open (Mock)",
+      name: "SG Open 2025 (Mock)",
       events: [
-        {
-          id: 101,
-          name: "Snatch",
+        { id: 101, name: "Snatch",
           flights: [
-            { id: 1001, name: "Flight A", order: 1, is_active: true },
-            { id: 1002, name: "Flight B", order: 2, is_active: true }
+            { id: 1001, name: "Flight A", order: 1, is_active: true  },
+            { id: 1002, name: "Flight B", order: 2, is_active: true  },
+            { id: 1003, name: "Flight C", order: 3, is_active: false }
           ]
         },
-        {
-          id: 102,
-          name: "Clean & Jerk",
+        { id: 102, name: "Clean & Jerk",
           flights: [
-            { id: 1101, name: "Flight A", order: 1, is_active: false }
+            { id: 1101, name: "Flight A", order: 1, is_active: true  },
+            { id: 1102, name: "Flight B", order: 2, is_active: false }
+          ]
+        }
+      ]
+    },
+    {
+      id: 2,
+      name: "Power Meet 2025 (Mock)",
+      events: [
+        { id: 201, name: "Squat",
+          flights: [
+            { id: 2001, name: "Flight A", order: 1, is_active: true },
+            { id: 2002, name: "Flight B", order: 2, is_active: true }
+          ]
+        },
+        { id: 202, name: "Bench Press",
+          flights: [ { id: 2101, name: "Flight A", order: 1, is_active: false } ]
+        },
+        { id: 203, name: "Deadlift",
+          flights: [
+            { id: 2201, name: "Flight A", order: 1, is_active: true },
+            { id: 2202, name: "Flight B", order: 2, is_active: true },
+            { id: 2203, name: "Flight C", order: 3, is_active: true }
           ]
         }
       ]
     }
   ];
-</script>
+</script> -->
 
-<script>
-/* Mock the API endpoints that timekeeper.js calls */
+<!-- <script>
+/*  TEMP FETCH SHIM for mocks (remove when DB is ready)  */
 (function () {
   const mocks = window.TK_MOCK_FLIGHTS;
   if (!Array.isArray(mocks)) return;
@@ -265,26 +258,19 @@
   window.fetch = function (input, init) {
     const url = typeof input === "string" ? input : input.url;
 
-    // /admin/competitions
     if (url.endsWith("/admin/competitions")) {
       const comps = mocks.map((c) => ({ id: c.id, name: c.name }));
       return Promise.resolve(json(comps));
     }
 
-    // /admin/competitions/<id>/events
     const m1 = url.match(/\/admin\/competitions\/(\d+)\/events$/);
     if (m1) {
       const compId = Number(m1[1]);
       const comp = mocks.find((c) => c.id === compId);
-      const events = (comp?.events || []).map((e) => ({
-        id: e.id,
-        name: e.name,
-        competition_id: compId,
-      }));
+      const events = (comp?.events || []).map((e) => ({ id: e.id, name: e.name, competition_id: compId }));
       return Promise.resolve(json(events));
     }
 
-    // /admin/events/<id>/flights
     const m2 = url.match(/\/admin\/events\/(\d+)\/flights$/);
     if (m2) {
       const eventId = Number(m2[1]);
@@ -297,13 +283,10 @@
       return Promise.resolve(json(flights));
     }
 
-    // fall through to real fetch
     return origFetch(input, init);
   };
 })();
-</script>
-
+</script> -->
 
 <script src="{{ url_for('static', filename='js/timekeeper.js') }}"></script>
 {% endblock %}
-
