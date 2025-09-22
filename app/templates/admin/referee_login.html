@@ -1,0 +1,289 @@
+{% extends "base.html" %}
+
+{% block title %}Referee Login - Small Goods Competition{% endblock %}
+
+{% block head %}
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Arial', sans-serif;
+        }
+
+        .login-container {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            padding: 40px;
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+        }
+
+        .login-header {
+            margin-bottom: 30px;
+        }
+
+        .login-header h1 {
+            color: #2c3e50;
+            margin: 0 0 10px 0;
+            font-size: 2.5em;
+        }
+
+        .login-header p {
+            color: #7f8c8d;
+            margin: 0;
+            font-size: 1.1em;
+        }
+
+        .referee-info {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 30px;
+            border-left: 4px solid #3498db;
+        }
+
+        .referee-info h3 {
+            margin: 0 0 10px 0;
+            color: #2c3e50;
+        }
+
+        .referee-info p {
+            margin: 0;
+            color: #666;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+            text-align: left;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #2c3e50;
+            font-weight: 600;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s ease;
+            box-sizing: border-box;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #3498db;
+        }
+
+        .login-btn {
+            width: 100%;
+            padding: 15px;
+            background: #3498db;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 20px;
+        }
+
+        .login-btn:hover {
+            background: #2980b9;
+            transform: translateY(-2px);
+        }
+
+        .login-btn:disabled {
+            background: #95a5a6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .back-link {
+            display: inline-block;
+            color: #3498db;
+            text-decoration: none;
+            font-weight: 600;
+            transition: color 0.3s ease;
+        }
+
+        .back-link:hover {
+            color: #2980b9;
+        }
+
+        .error-message {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .success-message {
+            background: #d4edda;
+            color: #155724;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .loading {
+            display: none;
+            color: #666;
+            margin-top: 10px;
+        }
+
+        .competition-logo {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 20px;
+            background: #3498db;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 2em;
+            font-weight: bold;
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+<div class="login-container">
+    <div class="competition-logo">
+        🏋️
+    </div>
+    
+    <div class="login-header">
+        <h1>Referee Login</h1>
+        <p>Enter your credentials to access your referee panel</p>
+    </div>
+
+    {% if referee %}
+    <div class="referee-info">
+        <h3>{{ referee.position or 'Referee' }}</h3>
+        <p>Welcome {{ referee.name }}, please log in to access your referee panel</p>
+    </div>
+    {% else %}
+    <div class="referee-info">
+        <h3>Referee Access</h3>
+        <p>Please enter your username and password to access your referee panel</p>
+    </div>
+    {% endif %}
+
+    <div id="error-message" class="error-message"></div>
+    <div id="success-message" class="success-message"></div>
+
+    <form id="login-form">
+        {% if referee %}
+        <input type="hidden" id="referee-id" value="{{ referee.id }}">
+        {% endif %}
+        
+        <div class="form-group">
+            <label for="username">Username</label>
+            <input type="text" id="username" name="username" required autocomplete="username">
+        </div>
+
+        <div class="form-group">
+            <label for="password">Password</label>
+            <input type="password" id="password" name="password" required autocomplete="current-password">
+        </div>
+
+        <button type="submit" id="login-btn" class="login-btn">
+            Login to Referee Panel
+        </button>
+    </form>
+
+    <div id="loading" class="loading">
+        Logging in...
+    </div>
+
+    <a href="{{ url_for('admin.referee') }}" class="back-link">
+        ← Back to Main Referee Panel
+    </a>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+        const form = document.getElementById('login-form');
+        const loginBtn = document.getElementById('login-btn');
+        const loading = document.getElementById('loading');
+        const errorMessage = document.getElementById('error-message');
+        const successMessage = document.getElementById('success-message');
+
+        form.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            // Clear previous messages
+            errorMessage.style.display = 'none';
+            successMessage.style.display = 'none';
+
+            // Show loading state
+            loginBtn.disabled = true;
+            loading.style.display = 'block';        try {
+            const refereeIdEl = document.getElementById('referee-id');
+            const refereeId = refereeIdEl ? refereeIdEl.value : null;
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+
+            const requestBody = {
+                username: username,
+                password: password
+            };
+
+            // Only include referee_id if it's available (specific referee login)
+            if (refereeId) {
+                requestBody.referee_id = parseInt(refereeId);
+            }
+
+            const response = await fetch('/admin/api/referee/login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(requestBody)
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                successMessage.textContent = data.message;
+                successMessage.style.display = 'block';
+                
+                // Redirect after short delay
+                setTimeout(() => {
+                    window.location.href = data.redirect;
+                }, 1000);
+            } else {
+                errorMessage.textContent = data.message;
+                errorMessage.style.display = 'block';
+                loginBtn.disabled = false;
+                loading.style.display = 'none';
+            }
+        } catch (error) {
+            console.error('Login error:', error);
+            errorMessage.textContent = 'Connection error. Please try again.';
+            errorMessage.style.display = 'block';
+            loginBtn.disabled = false;
+            loading.style.display = 'none';
+        }
+    });
+
+    // Auto-focus username field
+    document.getElementById('username').focus();
+});
+</script>
+{% endblock %}
