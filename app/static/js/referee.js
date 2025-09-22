@@ -7,8 +7,10 @@ class RefereePanel {
         this.athletesQueue = [];
         this.timerInterval = null;
         this.timerSeconds = 60;
+        this.timerRunning = false;
         this.refereeVotes = {};
         this.currentAttemptData = {};
+        this.refereeConfig = null;
         
         this.init();
     }
@@ -31,28 +33,29 @@ class RefereePanel {
 
         // Timer controls
         document.getElementById('start-timer').addEventListener('click', () => {
-            this.startTimer();
+            this.toggleTimer();
         });
 
         document.getElementById('reset-timer').addEventListener('click', () => {
             this.resetTimer();
         });
 
-        // Result buttons
-        document.querySelectorAll('.result-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                this.selectResult(e.currentTarget.dataset.result);
-            });
+        // Result buttons - use event delegation since buttons are dynamic
+        document.addEventListener('click', (e) => {
+            if (e.target.classList.contains('result-btn') && e.target.dataset.result) {
+                this.selectResult(e.target.dataset.result, e.target.dataset.label);
+            }
         });
 
-        // Referee votes
-        document.querySelectorAll('.vote-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
+        // Referee votes - use event delegation since buttons are dynamic
+        document.addEventListener('click', (e) => {
+            if (e.target.classList.contains('vote-btn') && e.target.dataset.referee) {
                 this.recordRefereeVote(
-                    e.currentTarget.dataset.referee,
-                    e.currentTarget.dataset.vote
+                    e.target.dataset.referee,
+                    e.target.dataset.vote,
+                    e.target.dataset.label
                 );
-            });
+            }
         });
 
         // Action buttons
@@ -69,17 +72,9 @@ class RefereePanel {
             this.loadAthletes();
         });
 
-        document.getElementById('randomize-order').addEventListener('click', () => {
-            this.randomizeOrder();
-        });
-
-        // Emergency controls
-        document.getElementById('emergency-stop').addEventListener('click', () => {
-            this.emergencyStop();
-        });
-
-        document.getElementById('technical-break').addEventListener('click', () => {
-            this.technicalBreak();
+        // Referees Setting button
+        document.getElementById('referees-setting-btn').addEventListener('click', () => {
+            this.openRefereesSettings();
         });
 
         // Technical decisions checkboxes
@@ -141,12 +136,152 @@ class RefereePanel {
             
             document.getElementById('competition-name').textContent = this.currentCompetition.name;
             this.loadEvents();
+            
+            // Fetch and apply referee configuration
+            await this.loadRefereeConfig(competitionId);
+            
             this.showNotification(`Loaded: ${this.currentCompetition.name}`, 'success');
         } catch (error) {
             console.error('Error loading competition:', error);
             this.showNotification(`Error loading competition details: ${error.message}`, 'error');
         }
     }
+
+    async loadRefereeConfig(competitionId) {
+        try {
+            console.log(`Fetching referee config for competition ${competitionId}`);
+            const response = await fetch(`/admin/api/competitions/${competitionId}/referee-config`);
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            this.refereeConfig = await response.json();
+            console.log('Loaded referee config:', this.refereeConfig);
+            this.updateRefereePanel();
+            
+            this.showNotification(`Loaded referee config: ${this.refereeConfig.number_of_referees} referees`, 'success');
+        } catch (error) {
+            console.error('Error loading referee config:', error);
+            // Use default config if loading fails
+            this.refereeConfig = {
+                number_of_referees: 3,
+                decision_options: [
+                    {'label': 'Good Lift', 'color': 'green', 'value': true},
+                    {'label': 'No Lift', 'color': 'red', 'value': false}
+                ]
+            };
+            console.log('Using default referee config:', this.refereeConfig);
+            this.updateRefereePanel();
+            this.showNotification('Using default referee config (3 referees)', 'warning');
+        }
+    }
+
+    updateRefereePanel() {
+        if (!this.refereeConfig) {
+            console.log('No referee config available, using defaults');
+            return;
+        }
+        
+        console.log('Updating referee panel with config:', this.refereeConfig);
+        
+        // Update Lift Result buttons
+        this.updateLiftResultButtons();
+        
+        // Update Referee Votes section
+        this.updateRefereeVotesSection();
+        
+        console.log(`Generated ${this.refereeConfig.number_of_referees} referee rows with ${this.refereeConfig.decision_options.length} options each`);
+    }
+
+    updateLiftResultButtons() {
+        const resultButtonsContainer = document.querySelector('.result-buttons');
+        if (!resultButtonsContainer) {
+            console.error('Result buttons container not found');
+            return;
+        }
+        
+        // Clear existing result buttons
+        resultButtonsContainer.innerHTML = '';
+        
+        // Generate result buttons based on config
+        this.refereeConfig.decision_options.forEach((option, index) => {
+            const button = document.createElement('button');
+            button.className = `result-btn option-${index}`;
+            button.dataset.result = option.value;
+            button.dataset.label = option.label;
+            button.style.cssText = `
+                background-color: ${option.color};
+                color: white;
+                border: none;
+                padding: 15px 30px;
+                border-radius: 8px;
+                font-size: 1.2em;
+                font-weight: bold;
+                cursor: pointer;
+                margin: 5px;
+                transition: all 0.3s ease;
+                display: flex;
+                align-items: center;
+                gap: 10px;
+            `;
+            
+            button.innerHTML = `
+                <i class="icon-${option.value ? 'check' : 'x'}"></i>
+                ${option.label}
+            `;
+            
+            resultButtonsContainer.appendChild(button);
+        });
+        
+        console.log(`Generated ${this.refereeConfig.decision_options.length} lift result buttons`);
+    }
+
+    updateRefereeVotesSection() {
+        const votesContainer = document.querySelector('.votes-display');
+        if (!votesContainer) {
+            console.error('Votes container not found');
+            return;
+        }
+        
+        // Clear existing referee votes
+        votesContainer.innerHTML = '';
+        
+        // Generate referee rows based on config
+        for (let i = 1; i <= this.refereeConfig.number_of_referees; i++) {
+            const refereeDiv = document.createElement('div');
+            refereeDiv.className = 'referee-vote';
+            
+            let buttonsHtml = '';
+            this.refereeConfig.decision_options.forEach((option, index) => {
+                // Create a unique identifier for each option
+                const optionId = `ref-${i}-option-${index}`;
+                const buttonClass = `vote-btn option-${index}`;
+                
+                buttonsHtml += `
+                    <button class="${buttonClass}" 
+                            data-referee="${i}" 
+                            data-vote="${option.value}" 
+                            data-label="${option.label}"
+                            id="${optionId}"
+                            style="background-color: ${option.color}; color: white; margin: 2px; padding: 8px 12px; border: 2px solid #ddd; border-radius: 4px; cursor: pointer; font-weight: bold;">
+                        ${option.label}
+                    </button>
+                `;
+            });
+            
+            refereeDiv.innerHTML = `
+                <span style="min-width: 80px; display: inline-block;">Referee ${i}:</span>
+                ${buttonsHtml}
+            `;
+            
+            votesContainer.appendChild(refereeDiv);
+        }
+        
+        console.log(`Generated ${this.refereeConfig.number_of_referees} referee rows`);
+    }
+
+    // Removed bindVoteEvents method since we're using event delegation
 
     loadEvents() {
         const select = document.getElementById('event-select');
@@ -327,20 +462,17 @@ class RefereePanel {
         });
     }
 
-    randomizeOrder() {
-        // Fisher-Yates shuffle
-        for (let i = this.athletesQueue.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [this.athletesQueue[i], this.athletesQueue[j]] = [this.athletesQueue[j], this.athletesQueue[i]];
-        }
-        
-        this.renderAthletsQueue();
-        this.loadCurrentAthlete();
-        this.showNotification('Athlete order randomized', 'success');
-    }
-
     initTimer() {
         this.updateTimerDisplay();
+        this.updateTimerButton();
+    }
+
+    toggleTimer() {
+        if (this.timerRunning) {
+            this.stopTimer();
+        } else {
+            this.startTimer();
+        }
     }
 
     startTimer() {
@@ -348,6 +480,7 @@ class RefereePanel {
             clearInterval(this.timerInterval);
         }
 
+        this.timerRunning = true;
         this.timerInterval = setInterval(() => {
             this.timerSeconds--;
             this.updateTimerDisplay();
@@ -357,8 +490,7 @@ class RefereePanel {
             }
         }, 1000);
         
-        document.getElementById('start-timer').textContent = 'Stop Timer';
-        document.getElementById('start-timer').onclick = () => this.stopTimer();
+        this.updateTimerButton();
     }
 
     stopTimer() {
@@ -367,34 +499,70 @@ class RefereePanel {
             this.timerInterval = null;
         }
         
-        document.getElementById('start-timer').textContent = 'Start Timer';
-        document.getElementById('start-timer').onclick = () => this.startTimer();
+        this.timerRunning = false;
+        this.updateTimerButton();
     }
 
     resetTimer() {
         this.stopTimer();
         this.timerSeconds = this.currentEvent?.timer?.attempt_seconds || 60;
         this.updateTimerDisplay();
-        
-        document.getElementById('start-timer').textContent = 'Start Timer';
-        document.getElementById('start-timer').onclick = () => this.startTimer();
+        this.updateTimerButton();
     }
 
     updateTimerDisplay() {
         const timerElement = document.getElementById('attempt-timer');
+        if (!timerElement) {
+            console.error('Timer element not found');
+            return;
+        }
+        
         timerElement.textContent = this.timerSeconds;
         
         // Change color based on time remaining
         if (this.timerSeconds <= 10) {
             timerElement.style.background = '#e74c3c';
+            timerElement.style.color = 'white';
             timerElement.classList.add('pulse');
         } else if (this.timerSeconds <= 30) {
             timerElement.style.background = '#f39c12';
+            timerElement.style.color = 'white';
             timerElement.classList.remove('pulse');
         } else {
             timerElement.style.background = '#2c3e50';
+            timerElement.style.color = 'white';
             timerElement.classList.remove('pulse');
         }
+        
+        // Add padding and styling
+        timerElement.style.padding = '10px 20px';
+        timerElement.style.borderRadius = '5px';
+        timerElement.style.fontSize = '20px';
+        timerElement.style.fontWeight = 'bold';
+        timerElement.style.display = 'inline-block';
+        timerElement.style.minWidth = '60px';
+        timerElement.style.textAlign = 'center';
+    }
+
+    updateTimerButton() {
+        const startButton = document.getElementById('start-timer');
+        if (!startButton) {
+            console.error('Start timer button not found');
+            return;
+        }
+        
+        if (this.timerRunning) {
+            startButton.textContent = 'Stop Timer';
+            startButton.style.background = '#e74c3c';
+        } else {
+            startButton.textContent = 'Start Timer';
+            startButton.style.background = '#27ae60';
+        }
+        startButton.style.color = 'white';
+        startButton.style.border = 'none';
+        startButton.style.padding = '8px 16px';
+        startButton.style.borderRadius = '4px';
+        startButton.style.cursor = 'pointer';
     }
 
     timeExpired() {
@@ -408,7 +576,7 @@ class RefereePanel {
         }, 2000);
     }
 
-    selectResult(result) {
+    selectResult(result, label) {
         // Clear previous selections
         document.querySelectorAll('.result-btn').forEach(btn => {
             btn.classList.remove('selected');
@@ -416,25 +584,32 @@ class RefereePanel {
         
         // Select current result
         const selectedBtn = document.querySelector(`[data-result="${result}"]`);
-        selectedBtn.classList.add('selected');
+        if (selectedBtn) {
+            selectedBtn.classList.add('selected');
+        }
         
-        // Show/hide technical violations
+        // Show/hide technical violations based on result
         const technicalDiv = document.getElementById('technical-decisions');
-        if (result === 'no-lift') {
+        
+        // Check if this is a negative result (false value)
+        const isNegativeResult = result === 'false' || result === false;
+        
+        if (isNegativeResult) {
             technicalDiv.classList.add('show');
         } else {
             technicalDiv.classList.remove('show');
-            // Clear technical violations if good lift
+            // Clear technical violations if positive result
             document.querySelectorAll('.violation-checkboxes input').forEach(cb => {
                 cb.checked = false;
             });
         }
         
         this.currentAttemptData.result = result;
+        this.currentAttemptData.resultLabel = label;
         this.checkSubmissionReady();
     }
 
-    recordRefereeVote(refereeNum, vote) {
+    recordRefereeVote(refereeNum, vote, label) {
         // Clear previous vote for this referee
         document.querySelectorAll(`[data-referee="${refereeNum}"]`).forEach(btn => {
             btn.classList.remove('selected');
@@ -442,21 +617,37 @@ class RefereePanel {
         
         // Select new vote
         const selectedBtn = document.querySelector(`[data-referee="${refereeNum}"][data-vote="${vote}"]`);
-        selectedBtn.classList.add('selected');
+        if (selectedBtn) {
+            selectedBtn.classList.add('selected');
+        }
         
-        this.refereeVotes[refereeNum] = vote;
+        this.refereeVotes[refereeNum] = {
+            vote: vote,
+            label: label
+        };
         this.updateFinalDecision();
         this.checkSubmissionReady();
     }
 
     updateFinalDecision() {
         const votes = Object.values(this.refereeVotes);
-        const goodVotes = votes.filter(vote => vote === 'good').length;
-        const noLiftVotes = votes.filter(vote => vote === 'no-lift').length;
-        
         let decision = 'Pending';
-        if (votes.length === 3) {
-            decision = goodVotes >= 2 ? 'Good Lift' : 'No Lift';
+        
+        if (votes.length === this.refereeConfig.number_of_referees) {
+            // Count votes by value (true/false)
+            const positiveVotes = votes.filter(v => v.vote === 'true' || v.vote === true).length;
+            const totalVotes = votes.length;
+            const majority = Math.ceil(totalVotes / 2);
+            
+            if (positiveVotes >= majority) {
+                // Find the positive decision label
+                const positiveOption = this.refereeConfig.decision_options.find(opt => opt.value === true);
+                decision = positiveOption ? positiveOption.label : 'Good Lift';
+            } else {
+                // Find the negative decision label
+                const negativeOption = this.refereeConfig.decision_options.find(opt => opt.value === false);
+                decision = negativeOption ? negativeOption.label : 'No Lift';
+            }
         }
         
         document.getElementById('final-result').textContent = decision;
@@ -474,7 +665,8 @@ class RefereePanel {
 
     checkSubmissionReady() {
         const hasResult = this.currentAttemptData.result;
-        const hasAllVotes = Object.keys(this.refereeVotes).length === 3;
+        const expectedVotes = this.refereeConfig ? this.refereeConfig.number_of_referees : 3;
+        const hasAllVotes = Object.keys(this.refereeVotes).length === expectedVotes;
         
         const submitBtn = document.getElementById('submit-decision');
         if (hasResult && hasAllVotes) {
@@ -591,27 +783,6 @@ class RefereePanel {
         document.getElementById('progress-text').textContent = `${Math.round(progressPercent)}% Complete`;
     }
 
-    emergencyStop() {
-        this.stopTimer();
-        this.showNotification('EMERGENCY STOP ACTIVATED', 'error');
-        
-        // Disable all controls
-        document.querySelectorAll('button:not(#emergency-stop)').forEach(btn => {
-            btn.disabled = true;
-        });
-        
-        // You could add additional emergency procedures here
-    }
-
-    technicalBreak() {
-        this.stopTimer();
-        this.showNotification('Technical break initiated', 'warning');
-        
-        // Add additional break time
-        this.timerSeconds += 60; // Add 1 minute
-        this.updateTimerDisplay();
-    }
-
     clearEventSelect() {
         const select = document.getElementById('event-select');
         select.innerHTML = '<option value="">Select Event</option>';
@@ -689,6 +860,11 @@ class RefereePanel {
         } catch (error) {
             console.error('Error clearing attempt:', error);
         }
+    }
+
+    openRefereesSettings() {
+        // Navigate to referee settings page
+        window.location.href = '/admin/referee-settings';
     }
 }
 
