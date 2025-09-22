@@ -1,7 +1,11 @@
 from asyncio.log import logger
 from flask import Blueprint, render_template, request, jsonify
 from ..extensions import db
-from ..models import Competition, SportCategory, Exercise, CompetitionType, Athlete, Flight, Event, SportType, AthleteFlight
+from ..models import (
+    Competition, SportCategory, Exercise, CompetitionType, 
+    Athlete, Flight, Event, SportType, AthleteFlight,
+    Attempt, AttemptResult, AthleteEntry
+)
 from datetime import datetime
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import joinedload

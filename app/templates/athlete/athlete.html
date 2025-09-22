@@ -38,26 +38,25 @@
             <!-- Timer Card -->
             <div class="timer-card">
                 <h2>Next Attempt</h2>
-                {% if next_attempt %}
-                <!-- Time to next attempt -->
-                <div class="timer countdown-timer" id="main-timer" data-time="{{ next_attempt.time }}">
-                    {% set minutes = (next_attempt.time // 60)|int %}
-                    {% set seconds = (next_attempt.time % 60)|int %}
-                    {{ '%d:%02d'|format(minutes, seconds) }}
+                <div class="timer countdown-timer" id="main-timer" data-time="{{ next_attempt.time if next_attempt else 0 }}">
+                    {% if next_attempt %}
+                        {% set minutes = (next_attempt.time // 60)|int %}
+                        {% set seconds = (next_attempt.time % 60)|int %}
+                        {{ '%d:%02d'|format(minutes, seconds) }}
+                    {% else %}
+                        --:--
+                    {% endif %}
                 </div>
-                <!-- Detail of next attempt -->
-                <div class="next-attempt-info">
-                    <p><strong>Event:</strong> {{ next_attempt.event_type }}</p>
-                    <p><strong>Lift:</strong> {{ next_attempt.lift_type }}</p>
-                    <p><strong>Weight:</strong> {{ next_attempt.weight }}kg</p>
-                    <p><strong>Attempt:</strong> {{ next_attempt.order }}</p>
-                </div>
-                {% else %}
-                <div class="timer">--:--</div>
-                <div class="next-attempt-info">
+                <div class="next-attempt-info" data-template="next-attempt-info">
+                    {% if next_attempt %}
+                    <p><strong>Event:</strong> <span class="event-type">{{ next_attempt.event_type }}</span></p>
+                    <p><strong>Lift:</strong> <span class="lift-type">{{ next_attempt.lift_type }}</span></p>
+                    <p><strong>Weight:</strong> <span class="weight">{{ next_attempt.weight }}</span>kg</p>
+                    <p><strong>Attempt:</strong> <span class="attempt-order">{{ next_attempt.order }}</span></p>
+                    {% else %}
                     <p>No upcoming attempts</p>
+                    {% endif %}
                 </div>
-                {% endif %}
             </div>
 
             <!-- Rankings card -->
@@ -104,38 +103,81 @@
                         </button>
                     </div>
 
-                    <!-- Event details will be initially hidden -->
+                    <!-- Event details container -->
                     <div id="event-details-container">
-                        {% if my_flights %}
-                        {% for flight in my_flights %}
-                        <div class="event-details" id="event-{{ flight.event_name|lower }}">
-                            <h3>{{ flight.event_name }} - Flight {{ flight.flight_name }}</h3>
+                        {% for entry in athlete.entries %}
+                        <div class="event-details" id="event-{{ entry.competition_type.exercise.sport_category.name|lower }}">
+                            <h3>{{ entry.competition_type.exercise.sport_category.name }} - {{ entry.competition_type.name }}</h3>
                             
-                            {% if next_attempt and next_attempt.event_type == flight.event_name %}
-                            <div class="attempt next-attempt">
-                                <span>Next Attempt ({{ next_attempt.attempt_number }}):</span>
+                            <!-- Opening Weights Section -->
+                            <div class="opening-weights-section">
+                                <h4>Opening Weights</h4>
+                                {% for lift, weight in entry.opening_weights.items() %}
                                 <div class="weight-display">
-                                    <span class="weight-value">{{ next_attempt.requested_weight }}kg</span>
+                                    <strong>{{ lift }}:</strong>
+                                    <span class="weight-value">{{ weight }}kg</span>
                                     <form class="weight-form" style="display: none;" 
-                                          action="{{ url_for('athlete.update_attempt_weight') }}" method="POST">
-                                        <input type="hidden" name="attempt_id" value="{{ next_attempt.attempt_id }}">
-                                        <input type="number" name="weight" 
-                                               value="{{ next_attempt.requested_weight }}" 
+                                          action="{{ url_for('athlete.update_opening_weight') }}" method="POST">
+                                        <input type="hidden" name="competition_type_id" value="{{ entry.competition_type.id }}">
+                                        <input type="hidden" name="lift_key" value="{{ lift }}">
+                                        <input type="number" name="weight" value="{{ weight }}" 
                                                step="0.5" min="0" required>
                                         <span>kg</span>
                                         <button type="submit" class="submit-weight">Save</button>
                                     </form>
                                 </div>
-                                <span class="status">Current</span>
+                                {% endfor %}
                             </div>
-                            {% else %}
-                            <p>No active attempts for this event</p>
-                            {% endif %}
+
+                            <!-- Attempts Section -->
+                            <div class="attempts-section">
+                                {% set attempts_by_lift = {} %}
+                                {% for attempt in entry.attempts|sort(attribute='number') %}
+                                    {% set lift_name = attempt.lift_name or 'Unknown' %}
+                                    {% if lift_name not in attempts_by_lift %}
+                                        {% set _ = attempts_by_lift.update({lift_name: []}) %}
+                                    {% endif %}
+                                    {% set _ = attempts_by_lift[lift_name].append(attempt) %}
+                                {% endfor %}
+
+                                {% for lift_name, attempts in attempts_by_lift.items() %}
+                                <h4>{{ lift_name }}</h4>
+                                <div class="attempts-list">
+                                    {% for attempt in attempts %}
+                                    <div class="attempt {% if not attempt.result %}next-attempt{% endif %}" 
+                                         data-attempt-id="{{ attempt.id }}">
+                                        <span>Attempt {{ attempt.number }}:</span>
+                                        {% if not attempt.result %}
+                                        <div class="weight-display">
+                                            <span class="weight-value">{{ attempt.requested_weight }}kg</span>
+                                            <form class="weight-form" style="display: none;" 
+                                                  action="{{ url_for('athlete.update_attempt_weight') }}" method="POST">
+                                                <input type="hidden" name="attempt_id" value="{{ attempt.id }}">
+                                                <input type="number" name="weight" 
+                                                       value="{{ attempt.requested_weight }}" 
+                                                       step="0.5" min="0" required>
+                                                <span>kg</span>
+                                                <button type="submit" class="submit-weight">Save</button>
+                                            </form>
+                                        </div>
+                                        {% else %}
+                                        <span>{{ attempt.requested_weight }}kg</span>
+                                        {% endif %}
+                                        <span class="status">
+                                            {{ 'Completed' if attempt.result else 'Pending' }}
+                                        </span>
+                                        {% if attempt.result %}
+                                        <span class="result">{{ attempt.result }}</span>
+                                        {% endif %}
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                                {% endfor %}
+                            </div>
                         </div>
+                        {% else %}
+                        <p>You are not registered for any events yet.</p>
                         {% endfor %}
-                    {% else %}
-                        <p>You are not assigned to any flights yet.</p>
-                    {% endif %}
                     </div>
                 </div>
             </div>
