@@ -1,234 +1,218 @@
 {% extends "base.html" %}
 
-{% block title %}Referee {{ referee_id }} - Small Goods Competition{% endblock %}
+{% block title %}{{ referee.name }} - Small Goods Competition{% endblock %}
 
 {% block head %}
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/individual_referee.css') }}">
+    <style>
+        .individual-referee {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .logout-btn {
+            display: inline-block;
+            margin-bottom: 20px;
+            padding: 8px 16px;
+            background: #6c757d;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        
+        .logout-btn:hover {
+            background: #5a6268;
+            color: white;
+            text-decoration: none;
+        }
+        
+        .referee-header {
+            background: rgba(255,255,255,0.1);
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .referee-header h1 {
+            margin: 0 0 15px 0;
+            color: #fff;
+        }
+        
+        .referee-details {
+            background: rgba(255,255,255,0.05);
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+        }
+        
+        .referee-details p {
+            margin: 5px 0;
+            font-size: 14px;
+        }
+        
+        .decision-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin: 20px 0;
+        }
+        
+        .decision-btn {
+            padding: 15px 25px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            min-width: 120px;
+            transition: all 0.3s ease;
+            color: white;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+        }
+        
+        .decision-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+        }
+        
+        .decision-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .decision-btn.selected {
+            box-shadow: 0 0 0 3px #fff, 0 0 0 6px #007bff;
+        }
+        
+        .decision-btn.grey { background-color: #6c757d; }
+        .decision-btn.green { background-color: #28a745; }
+        .decision-btn.red { background-color: #dc3545; }
+        .decision-btn.yellow { background-color: #ffc107; color: #000; }
+        .decision-btn.blue { background-color: #007bff; }
+        .decision-btn.orange { background-color: #fd7e14; }
+        .decision-btn.purple { background-color: #6f42c1; }
+        .decision-btn.pink { background-color: #e83e8c; }
+    </style>
 {% endblock %}
 
 {% block content %}
-<a href="/referee/login" class="logout-btn">← Back to Login</a>
-
 <div class="individual-referee">
-    <div class="referee-header referee-{{ referee_id }}">
-        <h1>
-            {% if referee_id == '1' %}🔴 Referee 1 (Head Referee)
-            {% elif referee_id == '2' %}🟡 Referee 2 (Side Referee) 
-            {% else %}🟢 Referee 3 (Side Referee){% endif %}
-        </h1>
-        <p>Competition: <span id="competition-name">Loading...</span></p>
-        <p>Event: <span id="event-name">Loading...</span></p>
-    </div>
-    
-    <div class="competition-status">
-        <div class="timer-display">
-            <div>Time Remaining:</div>
-            <div class="timer-large" id="attempt-timer">--</div>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <a href="{{ url_for('admin.general_referee_login') }}" class="logout-btn">← Back to Login</a>
+        <button id="logout-btn" class="logout-btn" style="background: #dc3545; border: none; cursor: pointer;">
+            Logout →
+        </button>
+    </div>    <div class="referee-header">
+        <h1>🎯 {{ referee.name }} ({{ referee.position or 'Referee' }})</h1>
+        <div class="referee-details">
+            <p><strong>Username:</strong> {{ referee.username }}</p>
+            <p><strong>Position:</strong> {{ referee.position or 'Not specified' }}</p>
+            <p><strong>Email:</strong> {{ referee.email or 'Not provided' }}</p>
+            <p><strong>Phone:</strong> {{ referee.phone or 'Not provided' }}</p>
+            <p><strong>Competition:</strong> <span id="competition-name">{{ referee.competition.name if referee.competition else 'Loading...' }}</span></p>
         </div>
     </div>
     
     <div class="current-attempt" id="current-attempt-display" style="display: none;">
-        <div class="athlete-display">
-            <div class="athlete-info">
-                <h2 id="athlete-name">Athlete Name</h2>
-                <div id="athlete-details">
-                    <div><strong>Weight Class:</strong> <span id="athlete-weight-class">--</span></div>
-                    <div><strong>Team:</strong> <span id="athlete-team">--</span></div>
-                    <div><strong>Attempt:</strong> <span id="attempt-number">--</span></div>
-                </div>
-            </div>
-            <div class="attempt-details">
-                <div>Attempting:</div>
-                <div class="attempt-weight" id="attempt-weight">--kg</div>
-                <div id="lift-type">--</div>
-            </div>
+        <h3>Cast Your Decision</h3>
+        <div class="decision-buttons" id="decision-buttons">
+            <!-- Dynamic decision buttons will be populated here -->
         </div>
         
-        <div class="vote-section">
-            <h3>Cast Your Vote</h3>
-            <div class="vote-buttons">
-                <button class="individual-vote-btn good" data-vote="good">
-                    ⚪
-                </button>
-                <button class="individual-vote-btn no-lift" data-vote="no-lift">
-                    🔴
-                </button>
-            </div>
-            <div>
-                <small>⚪ Good Lift &nbsp;&nbsp;&nbsp;&nbsp; 🔴 No Lift</small>
-            </div>
-            
-            <div class="vote-status" id="vote-status" style="display: none;">
-                <span id="vote-message">Vote submitted successfully!</span>
-            </div>
-            
-            <div class="other-referees">
-                <span class="referee-status ref-pending" id="ref1-status">Ref 1: Pending</span>
-                <span class="referee-status ref-pending" id="ref2-status">Ref 2: Pending</span>
-                <span class="referee-status ref-pending" id="ref3-status">Ref 3: Pending</span>
-            </div>
+        <div id="vote-status" style="display: none;">
+            <span id="vote-message">Decision submitted successfully!</span>
         </div>
     </div>
     
-    <div class="current-attempt" id="waiting-display">
+    <div id="waiting-display">
         <div style="text-align: center; padding: 50px;">
-            <h3>⏳ Waiting for next athlete...</h3>
-            <p>Stand by for the next attempt</p>
+            <h3>⏳ Waiting for competition to start...</h3>
+            <p>Stand by for decisions</p>
         </div>
     </div>
 </div>
 
 <script>
 class IndividualReferee {
-    constructor(refereeId) {
+    constructor(refereeId, competitionId) {
         this.refereeId = refereeId;
-        this.currentAttempt = null;
+        this.competitionId = competitionId;
         this.hasVoted = false;
-        this.pollInterval = null;
-        
+        this.decisionOptions = [];
         this.init();
     }
     
-    init() {
-        this.bindEvents();
-        this.startPolling();
+    async init() {
+        await this.loadDecisionOptions();
         this.loadCompetitionInfo();
     }
     
-    bindEvents() {
-        document.querySelectorAll('.individual-vote-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                this.castVote(e.target.dataset.vote);
+    async loadDecisionOptions() {
+        try {
+            const response = await fetch(`/admin/api/competitions/${this.competitionId}/referee-config`);
+            const config = await response.json();
+            
+            this.decisionOptions = config.decision_options || [];
+            this.renderDecisionButtons();
+        } catch (error) {
+            console.error('Error loading decision options:', error);
+            this.decisionOptions = [
+                { label: 'Good Lift', value: true, color: 'green' },
+                { label: 'No Lift', value: false, color: 'red' }
+            ];
+            this.renderDecisionButtons();
+        }
+    }
+    
+    renderDecisionButtons() {
+        const container = document.getElementById('decision-buttons');
+        container.innerHTML = '';
+        
+        this.decisionOptions.forEach((option) => {
+            const button = document.createElement('button');
+            button.className = `decision-btn ${option.color}`;
+            button.dataset.decision = JSON.stringify(option);
+            button.textContent = option.label;
+            
+            button.addEventListener('click', () => {
+                this.castDecision(option);
             });
+            
+            container.appendChild(button);
         });
+        
+        // Show the decision section
+        document.getElementById('waiting-display').style.display = 'none';
+        document.getElementById('current-attempt-display').style.display = 'block';
     }
     
     async loadCompetitionInfo() {
         try {
-            const response = await fetch('/admin/api/competitions');
-            const competitions = await response.json();
-            const currentComp = competitions.find(c => c.id === 1) || competitions[0];
-            
-            if (currentComp) {
-                document.getElementById('competition-name').textContent = currentComp.name;
-                
-                // Load events
-                const detailResponse = await fetch(`/admin/api/competitions/${currentComp.id}`);
-                const details = await detailResponse.json();
-                
-                if (details.events && details.events.length > 0) {
-                    document.getElementById('event-name').textContent = details.events[0].name;
-                }
+            if (this.competitionId) {
+                const response = await fetch(`/admin/api/competitions/${this.competitionId}`);
+                const competition = await response.json();
+                document.getElementById('competition-name').textContent = competition.name;
             }
         } catch (error) {
             console.error('Error loading competition info:', error);
         }
     }
     
-    async startPolling() {
-        // Poll for current attempt every 2 seconds
-        this.pollInterval = setInterval(() => {
-            this.checkCurrentAttempt();
-        }, 2000);
-        
-        // Initial check
-        this.checkCurrentAttempt();
-    }
-    
-    async checkCurrentAttempt() {
-        try {
-            const response = await fetch('/admin/api/current-attempt');
-            
-            if (response.ok) {
-                const attemptData = await response.json();
-                this.updateDisplay(attemptData);
-            } else {
-                this.showWaitingDisplay();
-            }
-        } catch (error) {
-            console.error('Error checking current attempt:', error);
-            this.showWaitingDisplay();
-        }
-    }
-    
-    updateDisplay(attemptData) {
-        if (!attemptData || attemptData.status === 'waiting') {
-            this.showWaitingDisplay();
-            return;
-        }
-        
-        // Show current attempt
-        document.getElementById('waiting-display').style.display = 'none';
-        document.getElementById('current-attempt-display').style.display = 'block';
-        
-        // Update athlete info
-        document.getElementById('athlete-name').textContent = attemptData.athlete.name;
-        document.getElementById('athlete-weight-class').textContent = attemptData.athlete.weightClass;
-        document.getElementById('athlete-team').textContent = attemptData.athlete.team;
-        document.getElementById('attempt-number').textContent = `Attempt ${attemptData.attemptNumber}`;
-        document.getElementById('attempt-weight').textContent = `${attemptData.weight}kg`;
-        document.getElementById('lift-type').textContent = attemptData.liftType;
-        
-        // Update timer
-        if (attemptData.timer) {
-            document.getElementById('attempt-timer').textContent = attemptData.timer.remaining;
-        }
-        
-        // Update referee status
-        this.updateRefereeStatus(attemptData.votes || {});
-        
-        // Check if this referee has already voted for this attempt
-        this.hasVoted = attemptData.votes && attemptData.votes[this.refereeId];
-        this.updateVoteButtons();
-    }
-    
-    showWaitingDisplay() {
-        document.getElementById('current-attempt-display').style.display = 'none';
-        document.getElementById('waiting-display').style.display = 'block';
-        document.getElementById('attempt-timer').textContent = '--';
-    }
-    
-    updateRefereeStatus(votes) {
-        for (let i = 1; i <= 3; i++) {
-            const statusEl = document.getElementById(`ref${i}-status`);
-            if (votes[i]) {
-                statusEl.textContent = `Ref ${i}: ✓ Voted`;
-                statusEl.className = 'referee-status ref-voted';
-            } else {
-                statusEl.textContent = `Ref ${i}: Pending`;
-                statusEl.className = 'referee-status ref-pending';
-            }
-        }
-    }
-    
-    updateVoteButtons() {
-        const buttons = document.querySelectorAll('.individual-vote-btn');
-        const voteStatus = document.getElementById('vote-status');
-        
-        if (this.hasVoted) {
-            buttons.forEach(btn => btn.disabled = true);
-            voteStatus.style.display = 'block';
-            voteStatus.className = 'vote-status vote-submitted';
-            voteStatus.querySelector('#vote-message').textContent = 'Vote submitted successfully!';
-        } else {
-            buttons.forEach(btn => {
-                btn.disabled = false;
-                btn.classList.remove('selected');
-            });
-            voteStatus.style.display = 'none';
-        }
-    }
-    
-    async castVote(vote) {
+    async castDecision(decisionOption) {
         if (this.hasVoted) return;
         
         try {
-            const response = await fetch('/admin/api/referee-vote', {
+            const response = await fetch('/admin/api/referee-decision', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    refereeId: this.refereeId,
-                    vote: vote,
+                    referee_id: this.refereeId,
+                    competition_id: this.competitionId,
+                    decision: decisionOption,
                     timestamp: new Date().toISOString()
                 })
             });
@@ -236,20 +220,24 @@ class IndividualReferee {
             if (response.ok) {
                 this.hasVoted = true;
                 
-                // Highlight selected button
-                document.querySelectorAll('.individual-vote-btn').forEach(btn => {
+                document.querySelectorAll('.decision-btn').forEach(btn => {
                     btn.classList.remove('selected');
+                    btn.disabled = true;
                 });
-                document.querySelector(`[data-vote="${vote}"]`).classList.add('selected');
                 
-                this.updateVoteButtons();
-                this.showNotification('Vote submitted successfully!', 'success');
+                document.querySelector(`[data-decision='${JSON.stringify(decisionOption)}']`).classList.add('selected');
+                
+                document.getElementById('vote-status').style.display = 'block';
+                document.getElementById('vote-message').textContent = `Decision "${decisionOption.label}" submitted successfully!`;
+                
+                this.showNotification(`Decision "${decisionOption.label}" submitted successfully!`, 'success');
             } else {
-                throw new Error('Failed to submit vote');
+                const errorData = await response.json();
+                throw new Error(errorData.message || 'Failed to submit decision');
             }
         } catch (error) {
-            console.error('Error casting vote:', error);
-            this.showNotification('Error submitting vote. Please try again.', 'error');
+            console.error('Error casting decision:', error);
+            this.showNotification('Error submitting decision. Please try again.', 'error');
         }
     }
     
@@ -274,10 +262,43 @@ class IndividualReferee {
     }
 }
 
-// Initialize referee interface
 document.addEventListener('DOMContentLoaded', () => {
-    const refereeId = '{{ referee_id }}';
-    window.referee = new IndividualReferee(refereeId);
+    const refereeId = {{ referee.id }};
+    const competitionId = {{ referee.competition.id if referee.competition else 'null' }};
+    
+    if (competitionId) {
+        window.referee = new IndividualReferee(refereeId, competitionId);
+    } else {
+        document.body.innerHTML += '<div style="text-align: center; padding: 50px;"><h3>Error: No competition assigned to this referee</h3></div>';
+    }
+
+    // Add logout functionality
+    const logoutBtn = document.getElementById('logout-btn');
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', async () => {
+            try {
+                const response = await fetch('/admin/api/referee/logout', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                
+                if (response.ok) {
+                    // Show success message briefly
+                    logoutBtn.textContent = 'Logging out...';
+                    logoutBtn.disabled = true;
+                    
+                    setTimeout(() => {
+                        window.location.href = '/admin/referee/login';
+                    }, 1000);
+                } else {
+                    throw new Error('Logout failed');
+                }
+            } catch (error) {
+                console.error('Logout error:', error);
+                alert('Logout failed. Please try again.');
+            }
+        });
+    }
 });
 </script>
 {% endblock %}
