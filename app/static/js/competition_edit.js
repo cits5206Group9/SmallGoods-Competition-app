@@ -55,6 +55,7 @@
         // Load basic fields
         $('#comp-name').value = data.name || '';
         $('#sport-type').value = data.sport_type || '';
+        $('#comp-date').value = data.start_date || '';
         $('#allow-athlete-input').checked = !!(config.features?.allowAthleteInput);
         $('#allow-coach-assignment').checked = !!(config.features?.allowCoachAssignment);
         $('#enable-attempt-ordering').checked = !!(config.features?.enableAttemptOrdering);
