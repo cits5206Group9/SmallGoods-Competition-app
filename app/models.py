@@ -222,6 +222,7 @@ class CoachAssignment(db.Model):
 
     # Relationships
     coach = db.relationship("User", backref="coach_assignments", foreign_keys=[coach_user_id])
+
     athlete = db.relationship("Athlete", backref="coach_assignments")
 
 # Referee Management
@@ -245,3 +246,4 @@ class Referee(db.Model):
 
     def __repr__(self):
         return f'<Referee {self.name} ({self.username})>'
+
