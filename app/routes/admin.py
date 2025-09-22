@@ -1,10 +1,7 @@
 from asyncio.log import logger
 from flask import Blueprint, render_template, request, jsonify
 from ..extensions import db
-from ..models import (
-    Competition, SportCategory, Exercise, CompetitionType,
-    Athlete, Flight, Event, SportType, AthleteFlight, ScoringType
-)
+from ..models import (Competition,Athlete, Flight, Event, SportType, AthleteFlight, ScoringType)
 from datetime import datetime
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import joinedload
@@ -320,7 +317,6 @@ def flights_management():
                 comp_events.append({
                     'id': event.id,
                     'name': event.name,
-                    'type': event.scoring_type.value if event.scoring_type else None,
                     'competition_id': comp.id,
                     'flights': event_flights
                 })
@@ -367,7 +363,6 @@ def flights_management():
             events_data.append({
                 'id': event.id,
                 'name': event.name,
-                'type': event.scoring_type.value if event.scoring_type else None,
                 'competition_id': event.competition_id,
                 'competition_name': event.competition.name if event.competition else None
             })
