@@ -100,7 +100,6 @@ class Athlete(db.Model):
     is_active = db.Column(db.Boolean, default=True)
     current_attempt_number = db.Column(db.Integer, default=1)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-
     # Relationships
     flights = db.relationship("AthleteFlight", backref="athlete", lazy=True)
     entries = db.relationship("AthleteEntry", backref="athlete", lazy=True)
@@ -117,13 +116,20 @@ class AthleteEntry(db.Model):
     """Athletes entered in specific competition types"""
     id = db.Column(db.Integer, primary_key=True)
     athlete_id = db.Column(db.Integer, db.ForeignKey("athlete.id"), nullable=False)
+    event_id = db.Column(db.Integer, db.ForeignKey("event.id"), nullable=False)
     entry_order = db.Column(db.Integer)
     is_active = db.Column(db.Boolean, default=True)
+    lift_type = db.Column(db.String(50))  # e.g., "Snatch", "Clean & Jerk"
+    attempt_time_limit = db.Column(db.Integer, default=60)  # seconds
+    break_time = db.Column(db.Integer, default=120)  # seconds
 
-    # UPDATE
+    # Store opening weights and attempts configuration
     opening_weights = db.Column(db.JSON, default=dict)  # Store opening weights for each lift type
+    entry_config = db.Column(db.JSON, default=dict)  # Additional configuration (rules, limits, etc)
 
+    # Relationships
     attempts = db.relationship("Attempt", backref="athlete_entry", lazy=True, cascade="all, delete-orphan")
+    event = db.relationship("Event", backref="athlete_entries")
 
 class AthleteFlight(db.Model):
     """Many-to-many relationship between athletes and flights"""
