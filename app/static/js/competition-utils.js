@@ -50,6 +50,7 @@ window.CompetitionUtils = (function() {
     function serializeFromDOM() {
         const comp = {
             name: $('#comp-name').value.trim(),
+            comp_date: $('#comp-date').value,
             sport_type: $('#sport-type').value,
             features: {
                 allowAthleteInput: !!$('#allow-athlete-input').checked,
@@ -195,6 +196,7 @@ window.CompetitionUtils = (function() {
         // Load basic fields
         $('#comp-name').value = data.name || '';
         $('#sport-type').value = data.sport_type || '';
+        $('#comp-date').value = data.date || '';
         $('#allow-athlete-input').checked = !!(data.features?.allowAthleteInput);
         $('#allow-coach-assignment').checked = !!(data.features?.allowCoachAssignment);
         $('#enable-attempt-ordering').checked = !!(data.features?.enableAttemptOrdering);

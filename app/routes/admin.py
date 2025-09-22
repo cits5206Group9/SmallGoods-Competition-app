@@ -1,11 +1,7 @@
 from asyncio.log import logger
 from flask import Blueprint, render_template, request, jsonify
 from ..extensions import db
-from ..models import (
-    Competition, SportCategory, Exercise, CompetitionType, 
-    Athlete, Flight, Event, SportType, AthleteFlight,
-    Attempt, AttemptResult, AthleteEntry
-)
+from ..models import (Competition,Athlete, Flight, Event, SportType, AthleteFlight, ScoringType, Attempt, AttemptResult, AthleteEntry)
 from datetime import datetime
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import joinedload
@@ -70,11 +66,13 @@ def get_competition_model(id):
     return jsonify({
         'id': competition.id,
         'name': competition.name,
+        'start_date': competition.start_date.isoformat() if competition.start_date else None,
         'description': competition.description,
         'sport_type': competition.sport_type.value if competition.sport_type else None,
         'config': competition.config or {
             'name': competition.name,
             'sport_type': competition.sport_type.value if competition.sport_type else None,
+            'comp_date': competition.start_date.isoformat() if competition.start_date else None,
             'features': {
                 'allowAthleteInput': True,
                 'allowCoachAssignment': True,
@@ -91,60 +89,104 @@ def save_competition_model():
         data = request.get_json()
         logger.info("Received data: %s", data)  # Debug log
 
+        # Start a database transaction
+        db.session.begin_nested()
+
         # Create new competition or update existing one
         competition_id = data.get('id')
         if competition_id:
             competition = Competition.query.get_or_404(competition_id)
+            # Keep track of existing events for cleanup
+            existing_event_ids = {event.id for event in competition.events}
         else:
             competition = Competition()
+            existing_event_ids = set()
+            db.session.add(competition)
 
         # Update basic fields
         competition.name = data['name']
         competition.sport_type = SportType(data['sport_type'])
+        competition.start_date = datetime.strptime(data['comp_date'], '%Y-%m-%d').date()
         competition.description = f"Sport type: {data['sport_type']}"
-        competition.start_date = datetime.now().date()
-        competition.end_date = datetime.now().date()
         competition.is_active = True
         
-        for event_data in data.get('events', []):
-            category = SportCategory(
-                competition=competition,
-                name=event_data['name'],
-                is_active=True
-            )
-            db.session.add(category)
-            db.session.flush()
+        # Store the complete configuration
+        competition.config = {
+            'name': data['name'],
+            'sport_type': data['sport_type'],
+            'comp_date': data['comp_date'],
+            'features': data.get('features', {
+                'allowAthleteInput': True,
+                'allowCoachAssignment': True,
+                'enableAttemptOrdering': True
+            }),
+            'events': data.get('events', [])
+        }
+
+        # Process events
+        current_event_ids = set()
+        for event_data in competition.config['events']:
+            event_id = event_data.get('id')
             
-            for idx, movement in enumerate(event_data.get('movements', []), 1):
-                exercise = Exercise(
-                    sport_category=category,
-                    name=movement['name'],
-                    order=idx,
-                    attempt_time_limit=movement['timer'].get('attempt_seconds', 60),
-                    break_time_default=movement['timer'].get('break_seconds', 120)
-                )
-                db.session.add(exercise)
-                db.session.flush()
-                
-                comp_type = CompetitionType(
-                    exercise=exercise,
-                    name=movement.get('scoring', {}).get('name', 'Standard'),
+            if event_id:
+                # Update existing event
+                event = Event.query.get(event_id)
+                if event and event.competition_id == competition.id:
+                    event.name = event_data['name']
+                    event.gender = event_data.get('gender')
+                    event.is_active = True
+                    current_event_ids.add(event.id)
+            else:
+                # Create new event
+                event = Event(
+                    competition=competition,
+                    name=event_data['name'],
+                    gender=event_data.get('gender'),
                     is_active=True
                 )
-                db.session.add(comp_type)
-        
-        if not competition_id:
-            db.session.add(competition)
-        
-        # Commit the changes
+                db.session.add(event)
+                db.session.flush()  # Get the new event ID
+                current_event_ids.add(event.id)
+
+            # Process flights for this event
+            if 'groups' in event_data:
+                for flight_data in event_data['groups']:
+                    if flight_data.get('id'):
+                        # Update existing flight
+                        flight = Flight.query.get(flight_data['id'])
+                        if flight and flight.event_id == event.id:
+                            flight.name = flight_data['name']
+                            flight.order = flight_data.get('order', 1)
+                            flight.is_active = flight_data.get('is_active', True)
+                    else:
+                        # Create new flight
+                        flight = Flight(
+                            event_id=event.id,
+                            competition_id=competition.id,
+                            name=flight_data['name'],
+                            order=flight_data.get('order', 1),
+                            is_active=flight_data.get('is_active', True)
+                        )
+                        db.session.add(flight)
+                        db.session.flush()  # Get the new flight ID
+
+        # Remove events that no longer exist in the configuration
+        events_to_delete = existing_event_ids - current_event_ids
+        if events_to_delete:
+            Event.query.filter(Event.id.in_(events_to_delete)).delete(synchronize_session='fetch')
+
+        # Commit all changes
         db.session.commit()
 
-        logger.info("Saved competition: %d, %s", competition.id, competition.config)  # Debug log
+        logger.info("Saved competition: %d with %d events", competition.id, len(current_event_ids))
 
         return jsonify({
             'status': 'success',
             'competition_id': competition.id,
-            'message': 'Competition model saved successfully'
+            'message': 'Competition model saved successfully',
+            'events_created': len(current_event_ids - existing_event_ids),
+            'events_updated': len(current_event_ids & existing_event_ids),
+            'events_deleted': len(events_to_delete)
         })
         
     except Exception as e:
@@ -246,7 +288,7 @@ def flights_management():
             for event in comp.events:
                 # Get flights for this event
                 event_flights = []
-                for flight in flights:
+                for flight in event.flights:
                     if flight.event_id == event.id:
                         # Get athletes for this flight
                         flight_athletes = []
@@ -275,7 +317,6 @@ def flights_management():
                 comp_events.append({
                     'id': event.id,
                     'name': event.name,
-                    'type': event.scoring_type.value if event.scoring_type else None,
                     'competition_id': comp.id,
                     'flights': event_flights
                 })
@@ -322,7 +363,6 @@ def flights_management():
             events_data.append({
                 'id': event.id,
                 'name': event.name,
-                'type': event.scoring_type.value if event.scoring_type else None,
                 'competition_id': event.competition_id,
                 'competition_name': event.competition.name if event.competition else None
             })
@@ -628,7 +668,6 @@ def get_competitions():
             'id': comp.id,
             'name': comp.name,
             'start_date': comp.start_date.isoformat() if comp.start_date else None,
-            'end_date': comp.end_date.isoformat() if comp.end_date else None
         } for comp in competitions])
     except Exception as e:
         return jsonify({
@@ -655,6 +694,7 @@ def create_flight():
         
         # Handle empty string as None
         if event_id == '' or event_id == 'null':
+
             event_id = None
         
         # Get competition_id 
