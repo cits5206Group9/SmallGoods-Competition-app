@@ -87,7 +87,7 @@
             <!-- Competition Details -->
             <div class="competition-card">
                 <h2>{{ competition.name }}</h2>
-                <p><strong>Date:</strong> {{ competition.date }}</p>
+                <p><strong>Date:</strong> {{ competition.start_date }}</p>
 
                 <!-- Registered Event details -->
                 <div class="event-section">
@@ -106,8 +106,8 @@
                     <!-- Event details container -->
                     <div id="event-details-container">
                         {% for entry in athlete.entries %}
-                        <div class="event-details" id="event-{{ entry.competition_type.exercise.sport_category.name|lower }}">
-                            <h3>{{ entry.competition_type.exercise.sport_category.name }} - {{ entry.competition_type.name }}</h3>
+                        <div class="event-details" id="event-{{ entry.event.name|lower }}">
+                            <h3>{{ entry.event.name }} - {{ entry.category }}</h3>
                             
                             <!-- Opening Weights Section -->
                             <div class="opening-weights-section">
@@ -118,7 +118,7 @@
                                     <span class="weight-value">{{ weight }}kg</span>
                                     <form class="weight-form" style="display: none;" 
                                           action="{{ url_for('athlete.update_opening_weight') }}" method="POST">
-                                        <input type="hidden" name="competition_type_id" value="{{ entry.competition_type.id }}">
+                                        <input type="hidden" name="event_id" value="{{ entry.event.id }}">
                                         <input type="hidden" name="lift_key" value="{{ lift }}">
                                         <input type="number" name="weight" value="{{ weight }}" 
                                                step="0.5" min="0" required>
