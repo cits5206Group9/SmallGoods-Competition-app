@@ -70,7 +70,12 @@ class Event(db.Model):
     gender = db.Column(db.String(10))
     scoring_type = db.Column(db.Enum(ScoringType), nullable=False)
     is_active = db.Column(db.Boolean, default=False)
-    current_lift_id = db.Column(db.Integer, db.ForeignKey("lift.id"))
+    # It will caused circular dependency if not use post_update=True
+    current_lift_id = db.Column(
+        db.Integer,
+        db.ForeignKey("lift.id", name="fk_event_current_lift_id", use_alter=True),
+        nullable=True
+    )
 
     # Relationships
     lifts = db.relationship("Lift", backref="event", lazy=True, cascade="all, delete-orphan", foreign_keys="[Lift.event_id]")
@@ -114,19 +119,21 @@ class Lift(db.Model):
 class Flight(db.Model):
     """Groups of athletes competing together"""
     id = db.Column(db.Integer, primary_key=True)
-    event_id = db.Column(db.Integer, db.ForeignKey("event.id"), nullable=False)
+    event_id = db.Column(db.Integer, db.ForeignKey("event.id"), nullable=True)
+    competition_id = db.Column(db.Integer, db.ForeignKey("competition.id"), nullable=True)
     name = db.Column(db.String(50), nullable=False)
     order = db.Column(db.Integer, nullable=False)
     is_active = db.Column(db.Boolean, default=False)
     
     # Relationships
     athlete_flights = db.relationship("AthleteFlight", backref="flight", lazy=True)
+    competition = db.relationship("Competition", backref="flights", lazy=True)
 
 class Athlete(db.Model):
     """Competition participants"""
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
-    competition_id = db.Column(db.Integer, db.ForeignKey("competition.id"), nullable=False)
+    competition_id = db.Column(db.Integer, db.ForeignKey("competition.id"), nullable=True)
     first_name = db.Column(db.String(80), nullable=False)
     last_name = db.Column(db.String(80), nullable=False)
     gender = db.Column(db.String(10))
@@ -142,6 +149,14 @@ class Athlete(db.Model):
     # Relationships
     flights = db.relationship("AthleteFlight", backref="athlete", lazy=True)
     entries = db.relationship("AthleteEntry", backref="athlete", lazy=True)
+    
+    @property
+    def attempts(self):
+        """Get all attempts for this athlete across all entries"""
+        all_attempts = []
+        for entry in self.entries:
+            all_attempts.extend(entry.attempts)
+        return all_attempts
 
 # Competition Types and Entries
 class CompetitionType(db.Model):
@@ -171,6 +186,7 @@ class AthleteFlight(db.Model):
     athlete_id = db.Column(db.Integer, db.ForeignKey("athlete.id"), nullable=False)
     flight_id = db.Column(db.Integer, db.ForeignKey("flight.id"), nullable=False)
     lot_number = db.Column(db.Integer)
+    order = db.Column(db.Integer, default=0)  # Order within the flight for attempts
 
 # Attempt and Referee System
 class Attempt(db.Model):
