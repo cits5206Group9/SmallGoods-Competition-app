@@ -51,7 +51,6 @@ class Competition(db.Model):
     name = db.Column(db.String(200), nullable=False)
     description = db.Column(db.Text)
     start_date = db.Column(db.Date, nullable=False)
-    end_date = db.Column(db.Date)
     sport_type = db.Column(db.Enum(SportType), nullable=False)
     is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -68,7 +67,6 @@ class Event(db.Model):
     name = db.Column(db.String(150), nullable=False)
     weight_category = db.Column(db.String(50))
     gender = db.Column(db.String(10))
-    scoring_type = db.Column(db.Enum(ScoringType), nullable=False)
     is_active = db.Column(db.Boolean, default=False)
     # It will caused circular dependency if not use post_update=True
     current_lift_id = db.Column(
