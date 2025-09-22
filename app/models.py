@@ -179,7 +179,7 @@ class AthleteEntry(db.Model):
 
     # UPDATE
     opening_weights = db.Column(db.JSON, default=dict)  # Store opening weights for each lift type
-    
+
     attempts = db.relationship("Attempt", backref="athlete_entry", lazy=True, cascade="all, delete-orphan")
 
 class AthleteFlight(db.Model):

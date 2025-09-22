@@ -5,104 +5,13 @@
     }
 
     // Event detail functions
-    function updateEventDetails(eventConfig) {
-        const container = document.getElementById('event-details-container');
-        if (!container) return;
-
-        // Clear existing content
-        container.innerHTML = '';
-
-        // Create event sections for each entry
-        eventConfig.entries.forEach(entry => {
-            const eventSection = document.createElement('div');
-            eventSection.className = 'event-details';
-            eventSection.id = `event-${entry.competition_type.exercise.sport_category.name.toLowerCase()}`;
-
-            let attemptsHtml = generateAttemptsSection(entry);
-            let openingWeightsHtml = generateOpeningWeightsSection(entry);
-
-            eventSection.innerHTML = `
-                <h3>${entry.competition_type.exercise.sport_category.name} - ${entry.competition_type.name}</h3>
-                ${openingWeightsHtml}
-                ${attemptsHtml}
-            `;
-
-            container.appendChild(eventSection);
-
-            // Initialize forms in the new section
-            initializeWeightForms(eventSection);
-        });
-    }
-
-    function generateOpeningWeightsSection(entry) {
-        const openingWeights = entry.opening_weights || {};
-        return `
-            <div class="opening-weights-section">
-                <h4>Opening Weights</h4>
-                ${Object.entries(openingWeights).map(([lift, weight]) => `
-                    <div class="weight-display">
-                        <strong>${lift}:</strong>
-                        <span class="weight-value">${weight}kg</span>
-                        <form class="weight-form" style="display: none;" 
-                              action="/athlete/update-opening-weight" method="POST">
-                            <input type="hidden" name="competition_type_id" value="${entry.competition_type.id}">
-                            <input type="hidden" name="lift_key" value="${lift}">
-                            <input type="number" name="weight" value="${weight}" 
-                                   step="0.5" min="0" required>
-                            <span>kg</span>
-                            <button type="submit" class="submit-weight">Save</button>
-                        </form>
-                    </div>
-                `).join('')}
-            </div>
-        `;
-    }
-
-    function generateAttemptsSection(entry) {
-        const attemptsByLift = {};
-        entry.attempts.forEach(attempt => {
-            const liftName = attempt.lift_name || 'Unknown';
-            if (!attemptsByLift[liftName]) {
-                attemptsByLift[liftName] = [];
-            }
-            attemptsByLift[liftName].push(attempt);
-        });
-
-        return `
-            <div class="attempts-section">
-                ${Object.entries(attemptsByLift).map(([liftName, attempts]) => `
-                    <h4>${liftName}</h4>
-                    <div class="attempts-list">
-                        ${attempts.sort((a, b) => a.number - b.number).map(attempt => `
-                            <div class="attempt ${attempt.result === null ? 'next-attempt' : ''}" 
-                                 data-attempt-id="${attempt.id}">
-                                <span>Attempt ${attempt.number}:</span>
-                                ${attempt.result === null ? `
-                                    <div class="weight-display">
-                                        <span class="weight-value">${attempt.requested_weight}kg</span>
-                                        <form class="weight-form" style="display: none;" 
-                                              action="/athlete/update-attempt-weight" method="POST">
-                                            <input type="hidden" name="attempt_id" value="${attempt.id}">
-                                            <input type="number" name="weight" 
-                                                   value="${attempt.requested_weight}" 
-                                                   step="0.5" min="0" required>
-                                            <span>kg</span>
-                                            <button type="submit" class="submit-weight">Save</button>
-                                        </form>
-                                    </div>
-                                ` : `
-                                    <span>${attempt.requested_weight}kg</span>
-                                `}
-                                <span class="status">
-                                    ${attempt.result ? 'Completed' : 'Pending'}
-                                </span>
-                                ${attempt.result ? `<span class="result">${attempt.result}</span>` : ''}
-                            </div>
-                        `).join('')}
-                    </div>
-                `).join('')}
-            </div>
-        `;
+    function updateEventDetails(response) {
+        if (response.success) {
+            // Refresh the page to show updated data
+            window.location.reload();
+        } else {
+            alert(response.error || 'Failed to update data');
+        }
     }
 
     // Timer functions
@@ -117,12 +26,11 @@
                 return null;
             }
 
-            infoEl.innerHTML = `
-                <p><strong>Event:</strong> ${data.event_type || 'N/A'}</p>
-                <p><strong>Lift:</strong> ${data.lift_type || 'N/A'}</p>
-                <p><strong>Weight:</strong> ${data.weight}kg</p>
-                <p><strong>Attempt:</strong> ${data.order}</p>
-            `;
+            // Update values in existing elements
+            infoEl.querySelector('.event-type').textContent = data.event_type || 'N/A';
+            infoEl.querySelector('.lift-type').textContent = data.lift_type || 'N/A';
+            infoEl.querySelector('.weight').textContent = data.weight;
+            infoEl.querySelector('.attempt-order').textContent = data.order;
 
             return data.time;
         } catch (error) {
@@ -238,12 +146,11 @@
         if (!infoEl) return;
 
         if (attempt.id === document.querySelector('.next-attempt')?.dataset?.attemptId) {
-            infoEl.innerHTML = `
-                <p><strong>Event:</strong> ${attempt.entry.competition_type.exercise.sport_category.name}</p>
-                <p><strong>Lift:</strong> ${attempt.lift_name || 'N/A'}</p>
-                <p><strong>Weight:</strong> ${attempt.requested_weight}kg</p>
-                <p><strong>Attempt:</strong> ${attempt.number}</p>
-            `;
+            // Update values in existing elements
+            infoEl.querySelector('.event-type').textContent = attempt.entry.competition_type.exercise.sport_category.name;
+            infoEl.querySelector('.lift-type').textContent = attempt.lift_name || 'N/A';
+            infoEl.querySelector('.weight').textContent = attempt.requested_weight;
+            infoEl.querySelector('.attempt-order').textContent = attempt.number;
         }
     }
 
