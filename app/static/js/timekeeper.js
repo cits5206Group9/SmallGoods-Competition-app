@@ -1,4 +1,4 @@
-/* timekeeper.js — real API + searchable log + DB persistence */
+/* timekeeper.js — timer + selector + athlete editor + DB log + model-driven defaults */
 (function () {
   // ---------- Utilities ----------
   const pad2 = (n) => (n < 10 ? "0" + n : "" + n);
@@ -23,7 +23,7 @@
   const now = () => performance.now();
   const $ = (id) => document.getElementById(id);
 
-  // Keep a full in-memory log so we can filter without losing rows
+  // Master log so we can filter by athlete
   const MASTER_LOG = [];
   let LOG_FILTER = ""; // lowercase athlete filter
 
@@ -48,10 +48,6 @@
   const getQueryParam = (k) => new URLSearchParams(location.search).get(k);
   let CURRENT_FLIGHT_ID = parseInt(getQueryParam("flight_id") || "", 10);
   if (Number.isNaN(CURRENT_FLIGHT_ID)) CURRENT_FLIGHT_ID = null;
-
-  // Also keep numeric IDs for comp & event (set by selector)
-  window.CURRENT_COMPETITION_ID = null;
-  window.CURRENT_EVENT_ID = null;
 
   // names captured when a flight is selected (used by log rows)
   const CURRENT_CTX = { competition: "", event: "", flight: "" };
@@ -151,40 +147,24 @@
   }
 
   // ---------- Log table ----------
-  function normalizeLogEntry({
-    start, stop, action, duration,
-    competition, event, flight, athlete,
-    start_iso, stop_iso, duration_sec
-  }) {
-    // defaults from CURRENT_CTX + athlete field
+  function normalizeLogEntry({ start, stop, action, duration, competition, event, flight, athlete }) {
     competition = competition ?? CURRENT_CTX.competition ?? "";
     event       = event       ?? CURRENT_CTX.event       ?? "";
     flight      = flight      ?? CURRENT_CTX.flight      ?? "";
     athlete     = athlete     ?? getAthleteName()        ?? "";
-    return {
-      start: start || "",
-      stop: stop || "",
-      action: action || "",
-      duration: duration || "",
-      competition, event, flight, athlete,
-      start_iso: start_iso || null,
-      stop_iso:  stop_iso  || null,
-      duration_sec: typeof duration_sec === "number" ? duration_sec : null
-    };
+    return { start: start || "", stop: stop || "", action: action || "", duration: duration || "",
+            competition, event, flight, athlete };
   }
 
-  // Renders the table from MASTER_LOG and current LOG_FILTER
   function renderLogTable() {
     const tbody = document.querySelector("#logTable tbody");
     if (!tbody) return;
     tbody.innerHTML = "";
 
-    // Pick rows: filtered (all that match) OR last 10 when no filter
     const rows = LOG_FILTER
-      ? MASTER_LOG.filter(r => (r.athlete || "").toLowerCase().includes(LOG_FILTER))
+      ? MASTER_LOG.filter(r => r.athlete.toLowerCase().includes(LOG_FILTER))
       : MASTER_LOG.slice(-10);
 
-    // Show newest first
     rows.slice().reverse().forEach(r => {
       const tr = document.createElement("tr");
       tr.innerHTML =
@@ -198,34 +178,17 @@
         `<td>${r.duration}</td>`;
       tbody.appendChild(tr);
     });
+
+    const count = document.getElementById("logSearchCount");
+    if (count) {
+      if (LOG_FILTER) count.textContent = `Showing ${rows.length} match(es)`;
+      else count.textContent = "";
+    }
   }
 
-  // Public entry point used everywhere you were calling addLogRow before
   function addLogRow(entry) {
-    const r = normalizeLogEntry(entry);
-    MASTER_LOG.push(r);
+    MASTER_LOG.push(normalizeLogEntry(entry));
     renderLogTable();
-
-    // Persist to DB (best-effort; ignore failures in UI)
-    try {
-      const payload = {
-        competition_id: window.CURRENT_COMPETITION_ID ?? null,
-        event_id:       window.CURRENT_EVENT_ID ?? null,
-        flight_id:      window.CURRENT_FLIGHT_ID ?? null,
-        athlete:        r.athlete || "",
-        action:         r.action || "Attempt",
-        start_iso:      r.start_iso,
-        stop_iso:       r.stop_iso,
-        duration_sec:   r.duration_sec,
-        meta: { source: "timekeeper-ui" }
-      };
-      fetch("/admin/timer/log", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-        credentials: "same-origin"
-      });
-    } catch {}
   }
   const nowStr = () => new Date().toLocaleTimeString();
 
@@ -237,8 +200,8 @@
   });
   attemptClock.set(0);
 
-  let attemptSessionStartTime = null;          // Date object
-  let attemptSessionStartRemOrElapsed = null;  // seconds snapshot
+  let attemptSessionStartTime = null;
+  let attemptSessionStartRemOrElapsed = null;
 
   const bindClick = (sel, handler) =>
     document.querySelectorAll(`#${CSS.escape(sel)}`).forEach((n) => (n.onclick = handler));
@@ -269,12 +232,27 @@
       addLogRow({
         start: startTs.toLocaleTimeString(),
         stop:  stopTs.toLocaleTimeString(),
-        start_iso: startTs.toISOString(),
-        stop_iso:  stopTs.toISOString(),
-        duration_sec: Math.round(durationSec),
         action: "Attempt",
         duration: fmtDurationStr(durationSec),
       });
+      // Save to DB
+      try {
+        fetch("/admin/timer/log", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            competition_id: null,  // optional; can be filled if you want
+            event_id: null,
+            flight_id: CURRENT_FLIGHT_ID,
+            athlete: getAthleteName(),
+            action: "Attempt",
+            start_iso: startTs.toISOString(),
+            stop_iso: stopTs.toISOString(),
+            duration_sec: durationSec,
+            meta: {}
+          })
+        }).catch(()=>{});
+      } catch {}
     }
     attemptSessionStartTime = null;
     attemptSessionStartRemOrElapsed = null;
@@ -306,20 +284,12 @@
     displayEl: $("breakClock"),
     mode: "countdown",
     formatter: fmtHMS,
-    onExpire: () => {
-      addLogRow({
-        start: nowStr(),
-        start_iso: new Date().toISOString(),
-        action: "Break",
-        duration: "Expired"
-      });
-      beep(400, 520);
-    },
+    onExpire: () => { addLogRow({ start: nowStr(), action: "Break", duration: "Expired" }); beep(400, 520); },
   });
-  breakClock.set(window.TK_DEFAULT_BREAK || 600);
+  breakClock.set(600);
 
   const breakHMSInput = $("breakHMS");
-  if (breakHMSInput) breakHMSInput.value = fmtHMS(window.TK_DEFAULT_BREAK || 600);
+  if (breakHMSInput) breakHMSInput.value = fmtHMS(600);
 
   const btnBreakApply = $("btnBreakApply");
   if (btnBreakApply && breakHMSInput) {
@@ -332,34 +302,58 @@
       else if (parts.length === 1) secs = parts[0];
       if (!Number.isNaN(secs)) {
         breakClock.set(secs);
-        addLogRow({
-          start: nowStr(),
-          start_iso: new Date().toISOString(),
-          action: "Break",
-          duration: `Set ${fmtDurationStr(secs)}`
-        });
+        addLogRow({ start: nowStr(), action: "Break", duration: `Set ${fmtDurationStr(secs)}` });
       } else {
         btnBreakApply.classList.add("invalid");
         setTimeout(() => btnBreakApply.classList.remove("invalid"), 300);
       }
     };
   }
-  bindClick("btnBreakStart",  () => {
-    breakClock.start();
-    addLogRow({ start: nowStr(), start_iso: new Date().toISOString(), action: "Break", duration: "Start" });
-  });
-  bindClick("btnBreakPause",  () => {
-    breakClock.pause();
-    addLogRow({ start: nowStr(), start_iso: new Date().toISOString(), action: "Break", duration: "Pause" });
-  });
-  bindClick("btnBreakResume", () => {
-    breakClock.resume();
-    addLogRow({ start: nowStr(), start_iso: new Date().toISOString(), action: "Break", duration: "Resume" });
-  });
-  bindClick("btnBreakReset",  () => {
-    breakClock.reset();
-    addLogRow({ start: nowStr(), start_iso: new Date().toISOString(), action: "Break", duration: "Reset" });
-  });
+  bindClick("btnBreakStart",  () => { breakClock.start();  addLogRow({ start: nowStr(), action: "Break", duration: "Start"  }); });
+  bindClick("btnBreakPause",  () => { breakClock.pause();  addLogRow({ start: nowStr(), action: "Break", duration: "Pause"  }); });
+  bindClick("btnBreakResume", () => { breakClock.resume(); addLogRow({ start: nowStr(), action: "Break", duration: "Resume" }); });
+  bindClick("btnBreakReset",  () => { breakClock.reset();  addLogRow({ start: nowStr(), action: "Break", duration: "Reset"  }); });
+
+  // ---- Apply timer defaults from server (based on selected comp/event/flight)
+  window.TK_applyTimerDefaultsFromSelection = async function (compId, eventId, flightId) {
+    try {
+      const params = new URLSearchParams();
+      if (compId)  params.set("comp_id",  String(compId));
+      if (eventId) params.set("event_id", String(eventId));
+      if (flightId) params.set("flight_id", String(flightId));
+
+      const res = await fetch(`/admin/api/timer-defaults?${params.toString()}`);
+      if (!res.ok) return;
+
+      const j = await res.json();
+      const a = j.attempt_seconds;
+      const b = j.break_seconds;
+
+      // Attempt timer
+      if (typeof a === "number" && a > 0) {
+        attemptClock.mode = "countdown";
+        attemptClock.set(a);
+        const attemptHMS = document.getElementById("attemptHMS");
+        if (attemptHMS) attemptHMS.value = fmtHMS(a);
+        countdownOn = true;
+        updateToggleLabel();
+      } else {
+        attemptClock.mode = "countup";
+        attemptClock.set(0);
+        countdownOn = false;
+        updateToggleLabel();
+      }
+
+      // Break timer
+      if (typeof b === "number" && b >= 0) {
+        breakClock.set(b);
+        const breakHMSInput = document.getElementById("breakHMS");
+        if (breakHMSInput) breakHMSInput.value = fmtHMS(b);
+      }
+    } catch (err) {
+      console.warn("Failed to load timer defaults:", err);
+    }
+  };
 
   // ---------- Keyboard Shortcuts ----------
   document.addEventListener("keydown", (e) => {
@@ -373,7 +367,35 @@
     }
   });
 
-  // ---- Log search wiring (searches by athlete column) ----
+  // Clear log when scoping to a specific flight (URL param present)
+  (function bootstrapFlightScope() {
+    if (CURRENT_FLIGHT_ID) {
+      const tbody = document.querySelector("#logTable tbody");
+      if (tbody) tbody.innerHTML = "";
+    }
+  })();
+
+  // (Old flights tree renderer: no-op)
+  async function loadFlightsTree() {
+    try {
+      const j = (u) => fetch(u, { headers: { "X-Requested-With":"fetch" } }).then(r => r.json());
+      const comps = await j("/admin/competitions");
+      const tree = [];
+      for (const c of comps) {
+        const events = await j(`/admin/competitions/${c.id}/events`);
+        const evts = [];
+        for (const e of events) {
+          const flights = await j(`/admin/events/${e.id}/flights`);
+          evts.push({ id: e.id, name: e.name, flights });
+        }
+        tree.push({ id: c.id, name: c.name, events: evts });
+      }
+      // no-op render
+    } catch {}
+  }
+  loadFlightsTree();
+
+  // ---- Log search wiring (searches by athlete column)
   const logSearch = document.getElementById("logSearch");
   const logSearchClear = document.getElementById("logSearchClear");
   if (logSearch) {
@@ -389,14 +411,6 @@
       renderLogTable();
     });
   }
-
-  // Clear log when scoping to a specific flight (URL param present)
-  (function bootstrapFlightScope() {
-    if (CURRENT_FLIGHT_ID) {
-      const tbody = document.querySelector("#logTable tbody");
-      if (tbody) tbody.innerHTML = "";
-    }
-  })();
 })();
 
 
@@ -407,10 +421,10 @@
   const selFlight = document.getElementById('selFlight');
   const btnGo     = document.getElementById('selGo');
 
-  const card    = document.getElementById('tk-available-card');
-  const body    = document.getElementById('tk-competitions-body');
-  const summary = document.getElementById('tk-selected-summary');
-  const emptyMsg= document.getElementById('tk-competitions-empty');
+  const card = document.getElementById('tk-available-card');
+  const body = document.getElementById('tk-competitions-body');
+  const summary  = document.getElementById('tk-selected-summary');
+  const emptyMsg = document.getElementById('tk-competitions-empty');
 
   // Athlete editor hooks
   const athleteEditor  = document.getElementById('tk-athlete-editor');
@@ -434,15 +448,6 @@
     const name = athleteInput ? athleteInput.value.trim() : '';
     athleteApplied.textContent = name ? `Applied: ${name}` : '';
   }
-  function showAthleteEditor() {
-    if (!athleteEditor) return;
-    athleteEditor.style.display = 'block';
-    if (athleteInput && !athleteInput.value) {
-      const saved = localStorage.getItem(ATHLETE_KEY) || '';
-      athleteInput.value = saved;
-    }
-    updateAthleteApplied();
-  }
   if (btnAthlete && athleteInput && athleteApplied) {
     btnAthlete.addEventListener('click', () => {
       const name = athleteInput.value.trim();
@@ -464,7 +469,7 @@
       `;
     }
 
-    // keep context for log rows (names)
+    // keep context for log rows
     window.TK_updateContext({
       competition: comp.name,
       event: evt.name,
@@ -472,21 +477,13 @@
       flightId: flight.id
     });
 
-    // also keep numeric IDs for persistence
-    window.CURRENT_COMPETITION_ID = Number(comp.id) || null;
-    window.CURRENT_EVENT_ID       = Number(evt.id)  || null;
-    window.CURRENT_FLIGHT_ID      = Number(flight.id) || window.CURRENT_FLIGHT_ID;
-
     // reveal & initialize the athlete editor
     if (athleteEditor) {
       athleteEditor.style.display = 'block';
       if (athleteInput && !athleteInput.value) {
         athleteInput.value = localStorage.getItem(ATHLETE_KEY) || '';
       }
-      if (athleteApplied) {
-        const name = athleteInput ? athleteInput.value.trim() : '';
-        athleteApplied.textContent = name ? `Applied: ${name}` : '';
-      }
+      updateAthleteApplied();
     }
   }
 
@@ -539,14 +536,20 @@
     const flightId = selFlight.value;
     if (!flightId) return;
 
-    // Use names directly from the selects (real API path)
+    // Render selection (names + ids)
     renderSelected({
-      comp:   { id: selComp.value,  name: selComp.options[selComp.selectedIndex].textContent },
-      evt:    { id: selEvent.value, name: selEvent.options[selEvent.selectedIndex].textContent },
-      flight: { id: selFlight.value, name: selFlight.options[selFlight.selectedIndex].textContent, is_active: true }
+      comp:   { id: Number(selComp.value),  name: selComp.options[selComp.selectedIndex].textContent },
+      evt:    { id: Number(selEvent.value), name: selEvent.options[selEvent.selectedIndex].textContent },
+      flight: { id: Number(selFlight.value), name: selFlight.options[selFlight.selectedIndex].textContent, is_active: true }
     });
 
-    // Keep URL param for compatibility with other JS, but avoid page reload
+    // Fetch and apply attempt/break defaults from the server
+    window.TK_applyTimerDefaultsFromSelection(
+      Number(selComp.value),
+      Number(selEvent.value),
+      Number(selFlight.value)
+    );
+
     const url = new URL(location.href);
     url.searchParams.set('flight_id', flightId);
     history.replaceState(null, '', url.toString());
