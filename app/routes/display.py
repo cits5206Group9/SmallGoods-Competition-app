@@ -1,4 +1,8 @@
-from flask import Blueprint, render_template
+from flask import Blueprint, render_template, request
+from ..extensions import db
+from ..models import Competition, Event, Athlete, AthleteFlight, Flight
+from sqlalchemy.orm import joinedload
+
 display_bp = Blueprint('display', __name__, url_prefix='/display' )
 
 
@@ -8,7 +12,30 @@ def display_index():
 
 @display_bp.route('/competition')
 def display_competition():
-    return render_template('display/competition.html')
+    # Get competition data
+    competitions = Competition.query.filter_by(is_active=True).all()
+    selected_competition_id = request.args.get('competition_id')
+
+    competition = None
+    events = []
+    athletes = []
+
+    if selected_competition_id:
+        competition = Competition.query.get(selected_competition_id)
+        if competition:
+            events = Event.query.filter_by(competition_id=competition.id).all()
+            athletes = Athlete.query.filter_by(competition_id=competition.id, is_active=True).all()
+    elif competitions:
+        # Default to first active competition
+        competition = competitions[0]
+        events = Event.query.filter_by(competition_id=competition.id).all()
+        athletes = Athlete.query.filter_by(competition_id=competition.id, is_active=True).all()
+
+    return render_template('display/competition.html',
+                         competition=competition,
+                         competitions=competitions,
+                         events=events,
+                         athletes=athletes)
 
 @display_bp.route('/datatable')
 def display_datatable():
