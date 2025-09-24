@@ -4,7 +4,7 @@ import sys
 from pathlib import Path
 from flask import Flask
 from .config import get_config
-from .extensions import db, migrate
+from .extensions import db, migrate, socketio
 from app.routes.admin import admin_bp
 from app.routes.login import login_bp
 from app.routes.display import display_bp
@@ -95,7 +95,8 @@ def create_app(config_name: str | None = None) -> Flask:
     # Init extensions
     db.init_app(app)
     migrate.init_app(app, db)
-    logger.debug("Database extensions initialized")
+    socketio.init_app(app, cors_allowed_origins="*", async_mode='threading')
+    logger.debug("Database and WebSocket extensions initialized")
     
     # Handle database initialization
     with app.app_context():
@@ -106,6 +107,10 @@ def create_app(config_name: str | None = None) -> Flask:
     app.register_blueprint(login_bp)
     app.register_blueprint(display_bp)
     app.register_blueprint(coach_bp)
+
+    # Register WebSocket event handlers
+    from app.real_time.event_handlers import register_all_handlers
+    register_all_handlers()
     
     logger.info("Flask app created successfully")
     return app

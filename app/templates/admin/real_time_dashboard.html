@@ -1,0 +1,222 @@
+{% extends "base.html" %}
+
+{% block title %}Real-time Dashboard - SmallGoods{% endblock %}
+
+{% block css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/real-time-dashboard.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="real-time-dashboard">
+    <!-- Header Section -->
+    <div class="dashboard-header">
+        <h1>Real-time Competition Dashboard</h1>
+        <div class="connection-status-container">
+            <div id="connection-status"></div>
+        </div>
+    </div>
+
+    <!-- Competition Selection -->
+    <div class="competition-selector">
+        <label for="dashboard-competition-select">Active Competition:</label>
+        <select id="dashboard-competition-select">
+            <option value="">Select Competition</option>
+            {% for competition in competitions %}
+            <option value="{{ competition.id }}">{{ competition.name }}</option>
+            {% endfor %}
+        </select>
+        <button id="join-competition-btn" class="btn btn-primary" disabled>Join Competition</button>
+    </div>
+
+    <!-- Statistics Overview -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-icon">👥</div>
+            <div class="stat-content">
+                <div class="stat-value" id="connected-clients">0</div>
+                <div class="stat-label">Connected Clients</div>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon">🏃‍♂️</div>
+            <div class="stat-content">
+                <div class="stat-value" id="active-athletes">0</div>
+                <div class="stat-label">Active Athletes</div>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon">⏱️</div>
+            <div class="stat-content">
+                <div class="stat-value" id="active-timers">0</div>
+                <div class="stat-label">Active Timers</div>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon">👨‍⚖️</div>
+            <div class="stat-content">
+                <div class="stat-value" id="active-referees">0</div>
+                <div class="stat-label">Active Referees</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Dashboard Grid -->
+    <div class="dashboard-grid">
+        <!-- Timer Control Panel -->
+        <div class="dashboard-panel timer-panel">
+            <div class="panel-header">
+                <h3>Competition Timer</h3>
+                <div class="panel-controls">
+                    <button id="timer-emergency-stop" class="btn btn-danger btn-sm">Emergency Stop</button>
+                </div>
+            </div>
+            <div class="panel-content">
+                <div id="main-competition-timer"></div>
+
+                <!-- Timer Configuration -->
+                <div class="timer-config">
+                    <label>Timer Duration:</label>
+                    <select id="timer-duration-select">
+                        <option value="30">30 seconds</option>
+                        <option value="60" selected>1 minute</option>
+                        <option value="120">2 minutes</option>
+                        <option value="180">3 minutes</option>
+                        <option value="300">5 minutes</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- Live Activity Feed -->
+        <div class="dashboard-panel activity-panel">
+            <div class="panel-header">
+                <h3>Live Activity Feed</h3>
+                <div class="panel-controls">
+                    <button id="clear-activity-btn" class="btn btn-secondary btn-sm">Clear</button>
+                </div>
+            </div>
+            <div class="panel-content">
+                <div id="activity-feed" class="activity-feed">
+                    <div class="activity-item system">
+                        <span class="activity-time">[{{ current_time }}]</span>
+                        <span class="activity-message">Dashboard initialized</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Competition Progress -->
+        <div class="dashboard-panel progress-panel">
+            <div class="panel-header">
+                <h3>Competition Progress</h3>
+            </div>
+            <div class="panel-content">
+                <div class="progress-visualization">
+                    <div class="progress-item">
+                        <label>Overall Progress:</label>
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="overall-progress" style="width: 0%"></div>
+                        </div>
+                        <span class="progress-text" id="overall-progress-text">0%</span>
+                    </div>
+
+                    <div class="progress-item">
+                        <label>Current Event:</label>
+                        <div class="current-event" id="current-event">
+                            <span id="current-event-name">No active event</span>
+                        </div>
+                    </div>
+
+                    <div class="progress-item">
+                        <label>Next Athletes:</label>
+                        <div class="next-athletes" id="next-athletes">
+                            <div class="athlete-queue">
+                                <!-- Will be populated by JavaScript -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Referee Status -->
+        <div class="dashboard-panel referee-panel">
+            <div class="panel-header">
+                <h3>Referee Status</h3>
+            </div>
+            <div class="panel-content">
+                <div id="referee-status-grid" class="referee-grid">
+                    <!-- Will be populated by JavaScript -->
+                </div>
+            </div>
+        </div>
+
+        <!-- System Monitoring -->
+        <div class="dashboard-panel monitoring-panel">
+            <div class="panel-header">
+                <h3>System Monitoring</h3>
+            </div>
+            <div class="panel-content">
+                <div class="monitoring-metrics">
+                    <div class="metric">
+                        <label>WebSocket Latency:</label>
+                        <span id="websocket-latency">- ms</span>
+                    </div>
+                    <div class="metric">
+                        <label>Message Rate:</label>
+                        <span id="message-rate">0 msg/s</span>
+                    </div>
+                    <div class="metric">
+                        <label>Uptime:</label>
+                        <span id="system-uptime">00:00:00</span>
+                    </div>
+                    <div class="metric">
+                        <label>Connection Quality:</label>
+                        <span id="connection-quality" class="status-good">Excellent</span>
+                    </div>
+                </div>
+
+                <!-- System Actions -->
+                <div class="system-actions">
+                    <button id="test-connection-btn" class="btn btn-secondary btn-sm">Test Connection</button>
+                    <button id="broadcast-test-btn" class="btn btn-secondary btn-sm">Broadcast Test</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Decisions -->
+        <div class="dashboard-panel decisions-panel">
+            <div class="panel-header">
+                <h3>Recent Decisions</h3>
+            </div>
+            <div class="panel-content">
+                <div id="recent-decisions" class="decisions-list">
+                    <!-- Will be populated by JavaScript -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Emergency Controls -->
+    <div class="emergency-controls">
+        <button id="emergency-pause-all" class="btn btn-warning">⏸️ Pause All</button>
+        <button id="emergency-stop-all" class="btn btn-danger">⏹️ Stop All</button>
+        <button id="emergency-reset-all" class="btn btn-info">🔄 Reset All</button>
+    </div>
+</div>
+
+<a href="{{ url_for('admin.admin_dashboard') }}" class="back-link">← Back to Admin Dashboard</a>
+{% endblock %}
+
+{% block scripts %}
+<!-- Socket.IO -->
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+<!-- Real-time components -->
+<script src="{{ url_for('static', filename='js/websocket-client.js') }}"></script>
+<script src="{{ url_for('static', filename='js/real-time-timer.js') }}"></script>
+<script src="{{ url_for('static', filename='js/real-time-dashboard.js') }}"></script>
+{% endblock %}
