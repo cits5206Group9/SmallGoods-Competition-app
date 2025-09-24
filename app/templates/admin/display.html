@@ -1,0 +1,371 @@
+{% extends "base.html" %}
+
+{% block title %}Display & Scoreboard Control - SmallGoods{% endblock %}
+
+{% block css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+<style>
+.display-control {
+    padding: 20px;
+    background: #f8f9fa;
+    min-height: 100vh;
+}
+
+.display-header {
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    margin-bottom: 30px;
+}
+
+.display-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    gap: 20px;
+}
+
+.display-panel {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    overflow: hidden;
+}
+
+.panel-header {
+    background: #f8f9fa;
+    padding: 15px 20px;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.panel-content {
+    padding: 20px;
+}
+
+.display-option {
+    margin-bottom: 15px;
+    padding: 15px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    background: #f9f9f9;
+}
+
+.display-option h4 {
+    margin: 0 0 10px 0;
+    color: #333;
+}
+
+.display-controls {
+    display: flex;
+    gap: 10px;
+    margin-top: 10px;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="display-control">
+    <div class="display-header">
+        <h1>Display & Scoreboard Control</h1>
+        <p>Manage competition displays, scoreboards, and public viewing screens</p>
+
+        <!-- Competition Selection -->
+        <div style="margin-top: 20px;">
+            <label for="admin-competition-select" style="font-weight: bold; margin-right: 10px;">Control Competition:</label>
+            <select id="admin-competition-select" style="padding: 8px; margin-right: 15px; border: 1px solid #ddd; border-radius: 4px;">
+                {% for comp in competitions %}
+                <option value="{{ comp.id }}" {% if current_competition and comp.id == current_competition.id %}selected{% endif %}>
+                    {{ comp.name }}
+                </option>
+                {% endfor %}
+            </select>
+
+            <a href="/display/competition" target="_blank" id="display-link" class="btn btn-info" style="text-decoration: none; padding: 8px 15px; background: #17a2b8; color: white; border-radius: 4px;">
+                🖥️ Open Display View
+            </a>
+        </div>
+    </div>
+
+    <div class="display-grid">
+        <!-- Competition Display Settings -->
+        <div class="display-panel">
+            <div class="panel-header">
+                <h3>Competition Display</h3>
+            </div>
+            <div class="panel-content">
+                <div class="display-option">
+                    <h4>Main Scoreboard</h4>
+                    <p>Control what appears on the main competition scoreboard</p>
+                    <div class="display-controls">
+                        <button class="btn btn-primary">Show Current Rankings</button>
+                        <button class="btn btn-secondary">Show Timer</button>
+                        <button class="btn btn-info">Show Athlete Info</button>
+                    </div>
+                </div>
+
+                <div class="display-option">
+                    <h4>Results Display</h4>
+                    <p>Show live results and attempt outcomes</p>
+                    <div class="display-controls">
+                        <button class="btn btn-success">Show Latest Results</button>
+                        <button class="btn btn-warning">Show Attempt Status</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Screen Management -->
+        <div class="display-panel">
+            <div class="panel-header">
+                <h3>Screen Management</h3>
+            </div>
+            <div class="panel-content">
+                <div class="display-option">
+                    <h4>Public Screens</h4>
+                    <p>Control content on public viewing screens</p>
+                    <select class="form-control" style="margin-bottom: 10px;">
+                        <option>Select Screen Layout</option>
+                        <option>Current Competition</option>
+                        <option>Live Rankings</option>
+                        <option>Athlete Profiles</option>
+                        <option>Schedule</option>
+                    </select>
+                    <div class="display-controls">
+                        <button class="btn btn-primary">Apply Layout</button>
+                        <button class="btn btn-secondary">Preview</button>
+                    </div>
+                </div>
+
+                <div class="display-option">
+                    <h4>Custom Messages</h4>
+                    <p>Display custom announcements or messages</p>
+                    <textarea class="form-control" placeholder="Enter custom message..." rows="3" style="margin-bottom: 10px;"></textarea>
+                    <div class="display-controls">
+                        <button class="btn btn-info">Show Message</button>
+                        <button class="btn btn-secondary">Clear</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Live Data Controls -->
+        <div class="display-panel">
+            <div class="panel-header">
+                <h3>Live Data Controls</h3>
+            </div>
+            <div class="panel-content">
+                <div class="display-option">
+                    <h4>Real-time Updates</h4>
+                    <p>Control automatic data refresh and updates</p>
+                    <div class="display-controls">
+                        <button class="btn btn-success">Enable Auto-refresh</button>
+                        <button class="btn btn-warning">Manual Refresh</button>
+                        <button class="btn btn-danger">Pause Updates</button>
+                    </div>
+                </div>
+
+                <div class="display-option">
+                    <h4>Data Sources</h4>
+                    <p>Configure what data appears on displays</p>
+                    <div style="margin-bottom: 10px;">
+                        <label><input type="checkbox" checked> Live Timer</label><br>
+                        <label><input type="checkbox" checked> Current Athlete</label><br>
+                        <label><input type="checkbox" checked> Rankings</label><br>
+                        <label><input type="checkbox"> Referee Decisions</label>
+                    </div>
+                    <button class="btn btn-primary">Save Settings</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Template Management -->
+        <div class="display-panel">
+            <div class="panel-header">
+                <h3>Display Templates</h3>
+            </div>
+            <div class="panel-content">
+                <div class="display-option">
+                    <h4>Saved Templates</h4>
+                    <p>Manage pre-configured display layouts</p>
+                    <select class="form-control" style="margin-bottom: 10px;">
+                        <option>Competition Mode</option>
+                        <option>Results Mode</option>
+                        <option>Warm-up Mode</option>
+                        <option>Break Mode</option>
+                    </select>
+                    <div class="display-controls">
+                        <button class="btn btn-primary">Load Template</button>
+                        <button class="btn btn-secondary">Save Current</button>
+                        <button class="btn btn-info">Preview</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="display-panel" style="margin-top: 20px;">
+        <div class="panel-header">
+            <h3>Quick Actions</h3>
+        </div>
+        <div class="panel-content">
+            <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+                <button class="btn btn-success">🟢 Show Competition Live</button>
+                <button class="btn btn-warning">⏸️ Pause All Displays</button>
+                <button class="btn btn-info">📊 Show Rankings</button>
+                <button class="btn btn-secondary">🕒 Show Schedule</button>
+                <button class="btn btn-danger">⛔ Emergency Stop</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<a href="{{ url_for('admin.admin_dashboard') }}" class="back-link">← Back to Admin Dashboard</a>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize WebSocket connection
+    const socket = io();
+
+    socket.on('connect', function() {
+        console.log('Admin display control connected to WebSocket');
+    });
+
+    // Update display link when competition changes
+    const competitionSelect = document.getElementById('admin-competition-select');
+    const displayLink = document.getElementById('display-link');
+
+    function updateDisplayLink() {
+        const competitionId = competitionSelect.value;
+        if (competitionId) {
+            displayLink.href = `/display/competition?competition_id=${competitionId}`;
+        } else {
+            displayLink.href = '/display/competition';
+        }
+    }
+
+    // Initialize display link
+    updateDisplayLink();
+
+    // Update link when competition selection changes
+    competitionSelect.addEventListener('change', updateDisplayLink);
+
+    // Add event listeners to control buttons
+    document.addEventListener('click', function(e) {
+        const button = e.target;
+
+        // Get current competition ID from dropdown
+        const competitionSelect = document.getElementById('admin-competition-select');
+        const competitionId = competitionSelect ? parseInt(competitionSelect.value) : null;
+
+        if (!competitionId) {
+            showStatus('Please select a competition first');
+            return;
+        }
+
+        // Timer controls
+        if (button.textContent === 'Show Timer') {
+            socket.emit('timer_start', {
+                competition_id: competitionId,
+                timer_data: { duration: 60 }
+            });
+            showStatus('Timer started on display');
+        }
+
+        // Scoreboard controls
+        else if (button.textContent === 'Show Current Rankings') {
+            socket.emit('competition_status_update', {
+                competition_id: competitionId,
+                status: 'showing_rankings'
+            });
+            showStatus('Rankings displayed');
+        }
+
+        else if (button.textContent === 'Show Athlete Info') {
+            socket.emit('athlete_queue_update', {
+                competition_id: competitionId,
+                queue_data: [
+                    {athlete_name: 'John Doe', weight: '150'},
+                    {athlete_name: 'Jane Smith', weight: '145'},
+                    {athlete_name: 'Peter Jones', weight: '140'}
+                ]
+            });
+            showStatus('Athlete info updated');
+        }
+
+        // Auto-refresh controls
+        else if (button.textContent === 'Enable Auto-refresh') {
+            button.textContent = 'Disable Auto-refresh';
+            button.className = 'btn btn-danger';
+            showStatus('Auto-refresh enabled');
+        }
+
+        else if (button.textContent === 'Disable Auto-refresh') {
+            button.textContent = 'Enable Auto-refresh';
+            button.className = 'btn btn-success';
+            showStatus('Auto-refresh disabled');
+        }
+
+        // Manual refresh
+        else if (button.textContent === 'Manual Refresh') {
+            socket.emit('competition_status_update', {
+                competition_id: competitionId,
+                status: 'manual_refresh'
+            });
+            showStatus('Display refreshed manually');
+        }
+
+        // Pause updates
+        else if (button.textContent === 'Pause Updates') {
+            button.textContent = 'Resume Updates';
+            button.className = 'btn btn-success';
+            socket.emit('competition_status_update', {
+                competition_id: competitionId,
+                status: 'paused'
+            });
+            showStatus('Updates paused');
+        }
+
+        else if (button.textContent === 'Resume Updates') {
+            button.textContent = 'Pause Updates';
+            button.className = 'btn btn-danger';
+            socket.emit('competition_status_update', {
+                competition_id: competitionId,
+                status: 'live'
+            });
+            showStatus('Updates resumed');
+        }
+    });
+
+    // Add status notification area
+    function showStatus(message) {
+        let statusDiv = document.getElementById('admin-status');
+        if (!statusDiv) {
+            statusDiv = document.createElement('div');
+            statusDiv.id = 'admin-status';
+            statusDiv.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: #28a745;
+                color: white;
+                padding: 10px 20px;
+                border-radius: 5px;
+                z-index: 1000;
+                box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+            `;
+            document.body.appendChild(statusDiv);
+        }
+
+        statusDiv.textContent = message;
+        statusDiv.style.display = 'block';
+
+        // Auto-hide after 3 seconds
+        setTimeout(() => {
+            statusDiv.style.display = 'none';
+        }, 3000);
+    }
+});
+</script>
+{% endblock %}
