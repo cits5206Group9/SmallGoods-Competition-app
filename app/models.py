@@ -234,4 +234,47 @@ class CoachAssignment(db.Model):
 
     # Relationships
     coach = db.relationship("User", backref="coach_assignments", foreign_keys=[coach_user_id])
+
     athlete = db.relationship("Athlete", backref="coach_assignments")
+
+# Referee Management
+class Referee(db.Model):
+    """Referee accounts and credentials for individual referee pages"""
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    username = db.Column(db.String(50), unique=True, nullable=False)
+    password = db.Column(db.String(100), nullable=False)  # Plain text for admin viewing
+    position = db.Column(db.String(50))  # e.g., "Head Referee", "Side Referee"
+    email = db.Column(db.String(120))
+    phone = db.Column(db.String(20))
+    competition_id = db.Column(db.Integer, db.ForeignKey('competition.id'))  # Link to competition
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    last_login = db.Column(db.DateTime)
+    notes = db.Column(db.Text)
+
+    # Relationships
+    competition = db.relationship('Competition', backref='referees')
+
+    def __repr__(self):
+        return f'<Referee {self.name} ({self.username})>'
+
+
+## Timer Log table - Timekeeper view - ##
+class TimerLog(db.Model):
+    __tablename__ = "timer_log"
+    id = db.Column(db.Integer, primary_key=True)
+
+    competition_id = db.Column(db.Integer, db.ForeignKey("competition.id"), nullable=True)
+    event_id       = db.Column(db.Integer, db.ForeignKey("event.id"),       nullable=True)
+    flight_id      = db.Column(db.Integer, db.ForeignKey("flight.id"),      nullable=True)
+
+    athlete        = db.Column(db.String(120), nullable=True)  # free text
+    action         = db.Column(db.String(32),  nullable=False) # "Attempt", "Break", etc.
+
+    start_ts       = db.Column(db.DateTime(timezone=True), nullable=True)
+    stop_ts        = db.Column(db.DateTime(timezone=True),  nullable=True)
+    duration_sec   = db.Column(db.Integer, nullable=True)
+
+    created_at     = db.Column(db.DateTime(timezone=True), server_default=db.func.now(), nullable=False)
+    meta_json      = db.Column(db.JSON, nullable=True)  # optional: store extras (mode, notes)

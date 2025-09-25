@@ -1,0 +1,1288 @@
+{% extends "base.html" %}
+
+{% block title %}Referee Settings - Small Goods Competition{% endblock %}
+
+{% block head %}
+    <style>
+        .settings-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            font-family: 'Arial', sans-serif;
+        }
+
+        .settings-header {
+            background: linear-gradient(135deg, #2c3e50, #3498db);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .settings-header h1 {
+            margin: 0;
+            font-size: 2.5em;
+        }
+
+        .btn-back {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 20px;
+            background: rgba(255,255,255,0.2);
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .btn-back:hover {
+            background: rgba(255,255,255,0.3);
+            transform: translateY(-1px);
+        }
+
+        .auto-generate-section {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 25px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+
+        .auto-generate-section h3 {
+            margin: 0 0 15px 0;
+            font-size: 1.5em;
+        }
+
+        .auto-generate-controls {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .competition-select {
+            padding: 10px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-radius: 5px;
+            background: rgba(255,255,255,0.1);
+            color: white;
+            min-width: 200px;
+        }
+
+        .competition-select option {
+            color: #333;
+        }
+
+        .auto-generate-info {
+            background: rgba(255,255,255,0.1);
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+            display: none;
+        }
+
+        .referee-status {
+            display: flex;
+            gap: 20px;
+            margin: 10px 0;
+        }
+
+        .status-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .status-number {
+            font-size: 2em;
+            font-weight: bold;
+        }
+
+        .status-label {
+            font-size: 0.9em;
+            opacity: 0.9;
+        }
+
+        .btn-auto {
+            background: #27ae60;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .btn-auto:hover {
+            background: #229954;
+            transform: translateY(-2px);
+        }
+
+        .btn-auto:disabled {
+            background: #95a5a6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .credentials-display {
+            background: #f8f9fa;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            display: none;
+        }
+
+        .credentials-display h4 {
+            margin: 0 0 15px 0;
+            color: #2c3e50;
+        }
+
+        .credential-item {
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 10px 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .credential-info {
+            flex: 1;
+        }
+
+        .credential-info strong {
+            color: #2c3e50;
+        }
+
+        .credential-info .username,
+        .credential-info .password {
+            font-family: 'Courier New', monospace;
+            background: #f8f9fa;
+            padding: 4px 8px;
+            border-radius: 3px;
+            margin: 0 5px;
+            border: 1px solid #e9ecef;
+        }
+
+        .btn-regenerate {
+            background: #f39c12;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .btn-regenerate:hover {
+            background: #e67e22;
+        }
+
+        .referee-list {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .list-header {
+            background: #f8f9fa;
+            padding: 20px;
+            border-bottom: 1px solid #dee2e6;
+            display: flex;
+            justify-content: between;
+            align-items: center;
+        }
+
+        .btn-add {
+            background: #27ae60;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-add:hover {
+            background: #229954;
+            transform: translateY(-1px);
+        }
+
+        .referee-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .referee-table th,
+        .referee-table td {
+            padding: 15px;
+            text-align: left;
+            border-bottom: 1px solid #dee2e6;
+        }
+
+        .referee-table th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+
+        .referee-table tr:hover {
+            background: #f8f9fa;
+        }
+
+        .status-badge {
+            padding: 4px 12px;
+            border-radius: 15px;
+            font-size: 0.85em;
+            font-weight: 600;
+        }
+
+        .status-active {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-inactive {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 8px;
+        }
+
+        .btn-sm {
+            padding: 6px 12px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.85em;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .btn-edit {
+            background: #3498db;
+            color: white;
+        }
+
+        .btn-edit:hover {
+            background: #2980b9;
+        }
+
+        .btn-delete {
+            background: #e74c3c;
+            color: white;
+        }
+
+        .btn-delete:hover {
+            background: #c0392b;
+        }
+
+        .btn-login {
+            background: #f39c12;
+            color: white;
+        }
+
+        .btn-login:hover {
+            background: #e67e22;
+        }
+
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+        }
+
+        .modal-content {
+            background-color: white;
+            margin: 5% auto;
+            padding: 0;
+            border-radius: 10px;
+            width: 90%;
+            max-width: 600px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            background: #3498db;
+            color: white;
+            padding: 20px;
+            border-radius: 10px 10px 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-header h2 {
+            margin: 0;
+        }
+
+        .close {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+        }
+
+        .modal-body {
+            padding: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: border-color 0.3s ease;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #3498db;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        .modal-footer {
+            padding: 20px;
+            border-top: 1px solid #dee2e6;
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary {
+            background: #3498db;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #2980b9;
+        }
+
+        .btn-secondary {
+            background: #95a5a6;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #7f8c8d;
+        }
+
+        .password-container {
+            position: relative;
+        }
+
+        .password-toggle {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: #666;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #7f8c8d;
+        }
+
+        .empty-state h3 {
+            margin-bottom: 10px;
+            color: #2c3e50;
+        }
+
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 20px;
+            border-radius: 5px;
+            color: white;
+            font-weight: bold;
+            z-index: 1001;
+            opacity: 0;
+            transform: translateX(100%);
+            transition: all 0.3s ease;
+        }
+
+        .notification.show {
+            opacity: 1;
+            transform: translateX(0);
+        }
+
+        .notification.success {
+            background: #27ae60;
+        }
+
+        .notification.error {
+            background: #e74c3c;
+        }
+
+        .notification.warning {
+            background: #f39c12;
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+<div class="settings-container">
+    <div class="settings-header">
+        <h1>Referee Settings</h1>
+        <div>
+            <span id="current-competition-name" style="color: rgba(255,255,255,0.8); margin-right: 20px;">No Competition Selected</span>
+            <a href="{{ url_for('admin.referee') }}" class="btn-back">
+                ← Back to Referee Panel
+            </a>
+        </div>
+    </div>
+
+    <!-- Competition Selection Section -->
+    <div class="auto-generate-section" id="competition-selection-section">
+        <h3>🏆 Select Competition</h3>
+        <p>Choose a competition to manage its referees</p>
+        
+        <div class="auto-generate-controls">
+            <select id="competition-select" class="competition-select">
+                <option value="">Select Competition...</option>
+            </select>
+            
+            <button id="load-competition-btn" class="btn-auto" onclick="loadCompetitionReferees()">
+                Load Competition
+            </button>
+        </div>
+    </div>
+
+    <!-- Competition Management Section (Hidden initially) -->
+    <div class="auto-generate-section" id="competition-management-section" style="display: none;">
+        <h3>🤖 Auto-Generate Referees</h3>
+        <p>Automatically create referees for <span id="selected-competition-name"></span></p>
+        
+        <div id="auto-generate-info" class="auto-generate-info" style="display: block; background: rgba(255,255,255,0.1);">
+            <div class="referee-status">
+                <div class="status-item">
+                    <div class="status-number" id="required-count">0</div>
+                    <div class="status-label">Required</div>
+                </div>
+                <div class="status-item">
+                    <div class="status-number" id="existing-count">0</div>
+                    <div class="status-label">Existing</div>
+                </div>
+                <div class="status-item">
+                    <div class="status-number" id="needed-count">0</div>
+                    <div class="status-label">Needed</div>
+                </div>
+            </div>
+            <p id="status-message"></p>
+            
+            <button id="auto-generate-btn" class="btn-auto" onclick="autoGenerateReferees()" disabled>
+                Generate Referees
+            </button>
+        </div>
+    </div>
+
+    <div class="referee-list">
+        <div class="list-header">
+            <div>
+                <h2>Manage Referees</h2>
+                <p id="referee-list-description">Select a competition above to view and manage its referees</p>
+                
+                <!-- Competition Selector for switching -->
+                <div id="competition-switcher" style="display: none; margin-top: 10px;">
+                    <label for="competition-switch-select" style="font-size: 14px; color: #666;">Switch Competition:</label>
+                    <select id="competition-switch-select" onchange="switchCompetition()" style="margin-left: 10px; padding: 5px 10px; border: 1px solid #ddd; border-radius: 4px;">
+                        <option value="">Select Competition...</option>
+                    </select>
+                </div>
+            </div>
+            <button class="btn-add" onclick="openAddModal()" id="add-referee-btn" disabled>
+                + Add New Referee
+            </button>
+        </div>
+
+        <div id="referee-table-container">
+            <!-- Table will be populated by JavaScript -->
+        </div>
+    </div>
+</div>
+
+<!-- Add/Edit Referee Modal -->
+<div id="refereeModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 id="modalTitle">Add New Referee</h2>
+            <button class="close" onclick="closeModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="refereeForm">
+                <input type="hidden" id="refereeId" name="id">
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="refereeName">Full Name *</label>
+                        <input type="text" id="refereeName" name="name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="refereePosition">Position</label>
+                        <select id="refereePosition" name="position">
+                            <option value="">Select Position</option>
+                            <option value="Head Referee">Head Referee</option>
+                            <option value="Side Referee">Side Referee</option>
+                            <option value="Technical Referee">Technical Referee</option>
+                            <option value="Jury Member">Jury Member</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="refereeUsername">Username *</label>
+                        <input type="text" id="refereeUsername" name="username" required>
+                    </div>
+                    <div class="form-group password-container">
+                        <label for="refereePassword">Password *</label>
+                        <input type="text" id="refereePassword" name="password" required>
+                        <button type="button" class="password-toggle" onclick="generatePassword()">
+                            🎲 Generate
+                        </button>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="refereeEmail">Email</label>
+                        <input type="email" id="refereeEmail" name="email">
+                    </div>
+                    <div class="form-group">
+                        <label for="refereePhone">Phone</label>
+                        <input type="tel" id="refereePhone" name="phone">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="refereeNotes">Notes</label>
+                    <textarea id="refereeNotes" name="notes" rows="3" placeholder="Additional notes about this referee..."></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="refereeActive" name="is_active" checked>
+                        Active (referee can log in)
+                    </label>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+            <button type="button" class="btn btn-primary" onclick="saveReferee()">Save Referee</button>
+        </div>
+    </div>
+</div>
+
+<!-- Notification Container -->
+<div id="notification" class="notification"></div>
+
+<script>
+// JavaScript for referee settings functionality
+class RefereeSettings {
+    constructor() {
+        this.referees = [];
+        this.currentReferee = null;
+        this.selectedCompetitionId = null;
+        this.selectedCompetitionName = null;
+        // Don't auto-initialize here since we need DOM to be ready
+    }
+
+    async init() {
+        await this.loadCompetitionsForSelection();
+        this.updateUI();
+    }
+
+    async loadCompetitionsForSelection() {
+        try {
+            const response = await fetch('/admin/api/competitions');
+            const competitions = await response.json();
+            
+            // Store competitions for use in other methods
+            this.competitions = competitions;
+            
+            const select = document.getElementById('competition-select');
+            if (select) {
+                select.innerHTML = '<option value="">Select Competition...</option>';
+                competitions.forEach(comp => {
+                    const option = document.createElement('option');
+                    option.value = comp.id;
+                    option.textContent = comp.name;
+                    select.appendChild(option);
+                });
+            }
+        } catch (error) {
+            console.error('Error loading competitions:', error);
+        }
+    }
+
+    async loadReferees() {
+        console.log('loadReferees called, selectedCompetitionId:', this.selectedCompetitionId);
+        
+        if (!this.selectedCompetitionId) {
+            console.log('No competition selected, showing empty table');
+            this.referees = [];
+            this.renderTable();
+            return;
+        }
+
+        try {
+            const url = `/admin/api/referees?competition_id=${this.selectedCompetitionId}`;
+            console.log('Fetching referees from:', url);
+            
+            const response = await fetch(url);
+            console.log('Response status:', response.status, response.statusText);
+            
+            if (response.ok) {
+                this.referees = await response.json();
+                console.log('Loaded referees:', this.referees.length, this.referees);
+                this.renderTable();
+            } else {
+                console.error('Failed to load referees, response not ok');
+                const errorText = await response.text();
+                console.error('Error response:', errorText);
+                this.referees = [];
+                this.renderTable();
+            }
+        } catch (error) {
+            console.error('Error loading referees:', error);
+            this.referees = [];
+            this.renderTable();
+        }
+    }
+
+    async loadCompetitionStatus() {
+        if (!this.selectedCompetitionId) {
+            console.log('loadCompetitionStatus: No competition selected');
+            return;
+        }
+
+        console.log('loadCompetitionStatus: Loading for competition', this.selectedCompetitionId);
+
+        try {
+            const response = await fetch(`/admin/api/competitions/${this.selectedCompetitionId}/referees-status`);
+            const data = await response.json();
+            
+            console.log('Competition status response:', data);
+            
+            if (data.success) {
+                document.getElementById('required-count').textContent = data.required_referees;
+                document.getElementById('existing-count').textContent = data.existing_referees;
+                document.getElementById('needed-count').textContent = data.referees_needed;
+                
+                const statusMessage = document.getElementById('status-message');
+                const autoGenerateBtn = document.getElementById('auto-generate-btn');
+                
+                console.log('can_auto_generate:', data.can_auto_generate);
+                console.log('referees_needed:', data.referees_needed);
+                
+                if (data.can_auto_generate) {
+                    statusMessage.textContent = `Ready to generate ${data.referees_needed} referees for this competition.`;
+                    autoGenerateBtn.disabled = false;
+                    autoGenerateBtn.textContent = `Generate ${data.referees_needed} Referees`;
+                    console.log('Button enabled for generation');
+                } else {
+                    statusMessage.textContent = 'This competition already has enough referees.';
+                    autoGenerateBtn.disabled = true;
+                    autoGenerateBtn.textContent = 'Already Complete';
+                    console.log('Button disabled - already complete');
+                }
+            }
+        } catch (error) {
+            console.error('Error loading competition status:', error);
+        }
+    }
+
+    updateUI() {
+        console.log('updateUI called, selectedCompetitionId:', this.selectedCompetitionId);
+        
+        const competitionSelectionSection = document.getElementById('competition-selection-section');
+        const competitionManagementSection = document.getElementById('competition-management-section');
+        const currentCompetitionName = document.getElementById('current-competition-name');
+        const selectedCompetitionName = document.getElementById('selected-competition-name');
+        const refereeListDescription = document.getElementById('referee-list-description');
+        const addRefereeBtn = document.getElementById('add-referee-btn');
+        const competitionSwitcher = document.getElementById('competition-switcher');
+
+        if (this.selectedCompetitionId && this.selectedCompetitionName) {
+            console.log('Showing management section for competition:', this.selectedCompetitionName);
+            
+            // Show management section, hide selection section
+            competitionSelectionSection.style.display = 'none';
+            competitionManagementSection.style.display = 'block';
+            
+            // Show competition switcher
+            competitionSwitcher.style.display = 'block';
+            this.populateCompetitionSwitcher();
+            
+            // Update text elements
+            currentCompetitionName.textContent = this.selectedCompetitionName;
+            selectedCompetitionName.textContent = this.selectedCompetitionName;
+            refereeListDescription.textContent = `Managing referees for ${this.selectedCompetitionName}`;
+            
+            // Enable add button
+            addRefereeBtn.disabled = false;
+            
+            // Force render the current referee list
+            this.renderTable();
+        } else {
+            console.log('Showing selection section');
+            
+            // Show selection section, hide management section
+            competitionSelectionSection.style.display = 'block';
+            competitionManagementSection.style.display = 'none';
+            
+            // Hide competition switcher
+            competitionSwitcher.style.display = 'none';
+            
+            // Update text elements
+            currentCompetitionName.textContent = 'No Competition Selected';
+            refereeListDescription.textContent = 'Select a competition above to view and manage its referees';
+            
+            // Disable add button
+            addRefereeBtn.disabled = true;
+        }
+    }
+
+    async populateCompetitionSwitcher() {
+        const select = document.getElementById('competition-switch-select');
+        console.log('populateCompetitionSwitcher called');
+        console.log('Current competitions:', this.competitions);
+        
+        try {
+            if (!this.competitions || this.competitions.length === 0) {
+                console.log('Loading competitions for switcher...');
+                await this.loadCompetitionsForSelection();
+            }
+            
+            console.log('Competitions after loading:', this.competitions);
+            
+            // Clear and repopulate the select
+            select.innerHTML = '<option value="">Select Competition...</option>';
+            
+            if (this.competitions && this.competitions.length > 0) {
+                this.competitions.forEach(comp => {
+                    const option = document.createElement('option');
+                    option.value = comp.id;
+                    option.textContent = `${comp.name} (${comp.sport_type || 'Unknown'})`;
+                    
+                    // Mark current competition as selected
+                    if (comp.id.toString() === this.selectedCompetitionId) {
+                        option.selected = true;
+                    }
+                    
+                    select.appendChild(option);
+                    console.log('Added competition option:', comp.name);
+                });
+            } else {
+                console.log('No competitions found to populate switcher');
+            }
+        } catch (error) {
+            console.error('Error populating competition switcher:', error);
+        }
+    }
+
+    renderTable() {
+        const container = document.getElementById('referee-table-container');
+        console.log('renderTable called, referees count:', this.referees.length);
+        console.log('Container element:', container);
+        
+        if (this.referees.length === 0) {
+            console.log('No referees found, showing empty state');
+            container.innerHTML = `
+                <div class="empty-state">
+                    <h3>No Referees Found</h3>
+                    <p>Add your first referee to get started with individual referee access.</p>
+                    <button class="btn-add" onclick="openAddModal()">Add First Referee</button>
+                </div>
+            `;
+            return;
+        }
+
+        console.log('Rendering table with', this.referees.length, 'referees');
+
+        const tableHTML = `
+            <table class="referee-table">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Position</th>
+                        <th>Competition</th>
+                        <th>Username</th>
+                        <th>Password</th>
+                        <th>Contact</th>
+                        <th>Status</th>
+                        <th>Last Login</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${this.referees.map(referee => `
+                        <tr>
+                            <td>
+                                <strong>${referee.name}</strong>
+                                ${referee.notes ? `<br><small style="color: #666;">${referee.notes}</small>` : ''}
+                            </td>
+                            <td>${referee.position || '-'}</td>
+                            <td><small style="color: #666;">${referee.competition_name || 'Unassigned'}</small></td>
+                            <td><code>${referee.username}</code></td>
+                            <td>
+                                <span class="password-field" data-password="${referee.password}">
+                                    ••••••••
+                                </span>
+                                <button class="btn-sm" onclick="togglePassword(this)" style="background: #95a5a6; color: white; margin-left: 5px;">
+                                    👁️
+                                </button>
+                            </td>
+                            <td>
+                                ${referee.email ? `<div>${referee.email}</div>` : ''}
+                                ${referee.phone ? `<div>${referee.phone}</div>` : ''}
+                                ${!referee.email && !referee.phone ? '-' : ''}
+                            </td>
+                            <td>
+                                <span class="status-badge ${referee.is_active ? 'status-active' : 'status-inactive'}">
+                                    ${referee.is_active ? 'Active' : 'Inactive'}
+                                </span>
+                            </td>
+                            <td>${referee.last_login ? new Date(referee.last_login).toLocaleDateString() : 'Never'}</td>
+                            <td>
+                                <div class="action-buttons">
+                                    <button class="btn-sm btn-login" onclick="openRefereeLogin(${referee.id})">
+                                        Login
+                                    </button>
+                                    <button class="btn-sm btn-edit" onclick="editReferee(${referee.id})">
+                                        Edit
+                                    </button>
+                                    <button class="btn-sm btn-delete" id="delete-btn-${referee.id}" onclick="deleteReferee(${referee.id})">
+                                        Delete
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        `;
+
+        container.innerHTML = tableHTML;
+    }
+
+    showNotification(message, type = 'success') {
+        const notification = document.getElementById('notification');
+        notification.textContent = message;
+        notification.className = `notification ${type}`;
+        notification.classList.add('show');
+
+        setTimeout(() => {
+            notification.classList.remove('show');
+        }, 3000);
+    }
+
+    async saveReferee() {
+        const form = document.getElementById('refereeForm');
+        const formData = new FormData(form);
+        const data = Object.fromEntries(formData.entries());
+        data.is_active = document.getElementById('refereeActive').checked;
+        
+        // Add competition context for new referees
+        if (!data.id && this.selectedCompetitionId) {
+            data.competition_id = this.selectedCompetitionId;
+        }
+
+        try {
+            const url = data.id ? `/admin/api/referees/${data.id}` : '/admin/api/referees';
+            const method = data.id ? 'PUT' : 'POST';
+            
+            const response = await fetch(url, {
+                method: method,
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            });
+
+            if (response.ok) {
+                await this.loadReferees();
+                this.renderTable();
+                this.closeModal();
+                this.showNotification(data.id ? 'Referee updated successfully' : 'Referee added successfully');
+            } else {
+                const error = await response.json();
+                this.showNotification(error.message || 'Error saving referee', 'error');
+            }
+        } catch (error) {
+            console.error('Error saving referee:', error);
+            this.showNotification('Error saving referee', 'error');
+        }
+    }
+
+    async deleteReferee(id) {
+        if (!confirm('Are you sure you want to delete this referee? This action cannot be undone.')) {
+            return;
+        }
+
+        // Find the referee info for better user feedback
+        const referee = this.referees.find(r => r.id === id);
+        const refereeName = referee ? referee.name : 'Unknown';
+        
+        // Show loading state on the delete button
+        const deleteBtn = document.getElementById(`delete-btn-${id}`);
+        const originalText = deleteBtn ? deleteBtn.textContent : 'Delete';
+        if (deleteBtn) {
+            deleteBtn.disabled = true;
+            deleteBtn.textContent = 'Deleting...';
+            deleteBtn.style.opacity = '0.6';
+        }
+
+        try {
+            console.log('Deleting referee with ID:', id);
+            
+            const response = await fetch(`/admin/api/referees/${id}`, {
+                method: 'DELETE'
+            });
+
+            if (response.ok) {
+                console.log('Referee deleted successfully, refreshing data...');
+                
+                // Refresh the referee list and table
+                await this.loadReferees();
+                this.renderTable();
+                
+                // Update the competition status (counts) after deletion
+                await this.loadCompetitionStatus();
+                
+                this.showNotification(`Referee "${refereeName}" deleted successfully`);
+            } else {
+                const errorData = await response.json().catch(() => ({}));
+                console.error('Error deleting referee:', errorData);
+                this.showNotification(`Error deleting referee: ${errorData.message || 'Unknown error'}`, 'error');
+                
+                // Restore button state on error
+                if (deleteBtn) {
+                    deleteBtn.disabled = false;
+                    deleteBtn.textContent = originalText;
+                    deleteBtn.style.opacity = '1';
+                }
+            }
+        } catch (error) {
+            console.error('Error deleting referee:', error);
+            this.showNotification('Error deleting referee', 'error');
+            
+            // Restore button state on error
+            if (deleteBtn) {
+                deleteBtn.disabled = false;
+                deleteBtn.textContent = originalText;
+                deleteBtn.style.opacity = '1';
+            }
+        }
+    }
+
+    openModal(title, referee = null) {
+        document.getElementById('modalTitle').textContent = title;
+        this.currentReferee = referee;
+
+        if (referee) {
+            document.getElementById('refereeId').value = referee.id;
+            document.getElementById('refereeName').value = referee.name;
+            document.getElementById('refereePosition').value = referee.position || '';
+            document.getElementById('refereeUsername').value = referee.username;
+            document.getElementById('refereePassword').value = referee.password;
+            document.getElementById('refereeEmail').value = referee.email || '';
+            document.getElementById('refereePhone').value = referee.phone || '';
+            document.getElementById('refereeNotes').value = referee.notes || '';
+            document.getElementById('refereeActive').checked = referee.is_active;
+        } else {
+            document.getElementById('refereeForm').reset();
+            document.getElementById('refereeId').value = '';
+            document.getElementById('refereeActive').checked = true;
+        }
+
+        document.getElementById('refereeModal').style.display = 'block';
+    }
+
+    closeModal() {
+        document.getElementById('refereeModal').style.display = 'none';
+        this.currentReferee = null;
+    }
+}
+
+// Global functions for template interactions
+let refereeSettings;
+
+document.addEventListener('DOMContentLoaded', () => {
+    refereeSettings = new RefereeSettings();
+    refereeSettings.init();
+});
+
+async function loadCompetitionReferees() {
+    const competitionId = document.getElementById('competition-select').value;
+    console.log('loadCompetitionReferees called with competitionId:', competitionId);
+    
+    if (!competitionId) {
+        alert('Please select a competition first');
+        return;
+    }
+
+    const competitionSelect = document.getElementById('competition-select');
+    const selectedOption = competitionSelect.options[competitionSelect.selectedIndex];
+    
+    refereeSettings.selectedCompetitionId = competitionId;
+    refereeSettings.selectedCompetitionName = selectedOption.textContent;
+    
+    console.log('Set selectedCompetitionId:', refereeSettings.selectedCompetitionId);
+    console.log('Set selectedCompetitionName:', refereeSettings.selectedCompetitionName);
+    
+    // Update UI and load data
+    refereeSettings.updateUI();
+    await refereeSettings.loadReferees();
+    await refereeSettings.loadCompetitionStatus();
+}
+
+function filterRefereesByCompetition() {
+    // This function is no longer needed but kept for compatibility
+    refereeSettings.loadReferees();
+}
+
+async function switchCompetition() {
+    const competitionId = document.getElementById('competition-switch-select').value;
+    console.log('switchCompetition called with competitionId:', competitionId);
+    
+    if (!competitionId) {
+        console.log('No competition selected in switcher');
+        return;
+    }
+
+    const competitionSelect = document.getElementById('competition-switch-select');
+    const selectedOption = competitionSelect.options[competitionSelect.selectedIndex];
+    
+    // Update the selected competition
+    refereeSettings.selectedCompetitionId = competitionId;
+    refereeSettings.selectedCompetitionName = selectedOption.textContent;
+    
+    console.log('Switched to competition:', refereeSettings.selectedCompetitionName);
+    
+    // Update UI and load data for the new competition
+    refereeSettings.updateUI();
+    await refereeSettings.loadReferees();
+    await refereeSettings.loadCompetitionStatus();
+}
+
+function openAddModal() {
+    if (!refereeSettings.selectedCompetitionId) {
+        alert('Please select a competition first');
+        return;
+    }
+    refereeSettings.openModal('Add New Referee');
+}
+
+function editReferee(id) {
+    const referee = refereeSettings.referees.find(r => r.id === id);
+    if (referee) {
+        refereeSettings.openModal('Edit Referee', referee);
+    }
+}
+
+function deleteReferee(id) {
+    refereeSettings.deleteReferee(id);
+}
+
+function saveReferee() {
+    if (!refereeSettings.selectedCompetitionId) {
+        alert('Please select a competition first');
+        return;
+    }
+    refereeSettings.saveReferee();
+}
+
+function closeModal() {
+    refereeSettings.closeModal();
+}
+
+function generatePassword() {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    let password = '';
+    for (let i = 0; i < 8; i++) {
+        password += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    document.getElementById('refereePassword').value = password;
+}
+
+function togglePassword(button) {
+    const passwordField = button.previousElementSibling;
+    const actualPassword = passwordField.getAttribute('data-password');
+    
+    if (passwordField.textContent === '••••••••') {
+        passwordField.textContent = actualPassword;
+        button.textContent = '🙈';
+    } else {
+        passwordField.textContent = '••••••••';
+        button.textContent = '👁️';
+    }
+}
+
+function openRefereeLogin(refereeId) {
+    // Open individual referee page in new tab
+    window.open(`/admin/referee/individual/${refereeId}`, '_blank');
+}
+
+// Auto-generation functions
+async function autoGenerateReferees() {
+    console.log('autoGenerateReferees called');
+    console.log('selectedCompetitionId:', refereeSettings?.selectedCompetitionId);
+    
+    if (!refereeSettings || !refereeSettings.selectedCompetitionId) {
+        alert('Please select a competition first');
+        console.error('No competition selected');
+        return;
+    }
+
+    if (!confirm('This will generate random referee accounts for the selected competition. Continue?')) {
+        return;
+    }
+
+    const autoGenerateBtn = document.getElementById('auto-generate-btn');
+    if (!autoGenerateBtn) {
+        console.error('Auto-generate button not found');
+        alert('Button not found - please refresh the page');
+        return;
+    }
+    
+    const originalButtonText = autoGenerateBtn.textContent;
+    autoGenerateBtn.disabled = true;
+    autoGenerateBtn.textContent = 'Generating...';
+
+    try {
+        const response = await fetch(`/admin/api/referees/auto-generate/${refereeSettings.selectedCompetitionId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                clear_existing: false
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            alert(data.message);
+            
+            // Refresh the referee list and status
+            await refereeSettings.loadReferees();
+            await refereeSettings.loadCompetitionStatus();
+            
+            // Force re-render of the table to show updated referees
+            refereeSettings.renderTable();
+        } else {
+            alert('Error generating referees: ' + data.message);
+        }
+    } catch (error) {
+        console.error('Error generating referees:', error);
+        alert('Error generating referees');
+    } finally {
+        if (autoGenerateBtn) {
+            autoGenerateBtn.disabled = false;
+            // Restore original button text or set based on current status
+            if (refereeSettings && refereeSettings.selectedCompetitionId) {
+                refereeSettings.loadCompetitionStatus();
+            } else {
+                autoGenerateBtn.textContent = 'Generate Referees';
+            }
+        }
+    }
+}
+
+async function regenerateCredentials(refereeId) {
+    if (!confirm('This will generate new username and password. Continue?')) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`/admin/api/referees/regenerate-credentials/${refereeId}`, {
+            method: 'POST'
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            alert(`New credentials generated for ${data.referee.position}:\nUsername: ${data.referee.new_username}\nPassword: ${data.referee.new_password}`);
+            
+            // Refresh the referee list
+            refereeSettings.loadReferees();
+        } else {
+            alert('Error regenerating credentials: ' + data.message);
+        }
+    } catch (error) {
+        console.error('Error regenerating credentials:', error);
+        alert('Error regenerating credentials');
+    }
+}
+
+// Close modal when clicking outside
+window.onclick = function(event) {
+    const modal = document.getElementById('refereeModal');
+    if (event.target === modal) {
+        closeModal();
+    }
+}
+</script>
+{% endblock %}

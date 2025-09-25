@@ -4,15 +4,150 @@
 
 {% block head %}
     <link rel="stylesheet" href="{{ url_for('static', filename='css/referee.css') }}">
+    <style>
+        .referee-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 20px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .header-left {
+            flex: 1;
+        }
+        
+        .header-right {
+            display: flex;
+            align-items: center;
+        }
+        
+        .setting-btn {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 4px rgba(52, 152, 219, 0.3);
+        }
+        
+        .setting-btn:hover {
+            background: #2980b9;
+            transform: translateY(-1px);
+            box-shadow: 0 3px 6px rgba(52, 152, 219, 0.4);
+        }
+        
+        .setting-btn:active {
+            transform: translateY(0);
+            box-shadow: 0 1px 2px rgba(52, 152, 219, 0.3);
+        }
+        
+        .referee-header h1 {
+            margin: 0 0 10px 0;
+            color: #2c3e50;
+        }
+        
+        .competition-info {
+            font-size: 14px;
+            color: #7f8c8d;
+        }
+        
+        .competition-info span {
+            margin-right: 15px;
+            font-weight: 500;
+        }
+        
+        /* Dynamic referee button styling */
+        .vote-btn, .result-btn {
+            margin: 2px;
+            padding: 8px 12px;
+            border: 2px solid #ddd;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+        
+        .result-btn {
+            padding: 15px 30px;
+            border-radius: 8px;
+            font-size: 1.2em;
+            margin: 5px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .vote-btn:hover, .result-btn:hover {
+            transform: scale(1.05);
+            border-color: #333;
+        }
+        
+        .vote-btn.selected, .result-btn.selected {
+            border-color: #333;
+            box-shadow: 0 0 10px rgba(0,0,0,0.3);
+            transform: scale(1.1);
+        }
+        
+        .referee-vote {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 5px;
+        }
+        
+        .result-buttons {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            margin-top: 15px;
+            flex-wrap: wrap;
+        }
+    </style>
 {% endblock %}
 
 {% block content %}
 <div class="referee-container">
+    <!-- Back Navigation -->
+    <div class="back-navigation" style="margin-bottom: 20px;">
+        <a href="{{ url_for('admin.admin_dashboard') }}" class="btn-back" style="
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 20px;
+            background: #3498db;
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 4px rgba(52, 152, 219, 0.3);
+        " onmouseover="this.style.background='#2980b9'; this.style.transform='translateY(-1px)'" 
+           onmouseout="this.style.background='#3498db'; this.style.transform='translateY(0)'">
+            ← Back to Admin Dashboard
+        </a>
+    </div>
+
     <div class="referee-header">
-        <h1>Referee Panel</h1>
-        <div class="competition-info">
-            <span id="competition-name">Select Competition</span>
-            <span id="current-event">No Event Selected</span>
+        <div class="header-left">
+            <h1>Referee Panel</h1>
+            <button id="referees-setting-btn" class="setting-btn" onclick="openRefereesSettings()">⚙️ Referees Setting</button>
+            <div class="competition-info">
+                <span id="competition-name">Select Competition</span>
+                <span id="current-event">No Event Selected</span>
+            </div>
+        </div>
+        <div class="header-right">
         </div>
     </div>
 
@@ -123,7 +258,6 @@
         <h3>Athletes Queue</h3>
         <div class="queue-controls">
             <button id="load-athletes">Load Competition Athletes</button>
-            <button id="randomize-order">Randomize Order</button>
         </div>
         
         <div class="queue-list" id="athletes-queue">
@@ -179,12 +313,5 @@
         </div>
     </div>
 </div>
-
-<!-- Emergency Controls -->
-<div class="emergency-controls">
-    <button id="emergency-stop" class="emergency-btn">Emergency Stop</button>
-    <button id="technical-break" class="break-btn">Technical Break</button>
-</div>
-
 <script src="{{ url_for('static', filename='js/referee.js') }}"></script>
 {% endblock %}
