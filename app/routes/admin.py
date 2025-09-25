@@ -1,7 +1,7 @@
 from asyncio.log import logger
 from flask import Blueprint, render_template, request, jsonify, session, redirect, url_for
 from ..extensions import db
-from ..models import (Competition, Athlete, Flight, Event, SportType, AthleteFlight, ScoringType, Referee,TimerLog)
+from ..models import (Competition, Athlete, Flight, Event, SportType, AthleteFlight, ScoringType, Referee,TimerLog,Attempt, AttemptResult, AthleteEntry)
 from ..utils.referee_generator import generate_sample_referee_data, generate_random_username, generate_random_password
 from datetime import datetime,timezone
 from sqlalchemy.exc import IntegrityError
@@ -2047,6 +2047,12 @@ def add_athlete_to_flight(flight_id, athlete_id):
             order=next_order
         )
         db.session.add(athlete_flight)
+        
+        # Auto-create AthleteEntry records for this event's movements
+        if flight.event:
+            from ..routes.athlete import ensure_athlete_entries_for_event
+            ensure_athlete_entries_for_event(athlete_id, flight.event.id)
+        
         db.session.commit()
         
         # Return updated athlete information
