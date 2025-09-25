@@ -55,13 +55,29 @@ def display():
 # API Routes below
 @admin_bp.route('/competition-model/get/<int:id>')
 def get_competition_model(id):
-    competition = Competition.query.get_or_404(id)
+    competition = Competition.query.options(
+        db.joinedload(Competition.events).joinedload(Event.flights)
+    ).get_or_404(id)
+    
+    # Get existing events and flights data
+    events_data = [{
+        'id': event.id,
+        'name': event.name,
+        'gender': event.gender,
+        'flights': [{
+            'id': flight.id,
+            'name': flight.name,
+            'order': flight.order
+        } for flight in event.flights]
+    } for event in competition.events]
+    
     return jsonify({
         'id': competition.id,
         'name': competition.name,
         'start_date': competition.start_date.isoformat() if competition.start_date else None,
         'description': competition.description,
         'sport_type': competition.sport_type.value if competition.sport_type else None,
+        'events': events_data,  # Include the actual events data
         'config': competition.config or {
             'name': competition.name,
             'sport_type': competition.sport_type.value if competition.sport_type else None,
@@ -80,10 +96,20 @@ def get_competition_model(id):
 def save_competition_model():
     try:
         data = request.get_json()
-        logger.info("Received data: %s", data)  # Debug log
+        print("\n=== Competition Save Debug ===")
+        print("Received data:", data)
 
         # Start a database transaction
         db.session.begin_nested()
+        
+        competition_id = data.get('id')
+        print(f"Processing competition ID: {competition_id}")
+        
+        if competition_id:
+            competition = Competition.query.get_or_404(competition_id)
+            print("Existing competition found")
+            print("Current events:", [(e.id, e.name) for e in competition.events])
+            print("Current flights:", [(f.id, f.name, f.event_id) for f in Flight.query.filter_by(competition_id=competition_id).all()])
 
         # Create new competition or update existing one
         competition_id = data.get('id')
@@ -119,8 +145,19 @@ def save_competition_model():
             'events': data.get('events', [])
         }
 
-        # Process events
+        # Get all existing event and flight IDs for this competition
+        existing_event_ids = {event.id for event in competition.events}
+        existing_flight_ids = {flight.id for flight in Flight.query.filter_by(competition_id=competition.id).all()}
+        
+        print("Existing event IDs:", existing_event_ids)
+        print("Existing flight IDs:", existing_flight_ids)
+        
+        # Track current IDs to determine what to keep
         current_event_ids = set()
+        current_flight_ids = set()
+        
+        print("Processing events from config:", competition.config.get('events', []))
+        
         for event_data in competition.config['events']:
             event_id = event_data.get('id')
             
@@ -145,15 +182,23 @@ def save_competition_model():
                 current_event_ids.add(event.id)
 
             # Process flights for this event
+            print(f"\nProcessing event {event.id} - {event.name}")
             if 'groups' in event_data:
+                print("Found groups:", event_data['groups'])
                 for flight_data in event_data['groups']:
-                    if flight_data.get('id'):
+                    flight_id = flight_data.get('id')
+                    print(f"Processing flight data: {flight_data}")
+                    if flight_id:
                         # Update existing flight
-                        flight = Flight.query.get(flight_data['id'])
-                        if flight and flight.event_id == event.id:
+                        flight = Flight.query.get(flight_id)
+                        print(f"Found existing flight: {flight.id if flight else None}")
+                        if flight and flight.competition_id == competition.id:
                             flight.name = flight_data['name']
                             flight.order = flight_data.get('order', 1)
                             flight.is_active = flight_data.get('is_active', True)
+                            flight.event_id = event.id  # Update event association
+                            current_flight_ids.add(flight.id)
+                            print(f"Updated flight {flight.id} - {flight.name} for event {event.id}")
                     else:
                         # Create new flight
                         flight = Flight(
@@ -165,6 +210,29 @@ def save_competition_model():
                         )
                         db.session.add(flight)
                         db.session.flush()  # Get the new flight ID
+                        current_flight_ids.add(flight.id)
+
+        # Print final tracking sets
+        print("\nFinal tracking sets:")
+        print("Current event IDs:", current_event_ids)
+        print("Current flight IDs:", current_flight_ids)
+        
+        # Remove events and flights that no longer exist in the configuration
+        events_to_delete = existing_event_ids - current_event_ids
+        if events_to_delete:
+            print(f"Deleting events: {events_to_delete}")
+            Event.query.filter(Event.id.in_(events_to_delete)).delete(synchronize_session='fetch')
+
+        # Remove any flights not in current_flight_ids
+        flights_to_delete = existing_flight_ids - current_flight_ids
+        if flights_to_delete:
+            print(f"Deleting flights: {flights_to_delete}")
+            Flight.query.filter(Flight.id.in_(flights_to_delete)).delete(synchronize_session='fetch')
+            
+        # Print final state
+        print("\nFinal state after save:")
+        print("Events:", [(e.id, e.name) for e in competition.events])
+        print("Flights:", [(f.id, f.name, f.event_id) for f in Flight.query.filter_by(competition_id=competition.id).all()])
 
         # Remove events that no longer exist in the configuration
         events_to_delete = existing_event_ids - current_event_ids
