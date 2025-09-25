@@ -36,7 +36,7 @@ def resolve_current_athlete():
     This would use the authenticated user's email.
     """
     # Mock user login data - in production this would come from session/auth
-    mock_user_email = "amy@email.com"
+    mock_user_email = "harry@email.com"
     
     return (
         Athlete.query.options(
@@ -117,7 +117,7 @@ def next_pending_attempt(athlete_id):
     """
     return (
         Attempt.query.options(
-            joinedload(Attempt.athlete_entry)
+            joinedload(Attempt.athlete_entry).joinedload(AthleteEntry.event)
         )
         .join(AthleteEntry, Attempt.athlete_entry_id == AthleteEntry.id)
         .filter(
@@ -145,6 +145,96 @@ def attempt_time_remaining(attempt: Attempt) -> int:
 
     return remaining
 
+def extract_movements_for_event(event):
+    """
+    Extract movement definitions for the given event from event.competition.config.
+    """
+    comp = event.competition
+    if not comp or not isinstance(getattr(comp, "config", None), dict):
+        return []
+
+    cfg = comp.config or {}
+    events_cfg = cfg.get("events") or []
+    if not isinstance(events_cfg, list):
+        return []
+
+    # ID match
+    for block in events_cfg:
+        if isinstance(block, dict) and block.get("id") == event.id and block.get("movements"):
+            return list(block["movements"])
+
+    # Name match
+    ename = (event.name or "").strip().lower()
+    for block in events_cfg:
+        if not isinstance(block, dict):
+            continue
+        if (block.get("name") or "").strip().lower() == ename and block.get("movements"):
+            return list(block["movements"])
+
+    # Fallback: first movements block
+    for block in events_cfg:
+        if isinstance(block, dict) and block.get("movements"):
+            return list(block["movements"])
+
+    return []
+
+
+def ensure_athlete_entries_for_event(athlete_id: int, event_id: int):
+    """
+    Create one AthleteEntry per movement for (athlete_id, event_id).
+    """
+
+    event = (
+        Event.query.options(joinedload(Event.competition))
+        .filter_by(id=event_id)
+        .first()
+    )
+    if not event:
+        raise ValueError(f"Event {event_id} not found")
+
+    movements = extract_movements_for_event(event)
+    created = []
+
+    # Gather existing lift_types for this athlete+event
+    existing = {
+        ae.lift_type
+        for ae in AthleteEntry.query.filter_by(athlete_id=athlete_id, event_id=event_id).all()
+    }
+
+    for mv in movements or []:
+        mv_name = (mv.get("name") or "").strip()
+        if not mv_name or mv_name in existing:
+            continue
+
+        timer = mv.get("timer") or {}
+        attempt_seconds = int(timer.get("attempt_seconds", 60))
+        break_seconds = int(timer.get("break_seconds", 120))
+
+        ae = AthleteEntry(
+            athlete_id=athlete_id,
+            event_id=event_id,
+            lift_type=mv_name,
+            attempt_time_limit=attempt_seconds,
+            break_time=break_seconds,
+            entry_config=mv,  # keep full movement config for audit/reference
+        )
+        db.session.add(ae)
+        created.append(ae)
+
+    if created:
+        db.session.commit()
+
+    return created
+
+
+def ensure_athlete_entries_for_competition(athlete_id: int, competition_id: int) -> int:
+    """
+    Convenience: ensure per-movement AthleteEntry rows for all events in the competition.
+    """
+    total = 0
+    for ev in Event.query.filter_by(competition_id=competition_id).all():
+        total += len(ensure_athlete_entries_for_event(athlete_id=athlete_id, event_id=ev.id))
+    return total
 
 # Views / API ---------------------------------------------------------------------------
 
@@ -220,8 +310,8 @@ def athlete_dashboard():
                     'weight_category': entry.event.weight_category,
                     'gender': entry.event.gender
                 },
-                'category': entry.category,
                 'lift_type': entry.lift_type,
+                'movement_name': entry.movement_name,
                 'time_limits': {
                     'attempt': entry.attempt_time_limit,
                     'break': entry.break_time
@@ -241,7 +331,7 @@ def athlete_dashboard():
                     'actual_weight': attempt.actual_weight,
                     'result': attempt.final_result.value if attempt.final_result else None,
                     'lifting_order': attempt.lifting_order,
-                    'lift_name': getattr(attempt, 'lift_type', None) or getattr(attempt, 'lift', None) or entry.lift_type or 'Unknown'
+                    'lift_name': entry.movement_name
                 })
 
             athlete_config['entries'].append(entry_config)
@@ -332,10 +422,11 @@ def update_opening_weight():
         if not athlete:
             return jsonify({"success": False, "error": "Athlete not found"}), 404
 
-        # Find entry by event_id
+        # Find entry by event_id and lift_type (which should match lift_key)
         entry = AthleteEntry.query.filter_by(
             athlete_id=athlete.id,
-            event_id=event_id
+            event_id=event_id,
+            lift_type=lift_key
         ).first()
 
         if not entry:
@@ -343,7 +434,7 @@ def update_opening_weight():
                 jsonify(
                     {
                         "success": False,
-                        "error": "Athlete is not entered in this event",
+                        "error": f"Athlete is not entered in this event for lift type '{lift_key}'",
                     }
                 ),
                 404,
@@ -355,11 +446,10 @@ def update_opening_weight():
         entry.opening_weights = opening
 
         # Also update first attempt if it exists and hasn't been completed
+        # Since we now have the specific entry for this lift_type, just find the first attempt
         first_attempt = next(
             (a for a in entry.attempts 
-             if a.attempt_number == 1 and
-             (getattr(a, 'lift_type', None) or getattr(a, 'lift', None) or entry.lift_type or '').lower() == lift_key.lower() and
-             a.final_result is None),
+             if a.attempt_number == 1 and a.final_result is None),
             None
         )
         if first_attempt:
@@ -378,7 +468,7 @@ def update_opening_weight():
                     'requested_weight': attempt.requested_weight,
                     'actual_weight': attempt.actual_weight,
                     'result': attempt.final_result.value if attempt.final_result else None,
-                    'lift_name': getattr(attempt, 'lift_type', None) or getattr(attempt, 'lift', None) or entry.lift_type or 'Unknown',
+                    'lift_name': entry.movement_name,
                     'lifting_order': attempt.lifting_order
                 }
                 for attempt in sorted(entry.attempts, key=lambda x: x.attempt_number)
@@ -481,15 +571,13 @@ def get_next_attempt_timer():
         if not na:
             return jsonify({"error": "No next attempt found"}), 404
 
-        # event type and names are loaded via joins in next_pending_attempt
-        event_type = None
+        # Get event and lift information from the athlete entry
         try:
-            # Get event and lift information
             event = na.athlete_entry.event
-            lift_type = na.athlete_entry.lift_type
+            movement_name = na.athlete_entry.movement_name
         except Exception:
             event = None
-            lift_type = None
+            movement_name = 'Unknown'
 
         return jsonify({
             "attempt_id": na.id,
@@ -499,7 +587,7 @@ def get_next_attempt_timer():
                 "category": event.weight_category,
                 "gender": event.gender
             } if event else None,
-            "lift_type": lift_type,
+            "lift_type": movement_name,
             "order": na.attempt_number,
             "weight": na.requested_weight,
         })
