@@ -9,6 +9,7 @@ from app.routes.admin import admin_bp
 from app.routes.login import login_bp
 from app.routes.display import display_bp
 from app.routes.coach import coach_bp
+from app.routes.athlete import athlete_bp
 from . import models  # Import models so they are registered with SQLAlchemy
 
 
@@ -106,6 +107,7 @@ def create_app(config_name: str | None = None) -> Flask:
     app.register_blueprint(login_bp)
     app.register_blueprint(display_bp)
     app.register_blueprint(coach_bp)
+    app.register_blueprint(athlete_bp)
     
     logger.info("Flask app created successfully")
     return app
