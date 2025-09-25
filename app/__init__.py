@@ -88,7 +88,7 @@ def create_app(config_name: str | None = None) -> Flask:
         setup_logging(flask_log_level)
         print(f"🔧 Custom logging enabled with level: {flask_log_level}")
     else:
-        print(f"🚀 Production mode - using Flask's default logging")
+        print(f"Production mode - using Flask's default logging")
     
     logger.info(f"Starting Flask app with config: {config.__name__}")
 
