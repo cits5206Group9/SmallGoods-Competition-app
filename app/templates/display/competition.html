@@ -340,6 +340,68 @@
         }
       }
 
+      /* Error Message Box Styles */
+      .error-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.8);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 2000;
+      }
+
+      .error-box {
+        background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+        border: 2px solid #dc3545;
+        border-radius: 12px;
+        padding: 40px;
+        text-align: center;
+        max-width: 500px;
+        width: 90%;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+        position: relative;
+      }
+
+      .error-title {
+        color: #dc3545;
+        font-size: 28px;
+        font-weight: bold;
+        margin-bottom: 20px;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+      }
+
+      .error-message {
+        color: #fff;
+        font-size: 18px;
+        margin-bottom: 30px;
+        line-height: 1.5;
+      }
+
+      .error-report-btn {
+        position: absolute;
+        bottom: 15px;
+        right: 15px;
+        background: #dc3545;
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 6px;
+        font-size: 14px;
+        cursor: pointer;
+        transition: background-color 0.3s ease;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+      }
+
+      .error-report-btn:hover {
+        background: #c82333;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
+      }
+
       @media (min-width: 768px) {
         .col-md-3 {
           width: 25%;
@@ -391,10 +453,34 @@
           margin-right: 0.5rem;
           margin-bottom: 0.5rem;
         }
+        .error-box {
+          padding: 30px;
+          width: 95%;
+        }
+        .error-title {
+          font-size: 24px;
+        }
+        .error-message {
+          font-size: 16px;
+        }
       }
     </style>
   </head>
   <body>
+    <!-- Error Message Box -->
+    {% if show_error %}
+    <div class="error-overlay">
+      <div class="error-box">
+        <div class="error-title">❌ No Competition!</div>
+        <div class="error-message">
+          The competition you requested could not be found.<br>
+          Please check the competition ID and try again.
+        </div>
+        <button class="error-report-btn" onclick="redirectToErrorReport()">Error report</button>
+      </div>
+    </div>
+    {% endif %}
+
     <main class="container-fluid">
       <!-- Control Toggle Button -->
       <button class="control-toggle" onclick="toggleControlPanel()">⚙️ Controls</button>
@@ -594,6 +680,14 @@
     </main>
 
     <script>
+      // Error report redirect function
+      function redirectToErrorReport() {
+        const params = new URLSearchParams(window.location.search);
+        const competitionId = params.get('competition_id');
+        const debugUrl = `/debug?competition_id=${competitionId}&error=competition_not_found`;
+        window.location.href = debugUrl;
+      }
+
       document.addEventListener("DOMContentLoaded", function () {
         let timerInterval = null;
 
