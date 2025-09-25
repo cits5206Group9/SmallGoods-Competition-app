@@ -1,9 +1,9 @@
 from asyncio.log import logger
 from flask import Blueprint, render_template, request, jsonify, session, redirect, url_for
 from ..extensions import db
-from ..models import (Competition, Athlete, Flight, Event, SportType, AthleteFlight, ScoringType, Referee, Attempt, AttemptResult, AthleteEntry)
+from ..models import (Competition, Athlete, Flight, Event, SportType, AthleteFlight, ScoringType, Referee,TimerLog,Attempt, AttemptResult, AthleteEntry)
 from ..utils.referee_generator import generate_sample_referee_data, generate_random_username, generate_random_password
-from datetime import datetime
+from datetime import datetime,timezone
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import joinedload
 
@@ -2154,3 +2154,177 @@ def reorder_flight_athletes(flight_id):
             'status': 'error',
             'message': 'Failed to reorder athletes: ' + str(e)
         }), 500
+        
+        
+        
+@admin_bp.post("/timer/log")
+def create_timer_log():
+    data = request.get_json(force=True) or {}
+    # expected keys (send what you have):
+    # competition_id, event_id, flight_id, athlete, action, start, stop, duration_sec
+
+    # parse times if you post ISO strings; optional:
+    def parse_ts(s):
+        if not s: return None
+        return datetime.fromisoformat(s.replace("Z","+00:00"))
+    row = TimerLog(
+        competition_id = data.get("competition_id"),
+        event_id       = data.get("event_id"),
+        flight_id      = data.get("flight_id"),
+        athlete        = (data.get("athlete") or "")[:120],
+        action         = data.get("action") or "Attempt",
+        start_ts       = parse_ts(data.get("start_iso")),
+        stop_ts        = parse_ts(data.get("stop_iso")),
+        duration_sec   = data.get("duration_sec"),
+        meta_json      = data.get("meta") or {},
+    )
+    db.session.add(row)
+    db.session.commit()
+    return jsonify({"ok": True, "id": row.id})
+
+
+@admin_bp.get("/timer/log")
+def list_timer_log():
+    q = TimerLog.query
+    flight_id = request.args.get("flight_id")
+    athlete   = request.args.get("athlete")
+    if flight_id:
+        q = q.filter(TimerLog.flight_id == int(flight_id))
+    if athlete:
+        q = q.filter(TimerLog.athlete.ilike(f"%{athlete}%"))
+    q = q.order_by(TimerLog.created_at.desc()).limit(200)
+    rows = [{
+        "id": r.id,
+        "athlete": r.athlete,
+        "action": r.action,
+        "start_iso": r.start_ts.isoformat() if r.start_ts else None,
+        "stop_iso":  r.stop_ts.isoformat()  if r.stop_ts  else None,
+        "duration_sec": r.duration_sec,
+        "competition_id": r.competition_id,
+        "event_id": r.event_id,
+        "flight_id": r.flight_id,
+    } for r in q.all()]
+    return jsonify(rows)
+
+
+def _to_seconds(val):
+    """Accepts int, float, 'MM:SS', 'HH:MM:SS', or numeric strings."""
+    if val is None:
+        return None
+    if isinstance(val, (int, float)):
+        return int(val)
+    s = str(val).strip()
+    if not s:
+        return None
+    if ":" in s:
+        parts = [int(p or 0) for p in s.split(":")]
+        if len(parts) == 3:
+            return parts[0]*3600 + parts[1]*60 + parts[2]
+        if len(parts) == 2:
+            return parts[0]*60 + parts[1]
+    try:
+        return int(float(s))
+    except Exception:
+        return None
+
+def _extract_times_from_event_dict(edict):
+    """Search a single event dict for attempt/break time fields (top, movements, groups)."""
+    attempt_sec = None
+    break_sec = None
+
+    def scan_obj(obj):
+        nonlocal attempt_sec, break_sec
+        if not isinstance(obj, dict):
+            return
+        for k, v in obj.items():
+            kl = str(k).lower()
+            if attempt_sec is None and ("attempt" in kl and "time" in kl):
+                attempt_sec = _to_seconds(v)
+            if break_sec is None and ("break" in kl and "time" in kl):
+                break_sec = _to_seconds(v)
+
+    if isinstance(edict, dict):
+        scan_obj(edict)
+        for mv in (edict.get("movements") or []):
+            scan_obj(mv)
+        for grp in (edict.get("groups") or []):
+            scan_obj(grp)
+
+    return attempt_sec, break_sec
+
+# --- TIMER LOG API (already in your file) ---
+# def create_timer_log(): ...
+# def list_timer_log(): ...
+
+# === NEW: Timer defaults API (reads Competition.config to return attempt/break seconds) ===
+@admin_bp.get("/api/timer-defaults")
+def api_timer_defaults():
+    """
+    Returns the attempt_seconds and break_seconds for the selected flight,
+    derived from the Competition.config JSON (set in the model editor).
+    Query params: comp_id, event_id, flight_id (any 1 is fine; flight_id preferred)
+    """
+    from sqlalchemy.orm import joinedload
+    comp_id  = request.args.get("comp_id", type=int)
+    event_id = request.args.get("event_id", type=int)
+    flight_id = request.args.get("flight_id", type=int)
+
+    # If we have a flight_id but not comp/event IDs, derive them.
+    if flight_id and not (comp_id and event_id):
+        fl = Flight.query.options(
+            joinedload(Flight.event).joinedload(Event.competition),
+            joinedload(Flight.competition)
+        ).get(flight_id)
+        if not fl:
+            return jsonify({"attempt_seconds": None, "break_seconds": None}), 404
+        if not event_id and fl.event:
+            event_id = fl.event.id
+        if not comp_id:
+            comp_id = (fl.event.competition_id if fl.event and fl.event.competition else None) or fl.competition_id
+
+    if not comp_id:
+        return jsonify({"attempt_seconds": None, "break_seconds": None})
+
+    comp = Competition.query.get(comp_id)
+    attempt = None
+    brk = None
+
+    # Try to match the event by name (ids in config may not exist)
+    event_name = None
+    if event_id:
+        ev = Event.query.get(event_id)
+        event_name = ev.name if ev else None
+
+    if comp and comp.config:
+        for ev_cfg in (comp.config.get("events") or []):
+            if event_name and ev_cfg.get("name") != event_name:
+                continue
+
+            # Prefer movement-level timers if present
+            for mv in (ev_cfg.get("movements") or []):
+                t = (mv.get("timer") or {})
+                if attempt is None and t.get("attempt_seconds") is not None:
+                    attempt = int(t["attempt_seconds"])
+                if brk is None and t.get("break_seconds") is not None:
+                    brk = int(t["break_seconds"])
+                if attempt is not None or brk is not None:
+                    break
+
+            # Optional: if you later add group-level overrides
+            for grp in (ev_cfg.get("groups") or []):
+                t = (grp.get("timer") or {})
+                if attempt is None and t.get("attempt_seconds") is not None:
+                    attempt = int(t["attempt_seconds"])
+                if brk is None and t.get("break_seconds") is not None:
+                    brk = int(t["break_seconds"])
+
+            if event_name:
+                break
+
+    return jsonify({
+        "attempt_seconds": attempt,
+        "break_seconds": brk,
+        "comp_id": comp_id,
+        "event_id": event_id,
+        "flight_id": flight_id
+    })

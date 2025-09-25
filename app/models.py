@@ -255,3 +255,22 @@ class Referee(db.Model):
     def __repr__(self):
         return f'<Referee {self.name} ({self.username})>'
 
+
+## Timer Log table - Timekeeper view - ##
+class TimerLog(db.Model):
+    __tablename__ = "timer_log"
+    id = db.Column(db.Integer, primary_key=True)
+
+    competition_id = db.Column(db.Integer, db.ForeignKey("competition.id"), nullable=True)
+    event_id       = db.Column(db.Integer, db.ForeignKey("event.id"),       nullable=True)
+    flight_id      = db.Column(db.Integer, db.ForeignKey("flight.id"),      nullable=True)
+
+    athlete        = db.Column(db.String(120), nullable=True)  # free text
+    action         = db.Column(db.String(32),  nullable=False) # "Attempt", "Break", etc.
+
+    start_ts       = db.Column(db.DateTime(timezone=True), nullable=True)
+    stop_ts        = db.Column(db.DateTime(timezone=True),  nullable=True)
+    duration_sec   = db.Column(db.Integer, nullable=True)
+
+    created_at     = db.Column(db.DateTime(timezone=True), server_default=db.func.now(), nullable=False)
+    meta_json      = db.Column(db.JSON, nullable=True)  # optional: store extras (mode, notes)
