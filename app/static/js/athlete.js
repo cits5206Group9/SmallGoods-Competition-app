@@ -4,13 +4,49 @@
         return Array.from(root.querySelectorAll(sel));
     }
 
-    // Event detail functions
-    function updateEventDetails(response) {
-        if (response.success) {
-            // Refresh the page to show updated data
-            window.location.reload();
+    // Event switching functionality
+    function showEvent(eventId) {
+        // Hide all event details
+        const allEvents = document.querySelectorAll('.event-details');
+        allEvents.forEach(event => {
+            event.style.display = 'none';
+        });
+        
+        // Show selected event
+        const selectedEvent = document.getElementById(eventId);
+        if (selectedEvent) {
+            selectedEvent.style.display = 'block';
+        }
+        
+        // Update button states
+        const allButtons = document.querySelectorAll('.event-button');
+        allButtons.forEach(button => {
+            button.classList.remove('active');
+        });
+        
+        const activeButton = document.querySelector(`[data-target="${eventId}"]`);
+        if (activeButton) {
+            activeButton.classList.add('active');
+        }
+    }
+
+    // Weight form toggling
+    function toggleWeightForm(weightValueElement) {
+        const weightDisplay = weightValueElement.parentElement;
+        const weightValue = weightDisplay.querySelector('.weight-value');
+        const weightForm = weightDisplay.querySelector('.weight-form');
+        
+        if (weightForm.style.display === 'none' || !weightForm.style.display) {
+            weightValue.style.display = 'none';
+            weightForm.style.display = 'flex';
+            const input = weightForm.querySelector('input[type="number"]');
+            if (input) {
+                input.focus();
+                input.select();
+            }
         } else {
-            alert(response.error || 'Failed to update data');
+            weightValue.style.display = 'inline';
+            weightForm.style.display = 'none';
         }
     }
 
@@ -26,11 +62,16 @@
                 return null;
             }
 
-            // Update values in existing elements
-            infoEl.querySelector('.event-type').textContent = data.event_type || 'N/A';
-            infoEl.querySelector('.lift-type').textContent = data.lift_type || 'N/A';
-            infoEl.querySelector('.weight').textContent = data.weight;
-            infoEl.querySelector('.attempt-order').textContent = data.order;
+            // Update values in existing elements with correct field names
+            const eventTypeEl = infoEl.querySelector('.event-type');
+            const liftTypeEl = infoEl.querySelector('.lift-type');
+            const weightEl = infoEl.querySelector('.weight');
+            const attemptOrderEl = infoEl.querySelector('.attempt-order');
+
+            if (eventTypeEl) eventTypeEl.textContent = data.event?.name || 'N/A';
+            if (liftTypeEl) liftTypeEl.textContent = data.lift_type || 'N/A';
+            if (weightEl) weightEl.textContent = data.weight || 0;
+            if (attemptOrderEl) attemptOrderEl.textContent = data.order || 1;
 
             return data.time;
         } catch (error) {
@@ -79,23 +120,7 @@
         setInterval(updateTimer, 5000);
     }
 
-    // Weight form functions
-    function initializeWeightForms(container = document) {
-        container.querySelectorAll('.weight-display').forEach(display => {
-            const weightValue = display.querySelector('.weight-value');
-            const form = display.querySelector('.weight-form');
-            
-            if (!weightValue || !form) return;
-
-            weightValue.addEventListener('click', () => {
-                weightValue.style.display = 'none';
-                form.style.display = 'flex';
-            });
-
-            form.addEventListener('submit', handleWeightFormSubmit);
-        });
-    }
-
+    // Enhanced weight form handling with AJAX
     async function handleWeightFormSubmit(e) {
         e.preventDefault();
         const form = e.target;
@@ -103,79 +128,107 @@
         const weightValue = weightDisplay.querySelector('.weight-value');
         const formData = new FormData(form);
         const submitBtn = form.querySelector('.submit-weight');
+        const originalText = submitBtn.textContent;
         
         try {
+            submitBtn.textContent = 'Saving...';
             submitBtn.disabled = true;
+            
             const response = await fetch(form.action, {
                 method: 'POST',
                 body: formData
             });
             
             const data = await response.json();
+            
             if (data.success) {
+                // Update the weight display
+                const newWeight = formData.get('weight');
+                weightValue.textContent = newWeight + 'kg';
+                
+                // Hide the form
+                toggleWeightForm(weightValue);
+                
+                console.log('Weight updated successfully');
+                
+                // Update next attempt info if this affects the current attempt
                 if (data.attempt) {
-                    // Update attempt weight
-                    weightValue.textContent = `${data.attempt.requested_weight}kg`;
-                    updateNextAttemptInfo(data.attempt);
-                } else if (data.entry) {
-                    // Update opening weight and related attempts
-                    const entrySection = document.getElementById(`event-${data.entry.competition_type.exercise.sport_category.name.toLowerCase()}`);
-                    if (entrySection) {
-                        const entries = [data.entry];
-                        updateEventDetails({ entries }); // Wrap entry in expected format
-                    }
+                    updateNextAttemptDisplay(data.attempt);
                 }
-                form.style.display = 'none';
-                weightValue.style.display = 'inline';
             } else {
-                alert(data.error || 'Failed to update weight');
+                alert('Error updating weight: ' + (data.error || 'Unknown error'));
             }
         } catch (error) {
             console.error('Error updating weight:', error);
-            alert('Failed to update weight. Please try again.');
+            alert('Error updating weight. Please try again.');
         } finally {
+            submitBtn.textContent = originalText;
             submitBtn.disabled = false;
         }
     }
 
-    function updateNextAttemptInfo(attempt) {
+    function updateNextAttemptDisplay(attempt) {
         const timerCard = document.querySelector('.timer-card');
         if (!timerCard) return;
 
         const infoEl = timerCard.querySelector('.next-attempt-info');
         if (!infoEl) return;
 
-        if (attempt.id === document.querySelector('.next-attempt')?.dataset?.attemptId) {
-            // Update values in existing elements
-            infoEl.querySelector('.event-type').textContent = attempt.entry.competition_type.exercise.sport_category.name;
-            infoEl.querySelector('.lift-type').textContent = attempt.lift_name || 'N/A';
-            infoEl.querySelector('.weight').textContent = attempt.requested_weight;
-            infoEl.querySelector('.attempt-order').textContent = attempt.number;
+        // Update timer info if this is the current attempt
+        const weightEl = infoEl.querySelector('.weight');
+        if (weightEl && attempt.requested_weight) {
+            weightEl.textContent = attempt.requested_weight;
         }
+    }
+
+    // Weight form initialization
+    function initializeWeightForms(container = document) {
+        container.querySelectorAll('.weight-display').forEach(display => {
+            const weightValue = display.querySelector('.weight-value');
+            const form = display.querySelector('.weight-form');
+            
+            if (!weightValue || !form) return;
+
+            // Add click event listener to weight value
+            weightValue.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                toggleWeightForm(weightValue);
+            });
+
+            // Add submit event listener to form
+            form.addEventListener('submit', handleWeightFormSubmit);
+        });
     }
 
     // Initialize everything when DOM is ready
     document.addEventListener("DOMContentLoaded", () => {
-        // Initialize event buttons
+        // Initialize event switching
         const buttons = bySelAll(".event-button");
-        const eventDetails = document.querySelectorAll('.event-details');
         
         buttons.forEach(button => {
             button.addEventListener('click', function() {
-                buttons.forEach(btn => btn.classList.remove('active'));
-                this.classList.add('active');
-                
-                eventDetails.forEach(detail => detail.style.display = 'none');
-                
-                const targetDetails = document.getElementById(this.getAttribute('data-target'));
-                if (targetDetails) {
-                    targetDetails.style.display = 'block';
-                }
+                const target = this.dataset.target;
+                showEvent(target);
             });
         });
 
-        // Initialize timer and weight forms
+        // Show first event by default
+        const firstButton = document.querySelector('.event-button.active') || document.querySelector('.event-button');
+        if (firstButton) {
+            const target = firstButton.dataset.target;
+            showEvent(target);
+            firstButton.classList.add('active');
+        }
+
+        // Initialize timer functionality
         bySelAll(".countdown-timer").forEach(startCountdown);
+        
+        // Initialize weight forms
         initializeWeightForms();
     });
+
+    // Make functions globally available for onclick handlers
+    window.showEvent = showEvent;
+    window.toggleWeightForm = toggleWeightForm;
 })();

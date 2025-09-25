@@ -117,9 +117,9 @@ class AthleteEntry(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     athlete_id = db.Column(db.Integer, db.ForeignKey("athlete.id"), nullable=False)
     event_id = db.Column(db.Integer, db.ForeignKey("event.id"), nullable=False)
-    entry_order = db.Column(db.Integer)
+    entry_order = db.Column(db.Integer, db.ForeignKey("athlete_flight.order"), nullable=True)
     is_active = db.Column(db.Boolean, default=True)
-    lift_type = db.Column(db.String(50))  # e.g., "Snatch", "Clean & Jerk"
+    lift_type = db.Column(db.String(50), nullable=False) # e.g., "snatch", "clean_jerk"
     attempt_time_limit = db.Column(db.Integer, default=60)  # seconds
     break_time = db.Column(db.Integer, default=120)  # seconds
 
@@ -130,6 +130,16 @@ class AthleteEntry(db.Model):
     # Relationships
     attempts = db.relationship("Attempt", backref="athlete_entry", lazy=True, cascade="all, delete-orphan")
     event = db.relationship("Event", backref="athlete_entries")
+    
+    # Prevent duplicate (athlete, event, lift_type)
+    __table_args__ = (
+        db.UniqueConstraint("athlete_id", "event_id", "lift_type", name="uq_athlete_event_lift"),
+    )
+
+    @property
+    def movement_name(self):
+        """Human-readable movement name; we persist this into lift_type, so return it."""
+        return self.lift_type or "Unknown"
 
 class AthleteFlight(db.Model):
     """Many-to-many relationship between athletes and flights"""
