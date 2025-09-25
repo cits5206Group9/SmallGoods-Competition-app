@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request
+from flask import Blueprint, render_template, request, jsonify
 from ..extensions import db
 from ..models import Competition, Event, Athlete, AthleteFlight, Flight
 from sqlalchemy.orm import joinedload
@@ -31,7 +31,7 @@ def display_competition():
             for athlete in athletes_query:
                 athletes.append({
                     'id': athlete.id,
-                    'name': athlete.name,
+                    'name': f"{athlete.first_name} {athlete.last_name}".strip(),
                     'team': getattr(athlete, 'team', ''),
                     'weight_class': getattr(athlete, 'weight_class', ''),
                     'is_active': athlete.is_active
@@ -49,7 +49,7 @@ def display_competition():
         for athlete in athletes_query:
             athletes.append({
                 'id': athlete.id,
-                'name': athlete.name,
+                'name': f"{athlete.first_name} {athlete.last_name}".strip(),
                 'team': getattr(athlete, 'team', ''),
                 'weight_class': getattr(athlete, 'weight_class', ''),
                 'is_active': athlete.is_active
@@ -81,3 +81,48 @@ def debug_report():
     }
 
     return render_template('display/debug.html', debug_info=debug_info)
+
+@display_bp.route('/api/competition/<int:competition_id>/info')
+def get_competition_info(competition_id):
+    """API endpoint to get competition information with events and athletes"""
+    competition = Competition.query.get(competition_id)
+
+    if not competition:
+        return jsonify({
+            'success': False,
+            'error': 'Competition not found',
+            'competition_id': competition_id
+        }), 404
+
+    # Get events for this competition
+    events = Event.query.filter_by(competition_id=competition_id).all()
+
+    # Get athletes for this competition
+    athletes_query = Athlete.query.filter_by(competition_id=competition_id, is_active=True).all()
+
+    # Prepare response data
+    response_data = {
+        'success': True,
+        'competition': {
+            'id': competition.id,
+            'name': competition.name,
+            'is_active': competition.is_active
+        },
+        'events': [{'id': event.id, 'name': event.name} for event in events],
+        'athletes': [
+            {
+                'id': athlete.id,
+                'name': f"{athlete.first_name} {athlete.last_name}".strip(),
+                'team': getattr(athlete, 'team', ''),
+                'is_active': athlete.is_active
+            } for athlete in athletes_query
+        ],
+        'summary': {
+            'events_count': len(events),
+            'athletes_count': len(athletes_query),
+            'has_events': len(events) > 0,
+            'has_athletes': len(athletes_query) > 0
+        }
+    }
+
+    return jsonify(response_data)

@@ -402,6 +402,124 @@
         box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
       }
 
+      /* Notification System Styles */
+      .notification-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.6);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 3000;
+      }
+
+      .notification-box {
+        background: linear-gradient(135deg, #2d2d2d 0%, #1a1a1a 100%);
+        border: 2px solid #ffc107;
+        border-radius: 12px;
+        padding: 30px;
+        text-align: center;
+        max-width: 500px;
+        width: 90%;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.7);
+        position: relative;
+        animation: slideIn 0.3s ease-out;
+      }
+
+      @keyframes slideIn {
+        from {
+          opacity: 0;
+          transform: translateY(-20px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .notification-icon {
+        font-size: 48px;
+        margin-bottom: 15px;
+      }
+
+      .notification-title {
+        color: #ffc107;
+        font-size: 24px;
+        font-weight: bold;
+        margin-bottom: 15px;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+      }
+
+      .notification-message {
+        color: #fff;
+        font-size: 16px;
+        margin-bottom: 20px;
+        line-height: 1.5;
+      }
+
+      .notification-details {
+        background: rgba(0, 0, 0, 0.3);
+        border-radius: 8px;
+        padding: 15px;
+        margin: 15px 0;
+        text-align: left;
+      }
+
+      .notification-item {
+        color: #ccc;
+        margin: 5px 0;
+        font-size: 14px;
+      }
+
+      .notification-item.success {
+        color: #28a745;
+      }
+
+      .notification-item.warning {
+        color: #ffc107;
+      }
+
+      .notification-item.error {
+        color: #dc3545;
+      }
+
+      .notification-buttons {
+        display: flex;
+        gap: 10px;
+        justify-content: center;
+        margin-top: 20px;
+      }
+
+      .notification-btn {
+        padding: 10px 20px;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 14px;
+        transition: all 0.3s ease;
+      }
+
+      .notification-btn.primary {
+        background: #007bff;
+        color: white;
+      }
+
+      .notification-btn.primary:hover {
+        background: #0056b3;
+      }
+
+      .notification-btn.secondary {
+        background: #6c757d;
+        color: white;
+      }
+
+      .notification-btn.secondary:hover {
+        background: #545b62;
+      }
+
       @media (min-width: 768px) {
         .col-md-3 {
           width: 25%;
@@ -480,6 +598,24 @@
       </div>
     </div>
     {% endif %}
+
+    <!-- Notification System -->
+    <div class="notification-overlay" id="notificationOverlay">
+      <div class="notification-box" id="notificationBox">
+        <div class="notification-icon" id="notificationIcon">⚠️</div>
+        <div class="notification-title" id="notificationTitle">Competition Status</div>
+        <div class="notification-message" id="notificationMessage">
+          Checking competition setup...
+        </div>
+        <div class="notification-details" id="notificationDetails">
+          <div class="notification-item">Loading competition information...</div>
+        </div>
+        <div class="notification-buttons">
+          <button class="notification-btn primary" id="continueBtn" onclick="continueWithCompetition()">Continue Anyway</button>
+          <button class="notification-btn secondary" onclick="closeNotification()">Cancel</button>
+        </div>
+      </div>
+    </div>
 
     <main class="container-fluid">
       <!-- Control Toggle Button -->
@@ -680,6 +816,11 @@
     </main>
 
     <script>
+      console.log('Script started loading...');
+
+      // Global variables for notification system
+      let selectedCompetitionId = null;
+
       // Error report redirect function
       function redirectToErrorReport() {
         const params = new URLSearchParams(window.location.search);
@@ -687,6 +828,40 @@
         const debugUrl = `/debug?competition_id=${competitionId}&error=competition_not_found`;
         window.location.href = debugUrl;
       }
+
+      // Button functions defined globally
+      function closeNotification() {
+        console.log('closeNotification called');
+        const overlay = document.getElementById('notificationOverlay');
+        if (overlay) {
+          overlay.style.display = 'none';
+        }
+        // Reset the select dropdown to previous value
+        const select = document.getElementById('competition-select');
+        if (select) {
+          const currentCompetitionId = new URLSearchParams(window.location.search).get('competition_id');
+          select.value = currentCompetitionId || '';
+        }
+      }
+
+      function continueWithCompetition() {
+        console.log('continueWithCompetition called, selectedCompetitionId:', selectedCompetitionId);
+        if (selectedCompetitionId) {
+          navigateToCompetition(selectedCompetitionId);
+        } else {
+          console.log('No selectedCompetitionId, cannot navigate');
+        }
+      }
+
+      function navigateToCompetition(competitionId) {
+        console.log('navigateToCompetition called with:', competitionId);
+        closeNotification();
+        const newUrl = '/display/competition?competition_id=' + competitionId;
+        console.log('Navigating to:', newUrl);
+        window.location.href = newUrl;
+      }
+
+      console.log('Button functions loaded...');
 
       document.addEventListener("DOMContentLoaded", function () {
         let timerInterval = null;
@@ -759,12 +934,137 @@
           panel.classList.toggle('open');
         };
 
-        window.changeCompetition = function() {
+        // selectedCompetitionId is now defined globally above
+
+        window.changeCompetition = async function() {
           const competitionId = document.getElementById('competition-select').value;
-          if (competitionId) {
-            window.location.href = '/display/competition?competition_id=' + competitionId;
+
+          if (!competitionId) {
+            return;
+          }
+
+          selectedCompetitionId = competitionId;
+
+          try {
+            // Fetch competition information from API
+            const response = await fetch(`/display/api/competition/${competitionId}/info`);
+            const data = await response.json();
+
+            if (!data.success) {
+              showNotification(
+                '❌',
+                'Competition Error',
+                `Competition not found: ${data.error}`,
+                [{text: 'Competition not found', type: 'error'}],
+                false
+              );
+              return;
+            }
+
+            // Perform hierarchical validation
+            const issues = validateCompetitionHierarchy(data);
+
+            if (issues.length > 0) {
+              // Show notification with issues found
+              const hasEvents = data.summary.has_events;
+              const hasAthletes = data.summary.has_athletes;
+
+              let icon = '⚠️';
+              let title = 'Competition Setup Warning';
+              let message = `Competition "${data.competition.name}" has some issues that may affect the display:`;
+
+              if (!hasEvents && !hasAthletes) {
+                icon = '❌';
+                title = 'Competition Setup Error';
+                message = `Competition "${data.competition.name}" is not ready for display.`;
+              }
+
+              showNotification(icon, title, message, issues, hasEvents || hasAthletes);
+            } else {
+              // All good, navigate directly
+              navigateToCompetition(competitionId);
+            }
+
+          } catch (error) {
+            console.error('Error fetching competition info:', error);
+            showNotification(
+              '❌',
+              'Network Error',
+              'Could not fetch competition information. Please try again.',
+              [{text: 'Network connection error', type: 'error'}],
+              false
+            );
           }
         };
+
+        function validateCompetitionHierarchy(data) {
+          const issues = [];
+
+          // Level 1: Competition status
+          if (!data.competition.is_active) {
+            issues.push({text: `Competition "${data.competition.name}" is inactive`, type: 'warning'});
+          } else {
+            issues.push({text: `✓ Competition "${data.competition.name}" is active`, type: 'success'});
+          }
+
+          // Level 2: Events validation
+          if (!data.summary.has_events) {
+            issues.push({text: '✗ No events configured for this competition', type: 'error'});
+          } else {
+            issues.push({text: `✓ ${data.summary.events_count} event(s) configured`, type: 'success'});
+            // List events
+            data.events.forEach(event => {
+              issues.push({text: `  - Event: ${event.name}`, type: 'success'});
+            });
+          }
+
+          // Level 3: Athletes validation
+          if (!data.summary.has_athletes) {
+            issues.push({text: '✗ No active athletes registered for this competition', type: 'error'});
+          } else {
+            issues.push({text: `✓ ${data.summary.athletes_count} active athlete(s) registered`, type: 'success'});
+            // Show first few athletes as examples
+            const athletesToShow = data.athletes.slice(0, 3);
+            athletesToShow.forEach(athlete => {
+              issues.push({text: `  - ${athlete.name}${athlete.team ? ` (${athlete.team})` : ''}`, type: 'success'});
+            });
+            if (data.athletes.length > 3) {
+              issues.push({text: `  ... and ${data.athletes.length - 3} more athletes`, type: 'success'});
+            }
+          }
+
+          // Return only issues (warnings and errors), filter out success messages for the decision
+          return issues;
+        }
+
+        function showNotification(icon, title, message, details, canContinue = true) {
+          const overlay = document.getElementById('notificationOverlay');
+          const iconEl = document.getElementById('notificationIcon');
+          const titleEl = document.getElementById('notificationTitle');
+          const messageEl = document.getElementById('notificationMessage');
+          const detailsEl = document.getElementById('notificationDetails');
+          const continueBtn = document.getElementById('continueBtn');
+
+          iconEl.textContent = icon;
+          titleEl.textContent = title;
+          messageEl.textContent = message;
+
+          // Clear and populate details
+          detailsEl.innerHTML = '';
+          details.forEach(detail => {
+            const item = document.createElement('div');
+            item.className = `notification-item ${detail.type}`;
+            item.textContent = detail.text;
+            detailsEl.appendChild(item);
+          });
+
+          // Show or hide continue button based on whether user can proceed
+          continueBtn.style.display = canContinue ? 'inline-block' : 'none';
+
+          overlay.style.display = 'flex';
+        }
+
+        // Functions are now defined globally
 
         window.changeEvent = function() {
           const eventSelect = document.getElementById('event-select');
