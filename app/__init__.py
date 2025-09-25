@@ -9,8 +9,9 @@ from app.routes.admin import admin_bp
 from app.routes.login import login_bp
 from app.routes.display import display_bp
 from app.routes.coach import coach_bp
+from app.routes.athlete import athlete_bp
 from . import models  # Import models so they are registered with SQLAlchemy
-
+from app.real_time.event_handlers import register_all_handlers
 
 class ColoredFormatter(logging.Formatter):
     """Custom formatter with colors for different log levels."""
@@ -88,7 +89,7 @@ def create_app(config_name: str | None = None) -> Flask:
         setup_logging(flask_log_level)
         print(f"🔧 Custom logging enabled with level: {flask_log_level}")
     else:
-        print(f"🚀 Production mode - using Flask's default logging")
+        print(f"Production mode - using Flask's default logging")
     
     logger.info(f"Starting Flask app with config: {config.__name__}")
 
@@ -107,11 +108,10 @@ def create_app(config_name: str | None = None) -> Flask:
     app.register_blueprint(login_bp)
     app.register_blueprint(display_bp)
     app.register_blueprint(coach_bp)
-
-    # Register WebSocket event handlers
-    from app.real_time.event_handlers import register_all_handlers
-    register_all_handlers()
+    app.register_blueprint(athlete_bp)
     
+    # Register WebSocket event handlers
+    register_all_handlers()
     logger.info("Flask app created successfully")
     return app
 

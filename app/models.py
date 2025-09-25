@@ -83,19 +83,6 @@ class Flight(db.Model):
     # Relationships
     athlete_flights = db.relationship("AthleteFlight", backref="flight", lazy=True)
 
-class Lift(db.Model):
-    """Individual lifts within an event"""
-    id = db.Column(db.Integer, primary_key=True)
-    event_id = db.Column(db.Integer, db.ForeignKey("event.id"), nullable=False)
-    name = db.Column(db.String(100), nullable=False)
-    order = db.Column(db.Integer, nullable=False)
-    max_attempts = db.Column(db.Integer)
-    attempt_time_seconds = db.Column(db.Integer)
-    break_time_seconds = db.Column(db.Integer)
-
-    # Relationships
-    event = db.relationship("Event", backref="lifts", lazy=True)
-
 class Athlete(db.Model):
     """Competition participants"""
     id = db.Column(db.Integer, primary_key=True)
@@ -112,7 +99,6 @@ class Athlete(db.Model):
     is_active = db.Column(db.Boolean, default=True)
     current_attempt_number = db.Column(db.Integer, default=1)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-
     # Relationships
     flights = db.relationship("AthleteFlight", backref="athlete", lazy=True)
     entries = db.relationship("AthleteEntry", backref="athlete", lazy=True)
@@ -129,11 +115,30 @@ class AthleteEntry(db.Model):
     """Athletes entered in specific competition types"""
     id = db.Column(db.Integer, primary_key=True)
     athlete_id = db.Column(db.Integer, db.ForeignKey("athlete.id"), nullable=False)
-    entry_order = db.Column(db.Integer)
+    event_id = db.Column(db.Integer, db.ForeignKey("event.id"), nullable=False)
+    entry_order = db.Column(db.Integer, db.ForeignKey("athlete_flight.order"), nullable=True)
     is_active = db.Column(db.Boolean, default=True)
+    lift_type = db.Column(db.String(50), nullable=False) # e.g., "snatch", "clean_jerk"
+    attempt_time_limit = db.Column(db.Integer, default=60)  # seconds
+    break_time = db.Column(db.Integer, default=120)  # seconds
+
+    # Store opening weights and attempts configuration
+    opening_weights = db.Column(db.JSON, default=dict)  # Store opening weights for each lift type
+    entry_config = db.Column(db.JSON, default=dict)  # Additional configuration (rules, limits, etc)
 
     # Relationships
     attempts = db.relationship("Attempt", backref="athlete_entry", lazy=True, cascade="all, delete-orphan")
+    event = db.relationship("Event", backref="athlete_entries")
+    
+    # Prevent duplicate (athlete, event, lift_type)
+    __table_args__ = (
+        db.UniqueConstraint("athlete_id", "event_id", "lift_type", name="uq_athlete_event_lift"),
+    )
+
+    @property
+    def movement_name(self):
+        """Human-readable movement name; we persist this into lift_type, so return it."""
+        return self.lift_type or "Unknown"
 
 class AthleteFlight(db.Model):
     """Many-to-many relationship between athletes and flights"""
