@@ -2051,7 +2051,7 @@ def add_athlete_to_flight(flight_id, athlete_id):
         # Auto-create AthleteEntry records for this event's movements
         if flight.event:
             from ..routes.athlete import ensure_athlete_entries_for_event
-            ensure_athlete_entries_for_event(athlete_id, flight.event.id)
+            ensure_athlete_entries_for_event(athlete_id, flight.event.id, flight_id, next_order)
         
         db.session.commit()
         
@@ -2096,8 +2096,19 @@ def remove_athlete_from_flight(flight_id, athlete_id):
                 'message': 'Athlete not found in this flight'
             }), 404
         
-        # Get athlete info before deletion
+        # Get flight and athlete info before deletion
+        flight = Flight.query.get(flight_id)
         athlete = Athlete.query.get(athlete_id)
+        
+        # Remove related AthleteEntry records for this athlete and event
+        if flight and flight.event:
+            athlete_entries = AthleteEntry.query.filter_by(
+                athlete_id=athlete_id,
+                event_id=flight.event.id
+            ).all()
+            
+            for entry in athlete_entries:
+                db.session.delete(entry)
         
         db.session.delete(athlete_flight)
         db.session.commit()
@@ -2127,9 +2138,8 @@ def remove_athlete_from_flight(flight_id, athlete_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({
-
-            'success': False,
-            'message': f'Error regenerating credentials: {str(e)}'
+            'status': 'error',
+            'message': 'Failed to remove athlete from flight: ' + str(e)
         }), 500
 
 @admin_bp.route('/api/competitions/<int:competition_id>/referees-status')

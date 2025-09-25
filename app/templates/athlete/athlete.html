@@ -132,7 +132,7 @@
                                     <div class="opening-weights-section">
                                         <h5>Opening Weight</h5>
                                         {% set lift_key = entry.lift_type %}
-                                        {% set weight = entry.opening_weights.get(lift_key, 0) %}
+                                        {% set weight = entry.opening_weights or 0 %}
                                         <div class="weight-display">
                                             <strong>{{ entry.movement_name }}:</strong>
                                             <span class="weight-value">
