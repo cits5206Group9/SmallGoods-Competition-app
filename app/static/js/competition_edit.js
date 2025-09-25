@@ -45,9 +45,13 @@
     });
 
     function loadCompetitionData(data) {
+        console.log('Loading competition data:', data);
+        
         // Load the configuration from the database
         const config = data.config || {};
-        console.log('Loading config:', config); // Debug log
+        const existingEvents = data.events || [];
+        console.log('Loading config:', config);
+        console.log('Existing events:', existingEvents);
         
         // Clear existing content first
         $('#events-container').innerHTML = '';
@@ -66,7 +70,12 @@
             const lastEvent = $('.event-card:last-child');
             if (!lastEvent) return;
 
-            // Fill in event details
+            // Set event ID and fill in event details
+            const existingEvent = existingEvents.find(e => e.name === evt.name);
+            const eventId = evt.id || existingEvent?.id;
+            console.log(`Setting event ID ${eventId} for event ${evt.name}`);
+            
+            lastEvent.dataset.eventId = eventId ? String(eventId) : '';  // Store event ID in the DOM
             $('.event-name', lastEvent).value = evt.name || '';
             $('.event-gender', lastEvent).value = evt.gender || '';
             $('.event-attempt-ordering', lastEvent).value = evt.order?.rule || '';
@@ -115,6 +124,12 @@
                 if (!lastGroup) return;
 
                 // Fill in group details
+                const existingEvent = existingEvents.find(e => e.name === evt.name);
+                const existingFlight = existingEvent?.flights?.find(f => f.name === grp.name);
+                const flightId = grp.id || existingFlight?.id;
+                console.log(`Setting flight ID ${flightId} for group ${grp.name} in event ${evt.name}`);
+                
+                lastGroup.dataset.flightId = flightId ? String(flightId) : '';  // Store flight ID in the DOM
                 $('.group-name', lastGroup).value = grp.name || '';
                 $('.group-reps', lastGroup).value = (grp.reps_override || []).join(',');
                 $('.group-order', lastGroup).value = grp.order || '';
