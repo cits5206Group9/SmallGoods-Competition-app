@@ -48,6 +48,7 @@ window.CompetitionUtils = (function() {
     }
 
     function serializeFromDOM() {
+        console.log("Serializing competition data from DOM");
         const comp = {
             name: $('#comp-name').value.trim(),
             comp_date: $('#comp-date').value,
@@ -62,7 +63,11 @@ window.CompetitionUtils = (function() {
 
         // Serialize events
         $$('.event-card').forEach(eventCard => {
+            const eventId = eventCard.dataset.eventId;
+            console.log(`Processing event card with ID: ${eventId}`);
+            
             const event = {
+                id: eventId ? parseInt(eventId) : undefined,  // Convert to number if exists
                 name: $('.event-name', eventCard)?.value.trim() || '',
                 gender: $('.event-gender', eventCard)?.value || '',
                 order: {
@@ -109,7 +114,11 @@ window.CompetitionUtils = (function() {
 
             // Serialize groups
             $$('.group-card', eventCard).forEach(gCard => {
+                const flightId = gCard.dataset.flightId;
+                console.log(`Processing group card with flight ID: ${flightId}`);
+                
                 const group = {
+                    id: flightId ? parseInt(flightId) : undefined,  // Convert to number if exists
                     name: $('.group-name', gCard)?.value.trim() || '',
                     reps_override: toNumberList($('.group-reps', gCard)?.value || ''),
                     order: Number($('.group-order', gCard)?.value || 0) || null,
