@@ -117,15 +117,16 @@ class AthleteEntry(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     athlete_id = db.Column(db.Integer, db.ForeignKey("athlete.id"), nullable=False)
     event_id = db.Column(db.Integer, db.ForeignKey("event.id"), nullable=False)
-    entry_order = db.Column(db.Integer, db.ForeignKey("athlete_flight.order"), nullable=True)
+    flight_id = db.Column(db.Integer, db.ForeignKey("flight.id"), nullable=False)
+    entry_order = db.Column(db.Integer, db.ForeignKey("athlete_flight.order"), nullable=False)
     is_active = db.Column(db.Boolean, default=True)
     lift_type = db.Column(db.String(50), nullable=False) # e.g., "snatch", "clean_jerk"
     attempt_time_limit = db.Column(db.Integer, default=60)  # seconds
     break_time = db.Column(db.Integer, default=120)  # seconds
+    reps = db.Column(db.JSON)
 
-    # Store opening weights and attempts configuration
-    opening_weights = db.Column(db.JSON, default=dict)  # Store opening weights for each lift type
-    entry_config = db.Column(db.JSON, default=dict)  # Additional configuration (rules, limits, etc)
+    opening_weights = db.Column(db.Integer)
+    entry_config = db.Column(db.JSON, default=dict)
 
     # Relationships
     attempts = db.relationship("Attempt", backref="athlete_entry", lazy=True, cascade="all, delete-orphan")
