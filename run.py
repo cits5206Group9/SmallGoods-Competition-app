@@ -1,8 +1,12 @@
+import os
+from venv import logger
 from app import create_app
 from app.extensions import socketio
-
+LOG_LEVEL = os.environ.get('FLASK_LOG_LEVEL', '').upper()
+DEBUG_MODE_ON = True if LOG_LEVEL else False
 app = create_app()
 
 if __name__ == '__main__':
     # Use socketio.run instead of app.run for WebSocket support
-    socketio.run(app, debug=True, port=8000, host='127.0.0.1', allow_unsafe_werkzeug=True)
+    logger.info(f"Log level set to {LOG_LEVEL}")
+    socketio.run(app, debug=DEBUG_MODE_ON, port=5000, host='127.0.0.1', allow_unsafe_werkzeug=True)
