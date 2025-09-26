@@ -15,73 +15,93 @@
       body {
         background-color: #000;
         color: #fff;
-        overflow-x: hidden;
+        overflow: hidden;
+        height: 100vh;
       }
 
       .container-fluid {
-        padding: 2rem;
-        min-height: 100vh;
+        padding: 1rem;
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
       }
 
       .row {
         display: flex;
         flex-wrap: wrap;
-        margin: 0 -1rem;
+        margin: 0 -0.5rem;
+        flex: 1;
       }
 
       .col-12,
       .col-lg-8,
       .col-lg-4,
       .col-md-3 {
-        padding: 0 1rem;
+        padding: 0 0.5rem;
         width: 100%;
       }
 
       .competition-header {
         text-align: center;
-        margin-bottom: 2rem;
+        margin-bottom: 1rem;
+        flex-shrink: 0;
+      }
+
+      .main-content-row {
+        flex: 1;
+        display: flex;
+        align-items: stretch;
+      }
+
+      .status-row {
+        flex-shrink: 0;
+        margin-top: 1rem;
       }
 
       .competition-title {
-        font-size: 3rem;
-        margin-bottom: 0.5rem;
+        font-size: 2.5rem;
+        margin-bottom: 0.3rem;
       }
 
       .event-name {
-        font-size: 1.5rem;
+        font-size: 1.2rem;
         color: #aaa;
-        margin-bottom: 2rem;
+        margin-bottom: 1rem;
       }
 
       .current-lifter {
         text-align: center;
-        margin: 2rem 0 4rem 0;
+        margin: 1rem 0;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
       }
 
       .athlete-name {
-        font-size: 4rem;
+        font-size: 3rem;
         font-weight: bold;
         text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
-        margin-bottom: 1rem;
+        margin-bottom: 0.5rem;
       }
 
       .team-name {
-        font-size: 2rem;
+        font-size: 1.5rem;
         color: #ccc;
-        margin-bottom: 2rem;
+        margin-bottom: 1rem;
       }
 
       .current-weight {
-        font-size: 8rem;
+        font-size: 6rem;
         font-weight: bold;
         color: #007bff;
         text-shadow: 3px 3px 6px rgba(0, 0, 0, 0.8);
-        margin: 2rem 0;
+        margin: 1rem 0;
       }
 
       .attempt-info {
-        font-size: 2.5rem;
-        margin: 1rem 0;
+        font-size: 2rem;
+        margin: 0.5rem 0;
       }
 
       .lift-name {
@@ -90,12 +110,12 @@
       }
 
       .timer-large {
-        font-size: 6rem;
+        font-size: 4rem;
         font-weight: bold;
         text-align: center;
         color: #28a745;
         text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
-        margin: 2rem 0;
+        margin: 1rem 0;
       }
 
       .timer-large.running {
@@ -111,15 +131,23 @@
         animation: blink 0.5s infinite;
       }
 
+      .side-panel {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+      }
+
       .side-panel > div {
         background-color: #1a1a1a;
-        border-radius: 1rem;
-        padding: 2rem;
-        margin-bottom: 2rem;
+        border-radius: 0.5rem;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        flex: 1;
       }
 
       .side-panel h4 {
-        margin-bottom: 1rem;
+        margin-bottom: 0.5rem;
+        font-size: 1.1rem;
       }
 
       .next-lifter-item {
@@ -158,9 +186,10 @@
 
       .status-bar {
         background-color: #212529;
-        padding: 1rem;
+        padding: 0.5rem 1rem;
         border-radius: 0.5rem;
         text-align: center;
+        height: auto;
       }
 
       .status-bar .row {
@@ -174,6 +203,112 @@
       .status-live {
         color: #28a745;
         font-weight: bold;
+      }
+
+      /* Control Panel Styles */
+      .control-panel {
+        position: fixed;
+        top: 0;
+        right: -400px;
+        width: 400px;
+        height: 100vh;
+        background: #1a1a1a;
+        border-left: 3px solid #007bff;
+        padding: 20px;
+        box-shadow: -5px 0 15px rgba(0,0,0,0.5);
+        transition: right 0.3s ease;
+        z-index: 1000;
+        overflow-y: auto;
+      }
+
+      .control-panel.open {
+        right: 0;
+      }
+
+      .control-toggle {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: #007bff;
+        color: white;
+        border: none;
+        padding: 10px 15px;
+        border-radius: 5px;
+        cursor: pointer;
+        z-index: 1001;
+        font-size: 16px;
+      }
+
+      .control-section {
+        margin-bottom: 30px;
+        padding-bottom: 20px;
+        border-bottom: 1px solid #333;
+      }
+
+      .control-section h3 {
+        color: #007bff;
+        margin-bottom: 15px;
+        font-size: 1.2rem;
+      }
+
+      .control-group {
+        margin-bottom: 15px;
+      }
+
+      .control-group label {
+        display: block;
+        margin-bottom: 5px;
+        color: #ccc;
+        font-size: 0.9rem;
+      }
+
+      .control-group select,
+      .control-group input,
+      .control-group button {
+        width: 100%;
+        padding: 8px;
+        margin-bottom: 5px;
+        border: 1px solid #444;
+        border-radius: 4px;
+        background: #333;
+        color: white;
+      }
+
+      .control-group button {
+        background: #007bff;
+        cursor: pointer;
+        transition: background 0.3s;
+      }
+
+      .control-group button:hover {
+        background: #0056b3;
+      }
+
+      .control-group button.danger {
+        background: #dc3545;
+      }
+
+      .control-group button.danger:hover {
+        background: #c82333;
+      }
+
+      .control-group button.success {
+        background: #28a745;
+      }
+
+      .control-group button.success:hover {
+        background: #218838;
+      }
+
+      .timer-controls {
+        display: flex;
+        gap: 5px;
+      }
+
+      .timer-controls button {
+        flex: 1;
+        padding: 8px 4px;
+        font-size: 0.8rem;
       }
 
       @keyframes pulse {
@@ -205,6 +340,186 @@
         }
       }
 
+      /* Error Message Box Styles */
+      .error-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.8);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 2000;
+      }
+
+      .error-box {
+        background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+        border: 2px solid #dc3545;
+        border-radius: 12px;
+        padding: 40px;
+        text-align: center;
+        max-width: 500px;
+        width: 90%;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+        position: relative;
+      }
+
+      .error-title {
+        color: #dc3545;
+        font-size: 28px;
+        font-weight: bold;
+        margin-bottom: 20px;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+      }
+
+      .error-message {
+        color: #fff;
+        font-size: 18px;
+        margin-bottom: 30px;
+        line-height: 1.5;
+      }
+
+      .error-report-btn {
+        position: absolute;
+        bottom: 15px;
+        right: 15px;
+        background: #dc3545;
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 6px;
+        font-size: 14px;
+        cursor: pointer;
+        transition: background-color 0.3s ease;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+      }
+
+      .error-report-btn:hover {
+        background: #c82333;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
+      }
+
+      /* Notification System Styles */
+      .notification-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.6);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 3000;
+      }
+
+      .notification-box {
+        background: linear-gradient(135deg, #2d2d2d 0%, #1a1a1a 100%);
+        border: 2px solid #ffc107;
+        border-radius: 12px;
+        padding: 30px;
+        text-align: center;
+        max-width: 500px;
+        width: 90%;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.7);
+        position: relative;
+        animation: slideIn 0.3s ease-out;
+      }
+
+      @keyframes slideIn {
+        from {
+          opacity: 0;
+          transform: translateY(-20px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .notification-icon {
+        font-size: 48px;
+        margin-bottom: 15px;
+      }
+
+      .notification-title {
+        color: #ffc107;
+        font-size: 24px;
+        font-weight: bold;
+        margin-bottom: 15px;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+      }
+
+      .notification-message {
+        color: #fff;
+        font-size: 16px;
+        margin-bottom: 20px;
+        line-height: 1.5;
+      }
+
+      .notification-details {
+        background: rgba(0, 0, 0, 0.3);
+        border-radius: 8px;
+        padding: 15px;
+        margin: 15px 0;
+        text-align: left;
+      }
+
+      .notification-item {
+        color: #ccc;
+        margin: 5px 0;
+        font-size: 14px;
+      }
+
+      .notification-item.success {
+        color: #28a745;
+      }
+
+      .notification-item.warning {
+        color: #ffc107;
+      }
+
+      .notification-item.error {
+        color: #dc3545;
+      }
+
+      .notification-buttons {
+        display: flex;
+        gap: 10px;
+        justify-content: center;
+        margin-top: 20px;
+      }
+
+      .notification-btn {
+        padding: 10px 20px;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 14px;
+        transition: all 0.3s ease;
+      }
+
+      .notification-btn.primary {
+        background: #007bff;
+        color: white;
+      }
+
+      .notification-btn.primary:hover {
+        background: #0056b3;
+      }
+
+      .notification-btn.secondary {
+        background: #6c757d;
+        color: white;
+      }
+
+      .notification-btn.secondary:hover {
+        background: #545b62;
+      }
+
       @media (min-width: 768px) {
         .col-md-3 {
           width: 25%;
@@ -213,17 +528,23 @@
 
       @media (max-width: 1200px) {
         .athlete-name {
-          font-size: 3rem;
+          font-size: 2.5rem;
         }
         .current-weight {
-          font-size: 6rem;
+          font-size: 5rem;
         }
         .timer-large {
-          font-size: 4rem;
+          font-size: 3rem;
+        }
+        .competition-title {
+          font-size: 2rem;
         }
       }
 
       @media (max-width: 768px) {
+        .container-fluid {
+          padding: 0.5rem;
+        }
         .athlete-name {
           font-size: 2rem;
         }
@@ -231,27 +552,83 @@
           font-size: 4rem;
         }
         .timer-large {
-          font-size: 3rem;
+          font-size: 2.5rem;
         }
         .attempt-info {
           font-size: 1.5rem;
         }
-        .status-bar .col-md-3 {
-          margin-bottom: 1rem;
+        .competition-title {
+          font-size: 1.5rem;
+        }
+        .main-content-row {
+          flex-direction: column;
+        }
+        .side-panel {
+          flex-direction: row;
+          height: auto;
+        }
+        .side-panel > div {
+          margin-right: 0.5rem;
+          margin-bottom: 0.5rem;
+        }
+        .error-box {
+          padding: 30px;
+          width: 95%;
+        }
+        .error-title {
+          font-size: 24px;
+        }
+        .error-message {
+          font-size: 16px;
         }
       }
     </style>
   </head>
   <body>
+    <!-- Error Message Box -->
+    {% if show_error %}
+    <div class="error-overlay">
+      <div class="error-box">
+        <div class="error-title">❌ No Competition!</div>
+        <div class="error-message">
+          The competition you requested could not be found.<br>
+          Please check the competition ID and try again.
+        </div>
+        <button class="error-report-btn" onclick="redirectToErrorReport()">Error report</button>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Notification System -->
+    <div class="notification-overlay" id="notificationOverlay">
+      <div class="notification-box" id="notificationBox">
+        <div class="notification-icon" id="notificationIcon">⚠️</div>
+        <div class="notification-title" id="notificationTitle">Competition Status</div>
+        <div class="notification-message" id="notificationMessage">
+          Checking competition setup...
+        </div>
+        <div class="notification-details" id="notificationDetails">
+          <div class="notification-item">Loading competition information...</div>
+        </div>
+        <div class="notification-buttons">
+          <button class="notification-btn primary" id="continueBtn" onclick="continueWithCompetition()">Continue Anyway</button>
+          <button class="notification-btn secondary" onclick="closeNotification()">Cancel</button>
+        </div>
+      </div>
+    </div>
+
     <main class="container-fluid">
+      <!-- Control Toggle Button -->
+      <button class="control-toggle" onclick="toggleControlPanel()">⚙️ Controls</button>
+
       <div class="row">
         <div class="col-12 competition-header">
-          <h1 class="competition-title">🏋️‍♂️ CompetitionName</h1>
-          <h2 class="event-name" id="event-name">Olympic Weightlifting</h2>
+          <h1 class="competition-title">🏋️‍♂️ {% if competition %}{{ competition.name }}{% else %}Select Competition{% endif %}</h1>
+          <h2 class="event-name" id="event-name">{% if events %}{{ events[0].name if events else 'No Events' }}{% else %}No Events{% endif %}</h2>
         </div>
       </div>
 
-      <div class="row">
+      <div class="row main-content-row">
         <div class="col-lg-8">
           <div class="current-lifter">
             <div class="athlete-name" id="current-athlete">John Doe</div>
@@ -326,7 +703,7 @@
         </div>
       </div>
 
-      <div class="row">
+      <div class="row status-row">
         <div class="col-12">
           <div class="status-bar">
             <div class="row">
@@ -349,9 +726,143 @@
           </div>
         </div>
       </div>
+
+      <!-- Control Panel -->
+      <div class="control-panel" id="controlPanel">
+        <div class="control-section">
+          <h3>🏆 Competition Setup</h3>
+          <div class="control-group">
+            <label for="competition-select">Select Competition:</label>
+            <select id="competition-select" onchange="changeCompetition()">
+              <option value="">Choose Competition...</option>
+              {% for comp in competitions %}
+              <option value="{{ comp.id }}" {% if competition and comp.id == competition.id %}selected{% endif %}>
+                {{ comp.name }}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="control-group">
+            <label for="event-select">Select Event:</label>
+            <select id="event-select" onchange="changeEvent()">
+              <option value="">Choose Event...</option>
+              {% for event in events %}
+              <option value="{{ event.id }}">{{ event.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+
+        <div class="control-section">
+          <h3>⏱️ Timer Control</h3>
+          <div class="control-group">
+            <label for="timer-duration-select">Timer Duration:</label>
+            <select id="timer-duration-select">
+              <option value="30">30 seconds</option>
+              <option value="60" selected>1 minute</option>
+              <option value="90">1.5 minutes</option>
+              <option value="120">2 minutes</option>
+              <option value="180">3 minutes</option>
+            </select>
+          </div>
+          <div class="control-group">
+            <div class="timer-controls">
+              <button class="success" onclick="startTimer()">Start</button>
+              <button onclick="pauseTimer()">Pause</button>
+              <button class="danger" onclick="stopTimer()">Stop</button>
+              <button onclick="resetTimer()">Reset</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="control-section">
+          <h3>👤 Athlete Control</h3>
+          <div class="control-group">
+            <label for="current-athlete-select">Current Athlete:</label>
+            <select id="current-athlete-select" onchange="changeCurrentAthlete()">
+              <option value="">Select Athlete...</option>
+              {% for athlete in athletes %}
+              <option value="{{ athlete.id }}">{{ athlete.first_name }} {{ athlete.last_name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="control-group">
+            <label for="attempt-weight">Attempt Weight (kg):</label>
+            <input type="number" id="attempt-weight" placeholder="Enter weight..." min="0" step="0.5">
+          </div>
+          <div class="control-group">
+            <label for="attempt-number-select">Attempt Number:</label>
+            <select id="attempt-number-select">
+              <option value="1">Attempt 1</option>
+              <option value="2">Attempt 2</option>
+              <option value="3">Attempt 3</option>
+            </select>
+          </div>
+          <div class="control-group">
+            <button onclick="updateDisplay()">Update Display</button>
+            <button class="success" onclick="nextAthlete()">Next Athlete</button>
+          </div>
+        </div>
+
+        <div class="control-section">
+          <h3>📊 Display Control</h3>
+          <div class="control-group">
+            <button onclick="refreshRankings()">Refresh Rankings</button>
+            <button onclick="toggleFullscreen()">Toggle Fullscreen</button>
+            <button class="danger" onclick="resetDisplay()">Reset Display</button>
+          </div>
+        </div>
+      </div>
     </main>
 
     <script>
+      console.log('Script started loading...');
+
+      // Global variables for notification system
+      let selectedCompetitionId = null;
+
+      // Error report redirect function
+      function redirectToErrorReport() {
+        const params = new URLSearchParams(window.location.search);
+        const competitionId = params.get('competition_id');
+        const debugUrl = `/debug?competition_id=${competitionId}&error=competition_not_found`;
+        window.location.href = debugUrl;
+      }
+
+      // Button functions defined globally
+      function closeNotification() {
+        console.log('closeNotification called');
+        const overlay = document.getElementById('notificationOverlay');
+        if (overlay) {
+          overlay.style.display = 'none';
+        }
+        // Reset the select dropdown to previous value
+        const select = document.getElementById('competition-select');
+        if (select) {
+          const currentCompetitionId = new URLSearchParams(window.location.search).get('competition_id');
+          select.value = currentCompetitionId || '';
+        }
+      }
+
+      function continueWithCompetition() {
+        console.log('continueWithCompetition called, selectedCompetitionId:', selectedCompetitionId);
+        if (selectedCompetitionId) {
+          navigateToCompetition(selectedCompetitionId);
+        } else {
+          console.log('No selectedCompetitionId, cannot navigate');
+        }
+      }
+
+      function navigateToCompetition(competitionId) {
+        console.log('navigateToCompetition called with:', competitionId);
+        closeNotification();
+        const newUrl = '/display/competition?competition_id=' + competitionId;
+        console.log('Navigating to:', newUrl);
+        window.location.href = newUrl;
+      }
+
+      console.log('Button functions loaded...');
+
       document.addEventListener("DOMContentLoaded", function () {
         let timerInterval = null;
 
@@ -413,6 +924,258 @@
 
         startDisplayTimer(60);
 
+        // Initialize athletes data from server
+        window.athletesData = {{ athletes|tojson if athletes else '[]' }};
+        window.currentAthleteIndex = 0;
+
+        // Control panel functions
+        window.toggleControlPanel = function() {
+          const panel = document.getElementById('controlPanel');
+          panel.classList.toggle('open');
+        };
+
+        // selectedCompetitionId is now defined globally above
+
+        window.changeCompetition = async function() {
+          const competitionId = document.getElementById('competition-select').value;
+
+          if (!competitionId) {
+            return;
+          }
+
+          selectedCompetitionId = competitionId;
+
+          try {
+            // Fetch competition information from API
+            const response = await fetch(`/display/api/competition/${competitionId}/info`);
+            const data = await response.json();
+
+            if (!data.success) {
+              showNotification(
+                '❌',
+                'Competition Error',
+                `Competition not found: ${data.error}`,
+                [{text: 'Competition not found', type: 'error'}],
+                false
+              );
+              return;
+            }
+
+            // Perform hierarchical validation
+            const issues = validateCompetitionHierarchy(data);
+
+            if (issues.length > 0) {
+              // Show notification with issues found
+              const hasEvents = data.summary.has_events;
+              const hasAthletes = data.summary.has_athletes;
+
+              let icon = '⚠️';
+              let title = 'Competition Setup Warning';
+              let message = `Competition "${data.competition.name}" has some issues that may affect the display:`;
+
+              if (!hasEvents && !hasAthletes) {
+                icon = '❌';
+                title = 'Competition Setup Error';
+                message = `Competition "${data.competition.name}" is not ready for display.`;
+              }
+
+              showNotification(icon, title, message, issues, hasEvents || hasAthletes);
+            } else {
+              // All good, navigate directly
+              navigateToCompetition(competitionId);
+            }
+
+          } catch (error) {
+            console.error('Error fetching competition info:', error);
+            showNotification(
+              '❌',
+              'Network Error',
+              'Could not fetch competition information. Please try again.',
+              [{text: 'Network connection error', type: 'error'}],
+              false
+            );
+          }
+        };
+
+        function validateCompetitionHierarchy(data) {
+          const issues = [];
+
+          // Level 1: Competition status
+          if (!data.competition.is_active) {
+            issues.push({text: `Competition "${data.competition.name}" is inactive`, type: 'warning'});
+          } else {
+            issues.push({text: `✓ Competition "${data.competition.name}" is active`, type: 'success'});
+          }
+
+          // Level 2: Events validation
+          if (!data.summary.has_events) {
+            issues.push({text: '✗ No events configured for this competition', type: 'error'});
+          } else {
+            issues.push({text: `✓ ${data.summary.events_count} event(s) configured`, type: 'success'});
+            // List events
+            data.events.forEach(event => {
+              issues.push({text: `  - Event: ${event.name}`, type: 'success'});
+            });
+          }
+
+          // Level 3: Athletes validation
+          if (!data.summary.has_athletes) {
+            issues.push({text: '✗ No active athletes registered for this competition', type: 'error'});
+          } else {
+            issues.push({text: `✓ ${data.summary.athletes_count} active athlete(s) registered`, type: 'success'});
+            // Show first few athletes as examples
+            const athletesToShow = data.athletes.slice(0, 3);
+            athletesToShow.forEach(athlete => {
+              issues.push({text: `  - ${athlete.name}${athlete.team ? ` (${athlete.team})` : ''}`, type: 'success'});
+            });
+            if (data.athletes.length > 3) {
+              issues.push({text: `  ... and ${data.athletes.length - 3} more athletes`, type: 'success'});
+            }
+          }
+
+          // Return only issues (warnings and errors), filter out success messages for the decision
+          return issues;
+        }
+
+        function showNotification(icon, title, message, details, canContinue = true) {
+          const overlay = document.getElementById('notificationOverlay');
+          const iconEl = document.getElementById('notificationIcon');
+          const titleEl = document.getElementById('notificationTitle');
+          const messageEl = document.getElementById('notificationMessage');
+          const detailsEl = document.getElementById('notificationDetails');
+          const continueBtn = document.getElementById('continueBtn');
+
+          iconEl.textContent = icon;
+          titleEl.textContent = title;
+          messageEl.textContent = message;
+
+          // Clear and populate details
+          detailsEl.innerHTML = '';
+          details.forEach(detail => {
+            const item = document.createElement('div');
+            item.className = `notification-item ${detail.type}`;
+            item.textContent = detail.text;
+            detailsEl.appendChild(item);
+          });
+
+          // Show or hide continue button based on whether user can proceed
+          continueBtn.style.display = canContinue ? 'inline-block' : 'none';
+
+          overlay.style.display = 'flex';
+        }
+
+        // Functions are now defined globally
+
+        window.changeEvent = function() {
+          const eventSelect = document.getElementById('event-select');
+          const eventName = eventSelect.options[eventSelect.selectedIndex].text;
+          if (eventName && eventName !== 'Choose Event...') {
+            document.getElementById('event-name').textContent = eventName;
+          }
+        };
+
+        window.startTimer = function() {
+          const duration = parseInt(document.getElementById('timer-duration-select').value);
+          startDisplayTimer(duration);
+        };
+
+        window.pauseTimer = function() {
+          if (timerInterval) {
+            clearInterval(timerInterval);
+            timerInterval = null;
+            const timerElement = document.getElementById('competition-timer');
+            timerElement.classList.remove('running');
+            timerElement.classList.add('warning');
+          }
+        };
+
+        window.stopTimer = function() {
+          if (timerInterval) {
+            clearInterval(timerInterval);
+            timerInterval = null;
+          }
+          const timerElement = document.getElementById('competition-timer');
+          timerElement.classList.remove('running', 'warning');
+          timerElement.textContent = '00:00';
+        };
+
+        window.resetTimer = function() {
+          const duration = parseInt(document.getElementById('timer-duration-select').value);
+          resetDisplayTimer(duration);
+        };
+
+        window.changeCurrentAthlete = function() {
+          const athleteSelect = document.getElementById('current-athlete-select');
+          const athleteId = athleteSelect.value;
+
+          if (athleteId && window.athletesData) {
+            const athlete = window.athletesData.find(a => a.id == athleteId);
+            if (athlete) {
+              document.getElementById('current-athlete').textContent = athlete.first_name + ' ' + athlete.last_name;
+              document.getElementById('current-team').textContent = athlete.team || 'No Team';
+
+              // Reset attempt info
+              const attemptNumber = document.getElementById('attempt-number-select').value;
+              document.getElementById('attempt-number').textContent = 'Attempt ' + attemptNumber;
+            }
+          }
+        };
+
+        window.updateDisplay = function() {
+          const weight = document.getElementById('attempt-weight').value;
+          const attemptNumber = document.getElementById('attempt-number-select').value;
+
+          if (weight) {
+            document.getElementById('current-weight').textContent = weight + 'kg';
+          }
+
+          document.getElementById('attempt-number').textContent = 'Attempt ' + attemptNumber;
+        };
+
+        window.nextAthlete = function() {
+          const athleteSelect = document.getElementById('current-athlete-select');
+          const currentIndex = athleteSelect.selectedIndex;
+
+          if (currentIndex < athleteSelect.options.length - 1 && currentIndex >= 0) {
+            athleteSelect.selectedIndex = currentIndex + 1;
+            changeCurrentAthlete();
+          } else if (athleteSelect.options.length > 1) {
+            // Loop back to first athlete (skip the "Select Athlete..." option)
+            athleteSelect.selectedIndex = 1;
+            changeCurrentAthlete();
+          }
+        };
+
+        window.refreshRankings = function() {
+          // In a real implementation, this would fetch updated rankings
+          console.log('Refreshing rankings...');
+        };
+
+        window.toggleFullscreen = function() {
+          if (document.fullscreenElement) {
+            document.exitFullscreen();
+          } else {
+            document.documentElement.requestFullscreen();
+          }
+        };
+
+        window.resetDisplay = function() {
+          // Reset all display elements to default state
+          document.getElementById('current-athlete').textContent = 'Select Athlete';
+          document.getElementById('current-team').textContent = 'No Team';
+          document.getElementById('current-weight').textContent = '0kg';
+          document.getElementById('attempt-number').textContent = 'Attempt 1';
+          document.getElementById('competition-timer').textContent = '1:00';
+
+          // Reset form controls
+          document.getElementById('current-athlete-select').selectedIndex = 0;
+          document.getElementById('attempt-weight').value = '';
+          document.getElementById('attempt-number-select').selectedIndex = 0;
+          document.getElementById('timer-duration-select').selectedIndex = 1;
+
+          resetDisplayTimer(60);
+        };
+
         document.addEventListener("keydown", function (e) {
           if (e.key === "F11" || (e.key === "f" && e.ctrlKey)) {
             e.preventDefault();
@@ -428,8 +1191,71 @@
           }
         });
 
-        console.log("Display interface initialized with static data.");
+        // WebSocket integration for real-time updates
+        const socket = io();
+
+        socket.on('connect', function() {
+          console.log('WebSocket connected for display');
+          // Join competition room for real-time updates
+          {% if competition %}
+          socket.emit('join', {competition_id: {{ competition.id }}});
+          {% endif %}
+        });
+
+        socket.on('disconnect', function() {
+          console.log('WebSocket disconnected');
+        });
+
+        // Timer updates from WebSocket
+        socket.on('timer_update', function(data) {
+          if (data.action === 'start') {
+            startDisplayTimer(data.duration || 60);
+          } else if (data.action === 'stop') {
+            stopTimer();
+          } else if (data.action === 'reset') {
+            resetTimer();
+          }
+        });
+
+        // Competition status updates
+        socket.on('competition_status_update', function(data) {
+          document.getElementById('status-state').textContent = data.status.toUpperCase();
+        });
+
+        // Athlete queue updates
+        socket.on('athlete_queue_update', function(data) {
+          if (data.queue_data && data.queue_data.length > 0) {
+            updateNextLiftersList(data.queue_data);
+          }
+        });
+
+        // Attempt result updates
+        socket.on('attempt_result', function(data) {
+          if (data.result) {
+            // Update display with attempt result
+            refreshRankings();
+          }
+        });
+
+        function updateNextLiftersList(queueData) {
+          const nextLiftersContainer = document.getElementById('next-lifters-list');
+          nextLiftersContainer.innerHTML = '';
+
+          queueData.slice(0, 4).forEach(function(item) {
+            const lifterElement = document.createElement('div');
+            lifterElement.className = 'next-lifter-item';
+            lifterElement.innerHTML =
+              '<span>' + item.athlete_name + '</span>' +
+              '<span class="weight">' + item.weight + 'kg</span>';
+            nextLiftersContainer.appendChild(lifterElement);
+          });
+        }
+
+        console.log("Display interface initialized with WebSocket support.");
       });
     </script>
+
+    <!-- Socket.IO client -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
   </body>
 </html>

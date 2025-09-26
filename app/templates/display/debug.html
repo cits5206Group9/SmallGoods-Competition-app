@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Debug Report - Competition Display</title>
+
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        background-color: #1a1a1a;
+        color: #fff;
+        font-family: 'Courier New', monospace;
+        padding: 20px;
+        line-height: 1.6;
+      }
+
+      .debug-container {
+        max-width: 800px;
+        margin: 0 auto;
+        background: #2d2d2d;
+        border-radius: 8px;
+        padding: 30px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+      }
+
+      .debug-header {
+        text-align: center;
+        margin-bottom: 30px;
+        padding-bottom: 20px;
+        border-bottom: 2px solid #dc3545;
+      }
+
+      .debug-title {
+        color: #dc3545;
+        font-size: 24px;
+        font-weight: bold;
+        margin-bottom: 10px;
+      }
+
+      .debug-subtitle {
+        color: #ffc107;
+        font-size: 16px;
+      }
+
+      .debug-section {
+        margin-bottom: 25px;
+        padding: 20px;
+        background: #333;
+        border-radius: 5px;
+        border-left: 4px solid #007bff;
+      }
+
+      .section-title {
+        color: #007bff;
+        font-size: 18px;
+        margin-bottom: 15px;
+        font-weight: bold;
+      }
+
+      .debug-item {
+        margin-bottom: 10px;
+        padding: 8px;
+        background: #404040;
+        border-radius: 4px;
+      }
+
+      .debug-label {
+        color: #ffc107;
+        font-weight: bold;
+        display: inline-block;
+        width: 180px;
+      }
+
+      .debug-value {
+        color: #28a745;
+        font-family: monospace;
+      }
+
+      .error-highlight {
+        background: #dc3545;
+        color: #fff;
+        padding: 2px 6px;
+        border-radius: 3px;
+        font-weight: bold;
+      }
+
+      .back-button {
+        display: inline-block;
+        background: #007bff;
+        color: white;
+        padding: 12px 24px;
+        text-decoration: none;
+        border-radius: 5px;
+        margin-top: 20px;
+        transition: background-color 0.3s ease;
+      }
+
+      .back-button:hover {
+        background: #0056b3;
+        text-decoration: none;
+        color: white;
+      }
+
+      .timestamp {
+        color: #6c757d;
+        font-size: 14px;
+        margin-top: 20px;
+        text-align: center;
+      }
+
+      @media (max-width: 768px) {
+        body {
+          padding: 10px;
+        }
+
+        .debug-container {
+          padding: 20px;
+        }
+
+        .debug-label {
+          width: 120px;
+          font-size: 14px;
+        }
+
+        .debug-title {
+          font-size: 20px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="debug-container">
+      <div class="debug-header">
+        <div class="debug-title">🐛 Debug Report</div>
+        <div class="debug-subtitle">Competition Display Error Analysis</div>
+      </div>
+
+      <div class="debug-section">
+        <div class="section-title">📋 Error Information</div>
+        <div class="debug-item">
+          <span class="debug-label">Competition ID:</span>
+          <span class="debug-value error-highlight">{{ debug_info.competition_id }}</span>
+        </div>
+        <div class="debug-item">
+          <span class="debug-label">Error Type:</span>
+          <span class="debug-value">{{ debug_info.error_type }}</span>
+        </div>
+        <div class="debug-item">
+          <span class="debug-label">Available Competitions:</span>
+          <span class="debug-value">{{ debug_info.available_competitions }} active competitions</span>
+        </div>
+      </div>
+
+      <div class="debug-section">
+        <div class="section-title">🌐 Request Information</div>
+        <div class="debug-item">
+          <span class="debug-label">Referrer:</span>
+          <span class="debug-value">{{ debug_info.referrer }}</span>
+        </div>
+        <div class="debug-item">
+          <span class="debug-label">User Agent:</span>
+          <span class="debug-value">{{ debug_info.user_agent }}</span>
+        </div>
+        <div class="debug-item">
+          <span class="debug-label">Request Timestamp:</span>
+          <span class="debug-value">{{ debug_info.timestamp }}</span>
+        </div>
+      </div>
+
+      <div class="debug-section">
+        <div class="section-title">💡 Troubleshooting Suggestions</div>
+        <div class="debug-item">
+          <strong style="color: #ffc107;">1. Verify Competition ID:</strong><br>
+          <span style="color: #ccc;">Check if the competition ID "{{ debug_info.competition_id }}" exists and is active</span>
+        </div>
+        <div class="debug-item">
+          <strong style="color: #ffc107;">2. Check Database:</strong><br>
+          <span style="color: #ccc;">Ensure the competition table has the requested entry</span>
+        </div>
+        <div class="debug-item">
+          <strong style="color: #ffc107;">3. URL Parameters:</strong><br>
+          <span style="color: #ccc;">Verify the URL parameter format: ?competition_id=NUMBER</span>
+        </div>
+      </div>
+
+      <a href="/display/competition" class="back-button">← Back to Display</a>
+
+      <div class="timestamp">
+        Report generated at {{ moment().format('YYYY-MM-DD HH:mm:ss') if moment else 'N/A' }}
+      </div>
+    </div>
+  </body>
+</html>
