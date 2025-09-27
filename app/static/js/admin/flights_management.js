@@ -19,6 +19,7 @@ class FlightManager {
     this.events = [];
     this.athletes = [];
     this.flights = [];
+    this.allEvents = [];
     
     // DOM elements
     this.competitionSelect = document.getElementById("competition-select");
@@ -62,11 +63,22 @@ class FlightManager {
         this.athletes = window.flightManagementData.athletes || [];
         this.flights = window.flightManagementData.flights || [];
         
+        // Populate allEvents array from loaded data
+        this.allEvents = [];
+        this.events.forEach(event => {
+          const competition = this.competitions.find(c => c.id === event.competition_id);
+          this.allEvents.push({
+            ...event,
+            competition_name: competition ? competition.name : 'Unknown Competition'
+          });
+        });
+        
         console.log('Loaded data from SSR:', {
           competitions: this.competitions.length,
           events: this.events.length,
           athletes: this.athletes.length,
-          flights: this.flights.length
+          flights: this.flights.length,
+          allEvents: this.allEvents.length
         });
         
         this.renderFlights();
@@ -109,6 +121,9 @@ class FlightManager {
 
   async loadCompetitionsWithEvents() {
     try {
+      // Initialize allEvents array
+      this.allEvents = [];
+      
       // Load competitions
       const competitionsResponse = await fetch("/admin/competitions");
       if (!competitionsResponse.ok) throw new Error("Failed to load competitions");
@@ -871,7 +886,7 @@ class FlightManager {
     document.getElementById("flight_order").value = flightCards.length + 1;
 
     // Pre-select current competition and event if available
-    if (this.currentEventId) {
+    if (this.currentEventId && this.allEvents) {
       // Find the event and its competition
       const currentEvent = this.allEvents.find(e => e.id === this.currentEventId);
       if (currentEvent) {
@@ -1431,7 +1446,7 @@ class FlightManager {
                       athlete.bodyweight || "No Weight"
                     }kg • ${athlete.team || "No Team"}</div>
                 </div>
-                <div class="drag-handle">⋮⋮</div>
+                <div class="drag-indicator">⋮⋮</div>
             `;
 
       container.appendChild(item);
@@ -1444,10 +1459,21 @@ class FlightManager {
 
     this.attemptsSortable = new Sortable(container, {
       animation: 150,
-      handle: ".drag-handle",
+      // Remove handle restriction - make entire item draggable
+      // handle: ".drag-handle", 
       ghostClass: "sortable-ghost",
-      onEnd: function (evt) {
+      chosenClass: "sortable-chosen",
+      dragClass: "sortable-drag",
+      onStart: (evt) => {
+        evt.item.classList.add('dragging');
+      },
+      onEnd: (evt) => {
+        evt.item.classList.remove('dragging');
         this.updateAttemptOrder();
+        // Only update server if position actually changed
+        if (evt.newIndex !== evt.oldIndex) {
+          this.updateAthleteOrder();
+        }
       },
     });
   }
@@ -1459,7 +1485,65 @@ class FlightManager {
     });
   }
 
+  async updateAthleteOrder() {
+    if (!this.currentFlightId) {
+      console.warn('No current flight ID set for athlete order update');
+      return;
+    }
+
+    console.log('Updating athlete order for flight:', this.currentFlightId);
+    const items = document.querySelectorAll(".attempt-item");
+    const updates = [];
+
+    items.forEach((item, index) => {
+      const athleteId = parseInt(item.dataset.athleteId);
+      const newOrder = index + 1;
+      updates.push({ athlete_id: athleteId, order: newOrder });
+    });
+
+    try {
+      const response = await fetch(`/admin/flights/${this.currentFlightId}/athletes/reorder`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Requested-With": "XMLHttpRequest",
+        },
+        body: JSON.stringify({ athlete_orders: updates }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to update athlete order");
+      }
+
+      const result = await response.json();
+      this.showNotification(result.message || "Athlete order updated successfully", "success");
+      console.log('Athlete order updated successfully');
+      
+    } catch (error) {
+      console.error("Error updating athlete order:", error);
+      this.showNotification("Error updating athlete order: " + error.message, "error");
+      
+      // Reload flight athletes if order update fails
+      await this.loadFlightAthletes(this.currentFlightId);
+    }
+  }
+
   async sortAttempts(sortType) {
+    // Show loading state on the clicked button
+    const buttonMap = {
+      'weight': document.getElementById('sort-by-weight'),
+      'name': document.getElementById('sort-by-name'),
+      'random': document.getElementById('randomize-order')
+    };
+    
+    const clickedButton = buttonMap[sortType];
+    if (clickedButton) {
+      const originalText = clickedButton.textContent;
+      clickedButton.textContent = 'Saving...';
+      clickedButton.disabled = true;
+    }
+
     const container = document.getElementById("attempt-order-list");
     const items = Array.from(container.querySelectorAll(".attempt-item"));
 
@@ -1498,6 +1582,29 @@ class FlightManager {
       item.querySelector(".attempt-number").textContent = index + 1;
       container.appendChild(item);
     });
+
+    // Save the new order to the database
+    try {
+      await this.updateAthleteOrder();
+      
+      // Show success state briefly
+      if (clickedButton) {
+        clickedButton.textContent = '✓ Saved';
+        clickedButton.style.background = '#28a745';
+        setTimeout(() => {
+          clickedButton.textContent = originalText;
+          clickedButton.style.background = '';
+          clickedButton.disabled = false;
+        }, 2000);
+      }
+    } catch (error) {
+      // Reset button on error
+      if (clickedButton) {
+        clickedButton.textContent = originalText;
+        clickedButton.disabled = false;
+      }
+      throw error; // Re-throw to let updateAthleteOrder handle the error display
+    }
   }
 
   showEmptyState(message = "No Competition or Event Selected") {
@@ -1690,5 +1797,4 @@ class FlightManager {
 
 document.addEventListener("DOMContentLoaded", function () {
   new FlightManager();
-  // Search functionality for available athletes
 });
