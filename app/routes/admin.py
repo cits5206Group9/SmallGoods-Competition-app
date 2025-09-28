@@ -29,7 +29,16 @@ def competition_edit():
 
 @admin_bp.route('/live-event')
 def live_event():
-    return render_template('admin/live_event.html')
+    competitions = Competition.query.all()
+    return render_template('admin/live_event.html', competitions=competitions)
+
+@admin_bp.route('/real-time-dashboard')
+def real_time_dashboard():
+    competitions = Competition.query.all()
+    current_time = datetime.now().strftime('%H:%M:%S')
+    return render_template('admin/real_time_dashboard.html',
+                         competitions=competitions,
+                         current_time=current_time)
 
 @admin_bp.route('/data')
 def data():
@@ -51,7 +60,11 @@ def results_dashboard():
 
 @admin_bp.route('/display')
 def display():
-    return render_template('admin/display.html')
+    competitions = Competition.query.filter_by(is_active=True).all()
+    current_competition = competitions[0] if competitions else None
+    return render_template('admin/display.html',
+                         competitions=competitions,
+                         current_competition=current_competition)
 
 # API Routes below
 @admin_bp.route('/competition-model/get/<int:id>')
@@ -168,6 +181,8 @@ def save_competition_model():
                 if event and event.competition_id == competition.id:
                     event.name = event_data['name']
                     event.gender = event_data.get('gender')
+                    if not hasattr(event, 'scoring_type') or event.scoring_type is None:
+                        event.scoring_type = ScoringType.MAX
                     event.is_active = True
                     current_event_ids.add(event.id)
             else:
@@ -176,6 +191,7 @@ def save_competition_model():
                     competition=competition,
                     name=event_data['name'],
                     gender=event_data.get('gender'),
+                    scoring_type=ScoringType.MAX,  # Default scoring type
                     is_active=True
                 )
                 db.session.add(event)

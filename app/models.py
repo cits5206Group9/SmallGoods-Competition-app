@@ -66,6 +66,7 @@ class Event(db.Model):
     name = db.Column(db.String(150), nullable=False)
     weight_category = db.Column(db.String(50))
     gender = db.Column(db.String(10))
+    scoring_type = db.Column(db.Enum(ScoringType), nullable=False, default=ScoringType.MAX)
     is_active = db.Column(db.Boolean, default=False)
 
     # Relationships
