@@ -99,6 +99,20 @@ def create_app(config_name: str | None = None) -> Flask:
     socketio.init_app(app, cors_allowed_origins="*", async_mode='threading')
     logger.debug("Database and WebSocket extensions initialized")
     
+    # Configure logging to suppress noisy timer endpoint
+    class TimerEndpointFilter:
+        def filter(self, record):
+            # Suppress logs for timer endpoint to reduce noise
+            if hasattr(record, 'getMessage'):
+                message = record.getMessage()
+                if '/athlete/next-attempt-timer' in message and '200' in message:
+                    return False
+            return True
+    
+    # Apply filter to werkzeug logger (handles Flask request logs)
+    werkzeug_logger = logging.getLogger('werkzeug')
+    werkzeug_logger.addFilter(TimerEndpointFilter())
+    
     # Handle database initialization
     with app.app_context():
         _initialize_database(config, app.instance_path)

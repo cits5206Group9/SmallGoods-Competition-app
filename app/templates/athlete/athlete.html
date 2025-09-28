@@ -38,8 +38,8 @@
             <!-- Timer Card -->
             <div class="timer-card">
                 <h2>Next Attempt</h2>
-                <div class="timer countdown-timer" id="main-timer" data-time="{{ next_attempt.time if next_attempt else 0 }}">
-                    {% if next_attempt %}
+                <div class="timer countdown-timer" id="main-timer" data-time="{{ next_attempt.time if next_attempt and next_attempt.time else 0 }}">
+                    {% if next_attempt and next_attempt.time %}
                         {% set minutes = (next_attempt.time // 60)|int %}
                         {% set seconds = (next_attempt.time % 60)|int %}
                         {{ '%d:%02d'|format(minutes, seconds) }}
@@ -135,7 +135,7 @@
                                         <div class="reps-section">
                                             <div class="reps-header">
                                                 <h5>Reps per Attempt</h5>
-                                                <small class="reps-desc">Choose your reps (max: {{ entry.reps_max_display or '[1,1,1]' }})</small>
+                                                <small class="reps-desc">Choose your reps ([1,1,1]: 3 attempts with 1 rep each)</small>
                                             </div>
 
                                             {% set lift_key = entry.lift_type %}
@@ -246,5 +246,17 @@
 {% endblock %}
 
 {% block scripts %}
+<script src="/socket.io/socket.io.js"></script>
+<script>
+    // Pass competition data to JavaScript
+    {% if competition %}
+    window.competitionData = {
+        id: {{ competition.id }},
+        name: {{ competition.name|tojson }}
+    };
+    {% else %}
+    window.competitionData = null;
+    {% endif %}
+</script>
 <script src="{{ url_for('static', filename='js/athlete.js') }}"></script>
 {% endblock %}
