@@ -60,6 +60,46 @@
     color: #dc3545;
 }
 
+.timer.inactive {
+    color: #6c757d;
+    font-style: italic;
+}
+
+.timer.disconnected {
+    color: #dc3545;
+    font-style: italic;
+    opacity: 0.7;
+}
+
+.timer.error {
+    color: #ffc107;
+    font-style: italic;
+}
+
+.timer.attempt {
+    color: #007bff;
+    border: 2px solid #007bff;
+    border-radius: 8px;
+    padding: 5px;
+}
+
+.timer.break {
+    color: #28a745;
+    border: 2px solid #28a745;
+    border-radius: 8px;
+    padding: 5px;
+}
+
+.timer.paused {
+    opacity: 0.7;
+    animation: pulse-slow 2s infinite;
+}
+
+@keyframes pulse-slow {
+    0%, 100% { opacity: 0.7; }
+    50% { opacity: 1; }
+}
+
 .next-attempt-info {
     background: #f8f9fa;
     padding: 10px;
@@ -163,7 +203,6 @@
     font-size: 1rem;
 }
 
-/* Override for input sections to have consistent heights */
 .reps-section h5, .opening-weights-section h5 {
     margin-top: 0;
     margin-bottom: 4px;

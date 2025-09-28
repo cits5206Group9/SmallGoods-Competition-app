@@ -309,10 +309,50 @@
       }
     };
   }
-  bindClick("btnBreakStart",  () => { breakClock.start();  addLogRow({ start: nowStr(), action: "Break", duration: "Start"  }); });
-  bindClick("btnBreakPause",  () => { breakClock.pause();  addLogRow({ start: nowStr(), action: "Break", duration: "Pause"  }); });
-  bindClick("btnBreakResume", () => { breakClock.resume(); addLogRow({ start: nowStr(), action: "Break", duration: "Resume" }); });
-  bindClick("btnBreakReset",  () => { breakClock.reset();  addLogRow({ start: nowStr(), action: "Break", duration: "Reset"  }); });
+
+  // THIS BLOCK HAS BEEN UPDATED FOR BREAK TIMER SYNC OF ATHLETE PAGE
+  bindClick("btnBreakStart",  () => { 
+    breakClock.start();  
+    addLogRow({ start: nowStr(), action: "Break", duration: "Start"  });
+    
+    const compId = getSelectedCompetitionId();
+    if (compId) {
+      startServerBreakTimer(compId, breakClock.baseSeconds);
+    }
+  });
+  bindClick("btnBreakPause",  () => { 
+    breakClock.pause();  
+    addLogRow({ start: nowStr(), action: "Break", duration: "Pause"  });
+    
+    // Sync with server timer
+    const compId = getSelectedCompetitionId();
+    if (compId) {
+      controlServerTimer(compId, 'break', 'pause');
+    }
+  });
+  bindClick("btnBreakResume", () => { 
+    breakClock.resume(); 
+    addLogRow({ start: nowStr(), action: "Break", duration: "Resume" }); 
+    
+    // Sync with server timer
+    const compId = getSelectedCompetitionId();
+    if (compId) {
+      controlServerTimer(compId, 'break', 'resume');
+    }
+  });
+  bindClick("btnBreakReset",  () => { 
+    breakClock.reset();  
+    addLogRow({ start: nowStr(), action: "Break", duration: "Reset"  }); 
+    
+    // Sync with server timer
+    const compId = getSelectedCompetitionId();
+    if (compId) {
+      // Use baseSeconds (original duration) when resetting, not currentSeconds (which is 0 after reset)
+      controlServerTimer(compId, 'break', 'reset', { duration: breakClock.baseSeconds });
+    }
+  });
+  // END OF UPDATED BLOCK
+
 
   // ---- Apply timer defaults from server (based on selected comp/event/flight)
   window.TK_applyTimerDefaultsFromSelection = async function (compId, eventId, flightId) {
@@ -366,6 +406,47 @@
       $("btnBreakStart")?.click();
     }
   });
+
+  // THIS BLOCK HAS BEEN ADDED FOR BREAK TIMER SYNC OF ATHLETE PAGE
+  // Helper functions for server timer integration
+  function getSelectedCompetitionId() {
+    const selComp = document.getElementById('selComp');
+    return selComp ? parseInt(selComp.value) : null;
+  }
+
+  async function startServerBreakTimer(competitionId, duration) {
+    try {
+      const response = await fetch(`/athlete/timer/start-break/${competitionId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ duration: duration })
+      });
+      const result = await response.json();
+      if (!result.success) {
+        console.error('Failed to start server break timer:', result.error);
+      }
+    } catch (error) {
+      console.error('Error starting server break timer:', error);
+    }
+  }
+
+  async function controlServerTimer(competitionId, timerId, action, data = {}) {
+    try {
+      const response = await fetch(`/athlete/timer/control/${competitionId}/${timerId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: action, ...data })
+      });
+      const result = await response.json();
+      if (!result.success) {
+        console.error(`Failed to ${action} server timer:`, result.error);
+      }
+    } catch (error) {
+      console.error(`Error ${action} server timer:`, error);
+    }
+  }
+  // END OF ADDED BLOCK
+
 
   // Clear log when scoping to a specific flight (URL param present)
   (function bootstrapFlightScope() {
