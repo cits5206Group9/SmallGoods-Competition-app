@@ -190,7 +190,6 @@ def ensure_athlete_entries_for_event(athlete_id: int, event_id: int, flight_id: 
         attempt_seconds = int(timer.get("attempt_seconds", 60))
         break_seconds = int(timer.get("break_seconds", 120))
         
-        # Extract reps from movement config
         reps_data = mv.get("reps")
 
         ae = AthleteEntry(
@@ -201,7 +200,8 @@ def ensure_athlete_entries_for_event(athlete_id: int, event_id: int, flight_id: 
             lift_type=mv_name,
             attempt_time_limit=attempt_seconds,
             break_time=break_seconds,
-            reps=reps_data, 
+            default_reps=reps_data,  # Store default reps directly
+            reps=reps_data,
             entry_config=mv,
         )
         db.session.add(ae)
@@ -211,7 +211,6 @@ def ensure_athlete_entries_for_event(athlete_id: int, event_id: int, flight_id: 
         db.session.commit()
 
     return created
-
 
 # Views / API ---------------------------------------------------------------------------
 
@@ -290,6 +289,11 @@ def athlete_dashboard():
                     'break': entry.break_time
                 },
                 'opening_weights': entry.opening_weights or 0,
+                # Use default_reps as maximum and reps as current athlete preference
+                'reps': entry.reps or entry.default_reps,  # Current athlete preference
+                'reps_display': str(entry.reps or entry.default_reps).replace(' ', ''),  # Clean format for display
+                'reps_max': entry.default_reps,  # Maximum from competition config
+                'reps_max_display': str(entry.default_reps).replace(' ', ''),
                 'config': entry.entry_config or {},
                 'attempts': [],
                 'scores': []
@@ -434,6 +438,102 @@ def update_opening_weight():
                 }
                 for attempt in sorted(entry.attempts, key=lambda x: x.attempt_number)
             ]
+        }
+
+        return jsonify({
+            "success": True, 
+            "entry": entry_config
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "error": str(e)}), 400
+
+
+@athlete_bp.route("/update-reps", methods=["POST"])
+def update_reps():
+    """
+    Update reps preference for the athlete for a given lift/exercise.
+    Expected form/body: event_id, lift_key, reps (as JSON array string like '[1,1,1]')
+    """
+    try:
+        import json
+        
+        event_id = int(request.form.get("event_id"))
+        lift_key = (request.form.get("lift_key") or "").strip()
+        reps_input = (request.form.get("reps") or "").strip()
+
+        # Input validation
+        if not lift_key:
+            return jsonify({"success": False, "error": "Lift key is required"}), 400
+        if not reps_input:
+            return jsonify({"success": False, "error": "Reps input is required"}), 400
+
+        # Parse reps array from string input
+        try:
+            # Handle both array format [1,1,1] and comma-separated format 1,1,1
+            if reps_input.startswith('[') and reps_input.endswith(']'):
+                reps_array = json.loads(reps_input)
+            else:
+                # Parse comma-separated values
+                reps_array = [int(x.strip()) for x in reps_input.split(',')]
+        except (json.JSONDecodeError, ValueError) as e:
+            return jsonify({"success": False, "error": "Invalid reps format. Use [1,1,1] or 1,1,1"}), 400
+
+        # Validate reps array
+        if not isinstance(reps_array, list) or len(reps_array) == 0:
+            return jsonify({"success": False, "error": "Reps must be a non-empty array"}), 400
+        
+        if not all(isinstance(x, int) and x > 0 for x in reps_array):
+            return jsonify({"success": False, "error": "All reps must be positive integers"}), 400
+
+        athlete = resolve_current_athlete()
+        if not athlete:
+            return jsonify({"success": False, "error": "Athlete not found"}), 404
+
+        # Find entry by event_id and lift_type (which should match lift_key)
+        entry = AthleteEntry.query.filter_by(
+            athlete_id=athlete.id,
+            event_id=event_id,
+            lift_type=lift_key
+        ).first()
+
+        if not entry:
+            return (
+                jsonify(
+                    {
+                        "success": False,
+                        "error": f"Athlete is not entered in this event for lift type '{lift_key}'",
+                    }
+                ),
+                404,
+            )
+
+        # Get maximum reps from the default_reps field (from competition config)
+        max_reps = entry.default_reps
+        
+        # Validate against the pre-defined reps structure
+        if len(reps_array) != len(max_reps):
+            return jsonify({
+                "success": False, 
+                "error": f"Must specify {len(max_reps)} attempts"
+            }), 400
+            
+        # Validate each attempt doesn't exceed the pre-defined maximum
+        for i, (requested, max_allowed) in enumerate(zip(reps_array, max_reps)):
+            if requested > max_allowed:
+                return jsonify({
+                    "success": False,
+                    "error": f"Attempt {i+1}: requested {requested} reps exceeds maximum {max_allowed}"
+                }), 400
+
+        entry.reps = reps_array
+        db.session.commit()
+
+        # Return updated entry configuration
+        entry_config = {
+            'id': entry.id,
+            'reps': entry.reps,
+            'reps_display': str(entry.reps).replace(' ', ''),
         }
 
         return jsonify({

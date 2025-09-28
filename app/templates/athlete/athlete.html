@@ -129,15 +129,42 @@
                                     <h4>{{ entry.movement_name }}</h4>
                                     
                                     <!-- User Input section -->
-                                     <div class="user-input-section">
+                                    <div class="user-input-section">
+
+                                        <!-- Reps Preference for this movement -->
+                                        <div class="reps-section">
+                                            <div class="reps-header">
+                                                <h5>Reps per Attempt</h5>
+                                                <small class="reps-desc">Choose your reps (max: {{ entry.reps_max_display or '[1,1,1]' }})</small>
+                                            </div>
+
+                                            {% set lift_key = entry.lift_type %}
+                                            {% set reps_value = entry.reps or [1,1,1] %}
+                                            {% set reps_display = entry.reps_display or '[1,1,1]' %}
+                                            <div class="reps-display">
+                                                <span class="reps-value">
+                                                    {{ reps_display }}
+                                                </span>
+                                                <small class="reps-max">Max: {{ entry.reps_max_display or '[1,1,1]' }}</small>
+                                                <form class="reps-form" style="display: none;" 
+                                                    action="{{ url_for('athlete.update_reps') }}" method="POST">
+                                                    <input type="hidden" name="event_id" value="{{ entry.event.id }}">
+                                                    <input type="hidden" name="lift_key" value="{{ lift_key }}">
+                                                    <input type="text" name="reps" value="{{ reps_display }}" 
+                                                        placeholder="[1,1,1]" pattern="\[[\d,\s]+\]" title="Format: [1,1,1]" required>
+                                                    <button type="submit" class="submit-reps">Save</button>
+                                                </form>
+                                            </div>
+                                        </div>
 
                                         <!-- Opening Weight for this movement -->
                                         <div class="opening-weights-section">
-                                            <h5>Opening Weight</h5>
+                                            <div class="opening-weights-header">
+                                                <h5>Opening Weight</h5>
+                                            </div>
                                             {% set lift_key = entry.lift_type %}
                                             {% set weight = entry.opening_weights or 0 %}
                                             <div class="weight-display">
-                                                <strong>{{ entry.movement_name }}:</strong>
                                                 <span class="weight-value">
                                                     {{ weight if weight else 'Not set' }}{% if weight %}kg{% endif %}
                                                 </span>
@@ -152,7 +179,7 @@
                                                 </form>
                                             </div>
                                         </div>
-
+                                    </div>
                                     <!-- Attempts for this movement -->
                                     <div class="attempts-section">
                                         <h5>Attempts</h5>

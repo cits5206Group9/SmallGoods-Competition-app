@@ -30,24 +30,29 @@
         }
     }
 
-    // Weight form toggling
-    function toggleWeightForm(weightValueElement) {
-        const weightDisplay = weightValueElement.parentElement;
-        const weightValue = weightDisplay.querySelector('.weight-value');
-        const weightForm = weightDisplay.querySelector('.weight-form');
+    // Form toggling (weight and reps)
+    function toggleForm(valueElement) {
+        const display = valueElement.parentElement;
+        const valueSpan = display.querySelector('.weight-value, .reps-value');
+        const form = display.querySelector('.weight-form, .reps-form');
         
-        if (weightForm.style.display === 'none' || !weightForm.style.display) {
-            weightValue.style.display = 'none';
-            weightForm.style.display = 'flex';
-            const input = weightForm.querySelector('input[type="number"]');
+        if (form.style.display === 'none' || !form.style.display) {
+            valueSpan.style.display = 'none';
+            form.style.display = 'flex';
+            const input = form.querySelector('input[type="number"]');
             if (input) {
                 input.focus();
                 input.select();
             }
         } else {
-            weightValue.style.display = 'inline';
-            weightForm.style.display = 'none';
+            valueSpan.style.display = 'inline';
+            form.style.display = 'none';
         }
+    }
+
+    // Backward compatibility
+    function toggleWeightForm(weightValueElement) {
+        toggleForm(weightValueElement);
     }
 
     // Timer functions
@@ -120,6 +125,48 @@
         setInterval(updateTimer, 5000);
     }
 
+    // Enhanced reps form handling with AJAX
+    async function handleRepsFormSubmit(e) {
+        e.preventDefault();
+        const form = e.target;
+        const repsDisplay = form.closest('.reps-display');
+        const repsValue = repsDisplay.querySelector('.reps-value');
+        const formData = new FormData(form);
+        const submitBtn = form.querySelector('.submit-reps');
+        const originalText = submitBtn.textContent;
+        
+        try {
+            submitBtn.textContent = 'Saving...';
+            submitBtn.disabled = true;
+            
+            const response = await fetch(form.action, {
+                method: 'POST',
+                body: formData
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                // Update the reps display with the array format
+                const newReps = data.entry.reps_display || formData.get('reps');
+                repsValue.textContent = newReps;
+                
+                // Hide the form
+                toggleForm(repsValue);
+                
+                console.log('Reps updated successfully');
+            } else {
+                alert('Error updating reps: ' + (data.error || 'Unknown error'));
+            }
+        } catch (error) {
+            console.error('Error updating reps:', error);
+            alert('Error updating reps. Please try again.');
+        } finally {
+            submitBtn.textContent = originalText;
+            submitBtn.disabled = false;
+        }
+    }
+
     // Enhanced weight form handling with AJAX
     async function handleWeightFormSubmit(e) {
         e.preventDefault();
@@ -181,8 +228,9 @@
         }
     }
 
-    // Weight form initialization
-    function initializeWeightForms(container = document) {
+    // Form initialization (weight and reps)
+    function initializeForms(container = document) {
+        // Initialize weight forms
         container.querySelectorAll('.weight-display').forEach(display => {
             const weightValue = display.querySelector('.weight-value');
             const form = display.querySelector('.weight-form');
@@ -193,12 +241,35 @@
             weightValue.addEventListener('click', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                toggleWeightForm(weightValue);
+                toggleForm(weightValue);
             });
 
             // Add submit event listener to form
             form.addEventListener('submit', handleWeightFormSubmit);
         });
+
+        // Initialize reps forms
+        container.querySelectorAll('.reps-display').forEach(display => {
+            const repsValue = display.querySelector('.reps-value');
+            const form = display.querySelector('.reps-form');
+            
+            if (!repsValue || !form) return;
+
+            // Add click event listener to reps value
+            repsValue.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                toggleForm(repsValue);
+            });
+
+            // Add submit event listener to form
+            form.addEventListener('submit', handleRepsFormSubmit);
+        });
+    }
+
+    // Backward compatibility
+    function initializeWeightForms(container = document) {
+        initializeForms(container);
     }
 
     // Initialize everything when DOM is ready
@@ -224,11 +295,12 @@
         // Initialize timer functionality
         bySelAll(".countdown-timer").forEach(startCountdown);
         
-        // Initialize weight forms
-        initializeWeightForms();
+        // Initialize forms (weight and reps)
+        initializeForms();
     });
 
     // Make functions globally available for onclick handlers
     window.showEvent = showEvent;
     window.toggleWeightForm = toggleWeightForm;
+    window.toggleForm = toggleForm;
 })();
