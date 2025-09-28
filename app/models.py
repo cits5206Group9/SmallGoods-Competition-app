@@ -123,6 +123,7 @@ class AthleteEntry(db.Model):
     lift_type = db.Column(db.String(50), nullable=False) # e.g., "snatch", "clean_jerk"
     attempt_time_limit = db.Column(db.Integer, default=60)  # seconds
     break_time = db.Column(db.Integer, default=120)  # seconds
+    default_reps = db.Column(db.JSON)
     reps = db.Column(db.JSON)
 
     opening_weights = db.Column(db.Integer)
