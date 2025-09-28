@@ -66,7 +66,6 @@ class Event(db.Model):
     name = db.Column(db.String(150), nullable=False)
     weight_category = db.Column(db.String(50))
     gender = db.Column(db.String(10))
-    scoring_type = db.Column(db.Enum(ScoringType), nullable=False, default=ScoringType.MAX)
     is_active = db.Column(db.Boolean, default=False)
 
     # Relationships
@@ -75,14 +74,15 @@ class Event(db.Model):
 class Flight(db.Model):
     """Groups of athletes competing together"""
     id = db.Column(db.Integer, primary_key=True)
-    event_id = db.Column(db.Integer, db.ForeignKey("event.id"), nullable=False)
+    event_id = db.Column(db.Integer, db.ForeignKey("event.id"), nullable=True)
+    competition_id = db.Column(db.Integer, db.ForeignKey("competition.id"), nullable=True)
     name = db.Column(db.String(50), nullable=False)
     order = db.Column(db.Integer, nullable=False)
     is_active = db.Column(db.Boolean, default=False)
-    competition_id = db.Column(db.Integer, db.ForeignKey("competition.id"), nullable=True)
+    
     # Relationships
-    competition = db.relationship("Competition", backref="flights", lazy=True)
     athlete_flights = db.relationship("AthleteFlight", backref="flight", lazy=True)
+    competition = db.relationship("Competition", backref="flights", lazy=True)
 
 class Athlete(db.Model):
     """Competition participants"""
@@ -173,7 +173,7 @@ class Attempt(db.Model):
     lifting_order = db.Column(db.Integer)
 
     # Relationships
-    athlete = db.relationship("Athlete", backref="direct_attempts")
+    athlete = db.relationship("Athlete", backref="attempts")
     referee_decisions = db.relationship("RefereeDecision", backref="attempt", lazy=True, cascade="all, delete-orphan")
     
 class RefereeAssignment(db.Model):
