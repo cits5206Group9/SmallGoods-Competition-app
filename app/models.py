@@ -168,7 +168,7 @@ class Attempt(db.Model):
     attempt_number = db.Column(db.Integer, nullable=False)
     requested_weight = db.Column(db.Float, nullable=False)
     actual_weight = db.Column(db.Float)
-    final_result = db.Column(db.Enum(AttemptResult), default=AttemptResult.DNF)
+    final_result = db.Column(db.Enum(AttemptResult), default=None)
     started_at = db.Column(db.DateTime)
     completed_at = db.Column(db.DateTime)
     lifting_order = db.Column(db.Integer)

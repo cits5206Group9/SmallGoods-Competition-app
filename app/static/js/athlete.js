@@ -177,6 +177,14 @@
         const submitBtn = form.querySelector('.submit-weight');
         const originalText = submitBtn.textContent;
         
+        // Validate weight based on competition rules
+        const weightInput = form.querySelector('input[name="weight"]');
+        const newWeight = parseFloat(weightInput.value);
+        
+        if (!validateWeightSelection(form, newWeight)) {
+            return; // Validation failed, don't submit
+        }
+        
         try {
             submitBtn.textContent = 'Saving...';
             submitBtn.disabled = true;
@@ -190,11 +198,15 @@
             
             if (data.success) {
                 // Update the weight display
-                const newWeight = formData.get('weight');
                 weightValue.textContent = newWeight + 'kg';
                 
                 // Hide the form
                 toggleWeightForm(weightValue);
+                
+                // If this is an opening weight form, update attempt 1 displays in the same movement section
+                if (form.closest('.opening-weights-section')) {
+                    updateAttempt1Display(form, newWeight);
+                }
                 
                 console.log('Weight updated successfully');
                 
@@ -226,6 +238,156 @@
         if (weightEl && attempt.requested_weight) {
             weightEl.textContent = attempt.requested_weight;
         }
+    }
+
+    function updateAttempt1Display(openingWeightForm, newWeight) {
+        // Find the movement section that contains this opening weight form
+        const movementSection = openingWeightForm.closest('.movement-section');
+        if (!movementSection) return;
+
+        // Find all attempt 1 displays in this movement section
+        const attemptsSection = movementSection.querySelector('.attempts-section');
+        if (!attemptsSection) return;
+
+        // Look for attempt 1 displays (those that show opening weight)
+        const attempt1Elements = attemptsSection.querySelectorAll('.attempt');
+        attempt1Elements.forEach(attemptEl => {
+            // Check if this is attempt 1 by looking for the "(Opening Weight)" note
+            const weightNote = attemptEl.querySelector('.weight-note');
+            if (weightNote && weightNote.textContent.includes('Opening Weight')) {
+                // Update the weight value display
+                const weightValue = attemptEl.querySelector('.weight-value');
+                if (weightValue) {
+                    weightValue.textContent = newWeight + 'kg';
+                }
+            }
+        });
+    }
+
+    function validateWeightSelection(form, newWeight) {
+        // Skip validation for opening weight forms (attempt 1)
+        if (form.closest('.opening-weights-section')) {
+            return true; // Opening weights have no restrictions
+        }
+
+        // Get the movement section to analyze previous attempts
+        const movementSection = form.closest('.movement-section');
+        if (!movementSection) return true;
+
+        const attemptsSection = movementSection.querySelector('.attempts-section');
+        if (!attemptsSection) return true;
+
+        // Collect attempt data
+        const attempts = [];
+        const attemptElements = attemptsSection.querySelectorAll('.attempt');
+        
+        attemptElements.forEach(attemptEl => {
+            const attemptText = attemptEl.textContent;
+            const attemptMatch = attemptText.match(/Attempt (\d+):/);
+            if (!attemptMatch) return;
+            
+            const attemptNum = parseInt(attemptMatch[1]);
+            const weightMatch = attemptText.match(/(\d+(?:\.\d+)?)kg/);
+            const weight = weightMatch ? parseFloat(weightMatch[1]) : 0;
+            
+            const status = attemptEl.querySelector('.status')?.textContent || 'Pending';
+            const result = attemptEl.querySelector('.result')?.textContent || null;
+            
+            attempts.push({
+                number: attemptNum,
+                weight: weight,
+                status: status,
+                result: result,
+                isCompleted: status === 'Completed',
+                isSuccessful: result === 'good_lift'
+            });
+        });
+
+        // Sort attempts by number
+        attempts.sort((a, b) => a.number - b.number);
+
+        // Find which attempt we're updating
+        const attemptIdInput = form.querySelector('input[name="attempt_id"]');
+        if (!attemptIdInput) return true;
+
+        // Find the current attempt number by matching against attempt elements
+        let currentAttemptNum = null;
+        const currentAttemptEl = form.closest('.attempt');
+        if (currentAttemptEl) {
+            const attemptText = currentAttemptEl.textContent;
+            const attemptMatch = attemptText.match(/Attempt (\d+):/);
+            if (attemptMatch) {
+                currentAttemptNum = parseInt(attemptMatch[1]);
+            }
+        }
+
+        if (!currentAttemptNum) return true;
+
+        // Apply validation rules
+        const validationResult = applyWeightValidationRules(attempts, currentAttemptNum, newWeight);
+        
+        if (!validationResult.isValid) {
+            alert(validationResult.message);
+            return false;
+        }
+
+        return true;
+    }
+
+    function applyWeightValidationRules(attempts, currentAttemptNum, newWeight) {
+        // Rule 1: Find the first successful attempt weight (cannot go lighter than this)
+        const firstSuccessfulAttempt = attempts.find(a => a.isCompleted && a.isSuccessful);
+        if (firstSuccessfulAttempt && newWeight < firstSuccessfulAttempt.weight) {
+            return {
+                isValid: false,
+                message: `Cannot select a weight lighter than your first successful attempt (${firstSuccessfulAttempt.weight}kg)`
+            };
+        }
+
+        // Rule 2: Check the previous attempt (both completed and pending)
+        const previousAttempt = attempts.find(a => a.number === currentAttemptNum - 1);
+        if (previousAttempt) {
+            // For completed attempts, check result
+            if (previousAttempt.isCompleted) {
+                if (previousAttempt.isSuccessful) {
+                    // Previous lift was successful - suggest 2.5kg increase
+                    const suggestedWeight = previousAttempt.weight + 2.5;
+                    if (newWeight < suggestedWeight) {
+                        const confirmMsg = `Previous lift was successful. Suggested weight is ${suggestedWeight}kg (2.5kg increase). Continue with ${newWeight}kg?`;
+                        if (!confirm(confirmMsg)) {
+                            return { isValid: false, message: 'Weight selection cancelled' };
+                        }
+                    }
+                } else {
+                    // Previous lift failed - can repeat same weight or go heavier
+                    if (newWeight < previousAttempt.weight) {
+                        return {
+                            isValid: false,
+                            message: `Previous lift failed. You can repeat the same weight (${previousAttempt.weight}kg) or go heavier, but cannot go lighter.`
+                        };
+                    }
+                    
+                    // If repeating the same weight after a fail, show confirmation
+                    if (newWeight === previousAttempt.weight) {
+                        const confirmMsg = `Repeating the same weight (${newWeight}kg) after a failed attempt. Continue?`;
+                        if (!confirm(confirmMsg)) {
+                            return { isValid: false, message: 'Weight selection cancelled' };
+                        }
+                    }
+                }
+            } else {
+                // For pending attempts, cannot go lighter than previous attempt weight
+                // (assuming it will be attempted at that weight)
+                if (newWeight < previousAttempt.weight) {
+                    return {
+                        isValid: false,
+                        message: `Cannot select a weight lighter than your previous attempt (${previousAttempt.weight}kg). You must attempt weights in ascending order.`
+                    };
+                }
+            }
+        }
+
+        return { isValid: true };
     }
 
     // Form initialization (weight and reps)

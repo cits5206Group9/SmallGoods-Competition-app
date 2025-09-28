@@ -209,6 +209,23 @@ def ensure_athlete_entries_for_event(athlete_id: int, event_id: int, flight_id: 
 
     if created:
         db.session.commit()
+        
+        # Create Attempt records for each AthleteEntry
+        for ae in created:
+            # Determine number of attempts based on reps array length
+            num_attempts = len(ae.default_reps)
+            
+            for attempt_num in range(1, num_attempts + 1):
+                attempt = Attempt(
+                    athlete_id=athlete_id,
+                    athlete_entry_id=ae.id,
+                    attempt_number=attempt_num,
+                    requested_weight=0.0,
+                    final_result=None
+                )
+                db.session.add(attempt)
+        
+        db.session.commit()
 
     return created
 
@@ -359,6 +376,7 @@ def athlete_dashboard():
             "event_category": event.weight_category,
             "event_gender": event.gender,
             "lift_type": entry.lift_type,
+            "time": attempt_time_remaining(next_attempt),
 
         }
 
@@ -378,13 +396,25 @@ def update_opening_weight():
     Expected form/body: event_id, lift_key, weight
     """
     try:
-        event_id = int(request.form.get("event_id"))
+        # Get and validate form data
+        event_id_str = request.form.get("event_id")
         lift_key = (request.form.get("lift_key") or "").strip()
-        weight = float(request.form.get("weight"))
+        weight_str = request.form.get("weight")
 
         # Input validation
+        if not event_id_str:
+            return jsonify({"success": False, "error": "Event ID is required"}), 400
         if not lift_key:
             return jsonify({"success": False, "error": "Lift key is required"}), 400
+        if not weight_str:
+            return jsonify({"success": False, "error": "Weight is required"}), 400
+
+        try:
+            event_id = int(event_id_str)
+            weight = float(weight_str)
+        except (ValueError, TypeError):
+            return jsonify({"success": False, "error": "Invalid event ID or weight format"}), 400
+
         if weight <= 0:
             return jsonify({"success": False, "error": "Weight must be positive"}), 400
 
@@ -409,7 +439,7 @@ def update_opening_weight():
                 404,
             )
 
-        entry.opening_weights = int(weight)
+        entry.opening_weights = int(weight) if weight is not None else 0
 
         # Update the first attempt's requested weight if not yet completed
         first_attempt = next(
@@ -551,10 +581,22 @@ def update_attempt_weight():
     Update the requested_weight of a specific attempt
     """
     try:
-        attempt_id = int(request.form.get("attempt_id"))
-        new_weight = float(request.form.get("weight"))
+        # Get and validate form data
+        attempt_id_str = request.form.get("attempt_id")
+        weight_str = request.form.get("weight")
 
         # Input validation
+        if not attempt_id_str:
+            return jsonify({"success": False, "error": "Attempt ID is required"}), 400
+        if not weight_str:
+            return jsonify({"success": False, "error": "Weight is required"}), 400
+
+        try:
+            attempt_id = int(attempt_id_str)
+            new_weight = float(weight_str)
+        except (ValueError, TypeError):
+            return jsonify({"success": False, "error": "Invalid attempt ID or weight format"}), 400
+
         if new_weight <= 0:
             return jsonify({"success": False, "error": "Weight must be positive"}), 400
 

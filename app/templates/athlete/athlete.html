@@ -187,22 +187,33 @@
                                             {% for attempt in entry.attempts|sort(attribute='attempt_number') %}
                                             <div class="attempt {% if not attempt.final_result %}next-attempt{% endif %}" 
                                                  data-attempt-id="{{ attempt.id }}">
-                                                <span>Attempt {{ attempt.attempt_number }}:</span>
+                                                <span>Attempt {{ attempt.number }}:</span>
                                                 {% if not attempt.final_result %}
-                                                <div class="weight-display">
-                                                    <span class="weight-value">
-                                                        {{ attempt.requested_weight }}kg
-                                                    </span>
-                                                    <form class="weight-form" style="display: none;" 
-                                                          action="{{ url_for('athlete.update_attempt_weight') }}" method="POST">
-                                                        <input type="hidden" name="attempt_id" value="{{ attempt.id }}">
-                                                        <input type="number" name="weight" 
-                                                               value="{{ attempt.requested_weight }}" 
-                                                               step="0.5" min="0" required>
-                                                        <span>kg</span>
-                                                        <button type="submit" class="submit-weight">Save</button>
-                                                    </form>
-                                                </div>
+                                                    {% if attempt.number == 1 %}
+                                                        <!-- Attempt 1 shows opening weight -->
+                                                        <div class="weight-display">
+                                                            <span class="weight-value">
+                                                                {{ entry.opening_weights or '0.0kg' }}{% if entry.opening_weights %}kg{% endif %}
+                                                            </span>
+                                                            <span class="weight-note">(Opening Weight)</span>
+                                                        </div>
+                                                    {% else %}
+                                                        <!-- Attempts 2+ can be edited independently -->
+                                                        <div class="weight-display">
+                                                            <span class="weight-value">
+                                                                {{ attempt.requested_weight }}kg
+                                                            </span>
+                                                            <form class="weight-form" style="display: none;" 
+                                                                  action="{{ url_for('athlete.update_attempt_weight') }}" method="POST">
+                                                                <input type="hidden" name="attempt_id" value="{{ attempt.id }}">
+                                                                <input type="number" name="weight" 
+                                                                       value="{{ attempt.requested_weight }}" 
+                                                                       step="0.5" min="0" required>
+                                                                <span>kg</span>
+                                                                <button type="submit" class="submit-weight">Save</button>
+                                                            </form>
+                                                        </div>
+                                                    {% endif %}
                                                 {% else %}
                                                 <span>{{ attempt.requested_weight }}kg</span>
                                                 {% endif %}
