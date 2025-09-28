@@ -377,7 +377,6 @@
                 }
             } else {
                 // For pending attempts, cannot go lighter than previous attempt weight
-                // (assuming it will be attempted at that weight)
                 if (newWeight < previousAttempt.weight) {
                     return {
                         isValid: false,

@@ -9,6 +9,7 @@ from sqlalchemy.orm import joinedload
 
 admin_bp = Blueprint('admin', __name__, url_prefix='/admin')
 
+
 @admin_bp.route('/')
 def admin_dashboard():
     return render_template('admin/admin.html')
@@ -238,6 +239,44 @@ def save_competition_model():
         events_to_delete = existing_event_ids - current_event_ids
         if events_to_delete:
             Event.query.filter(Event.id.in_(events_to_delete)).delete(synchronize_session='fetch')
+
+        # Immediately sync AthleteEntry records with updated competition config
+        if competition.events:
+            from .athlete import extract_movements_for_event
+            
+            # Get all athlete entries for this competition
+            athlete_entries = (
+                AthleteEntry.query
+                .join(Event, AthleteEntry.event_id == Event.id)
+                .filter(Event.competition_id == competition.id)
+                .all()
+            )
+            
+            updated_count = 0
+            for entry in athlete_entries:
+                movements = extract_movements_for_event(entry.event)
+                
+                for mv in movements:
+                    if (mv.get("name") or "").strip() == entry.lift_type:
+                        new_default_reps = mv.get("reps")
+                        if new_default_reps != entry.default_reps:
+                            print(f"Updating entry {entry.id}: {entry.lift_type} reps from {entry.default_reps} to {new_default_reps}")
+                            entry.default_reps = new_default_reps
+                            
+                            # Reset athlete's reps to match new default_reps when config changes
+                            entry.reps = new_default_reps
+                            print(f"  Reset athlete reps to {new_default_reps}")
+                            
+                            # Update timer settings
+                            timer = mv.get("timer") or {}
+                            entry.attempt_time_limit = int(timer.get("attempt_seconds", 60))
+                            entry.break_time = int(timer.get("break_seconds", 120))
+                            entry.entry_config = mv
+                            updated_count += 1
+                        break
+            
+            if updated_count > 0:
+                print(f"Updated {updated_count} AthleteEntry records with new competition config")
 
         # Commit all changes
         db.session.commit()
