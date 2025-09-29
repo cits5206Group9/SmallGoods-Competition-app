@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}{% endblock %}</title>
+
+    <!-- Your global stylesheet -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    {% block css %}{% endblock %}
+
+  </head>
+
+  <body>
+    <header class="site-header">
+      <div class="header-inner">
+        <a class="brand">
+          <img src="{{ url_for('static', filename='images/logo.png') }}" alt="SmallGoods" class="brand-logo">
+          <span class="brand-name">SmallGoods</span>
+        </a>
+
+        {% set path = request.path if request is defined else '' %}
+        <nav class="site-nav" role="navigation" aria-label="Primary">
+          <ul class="nav-list">
+            <li>
+              <a href="/display/competition"
+                 class="nav-link {{ 'active' if path.startswith('/display/competition') else '' }}">
+                Competition Status
+              </a>
+            </li>
+          </ul>
+        </nav>
+      </div>
+    </header>
+
+    <main class="container page-main">
+      {% block content %}{% endblock %}
+    </main>
+
+    <footer class="site-footer">
+      <div class="footer-inner">
+        <a class="footer-brand">
+          <img src="{{ url_for('static', filename='images/logo.png') }}" alt="SmallGoods" class="footer-logo">
+          <span>SmallGoods</span>
+        </a>
+        <div class="footer-meta">© 2025 Small Goods Gym · All rights reserved</div>
+      </div>
+    </footer>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    {% block scripts %}{% endblock %}
+  </body>
+</html>

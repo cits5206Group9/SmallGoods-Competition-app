@@ -3,11 +3,12 @@ from flask import Blueprint, render_template, request, jsonify, session, redirec
 from ..extensions import db
 from ..models import (Competition, Athlete, Flight, Event, SportType, AthleteFlight, ScoringType, Referee,TimerLog,Attempt, AttemptResult, AthleteEntry)
 from ..utils.referee_generator import generate_sample_referee_data, generate_random_username, generate_random_password
-from datetime import datetime, timezone
+from datetime import datetime,timezone
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import joinedload
 
 admin_bp = Blueprint('admin', __name__, url_prefix='/admin')
+
 
 @admin_bp.route('/')
 def admin_dashboard():
@@ -180,7 +181,6 @@ def save_competition_model():
                 if event and event.competition_id == competition.id:
                     event.name = event_data['name']
                     event.gender = event_data.get('gender')
-                    # Ensure scoring_type is set if missing
                     if not hasattr(event, 'scoring_type') or event.scoring_type is None:
                         event.scoring_type = ScoringType.MAX
                     event.is_active = True
@@ -220,6 +220,7 @@ def save_competition_model():
                         # Create new flight
                         flight = Flight(
                             event_id=event.id,
+                            competition_id=competition.id,
                             name=flight_data['name'],
                             order=flight_data.get('order', 1),
                             is_active=flight_data.get('is_active', True)
@@ -254,6 +255,44 @@ def save_competition_model():
         events_to_delete = existing_event_ids - current_event_ids
         if events_to_delete:
             Event.query.filter(Event.id.in_(events_to_delete)).delete(synchronize_session='fetch')
+
+        # Immediately sync AthleteEntry records with updated competition config
+        if competition.events:
+            from .athlete import extract_movements_for_event
+            
+            # Get all athlete entries for this competition
+            athlete_entries = (
+                AthleteEntry.query
+                .join(Event, AthleteEntry.event_id == Event.id)
+                .filter(Event.competition_id == competition.id)
+                .all()
+            )
+            
+            updated_count = 0
+            for entry in athlete_entries:
+                movements = extract_movements_for_event(entry.event)
+                
+                for mv in movements:
+                    if (mv.get("name") or "").strip() == entry.lift_type:
+                        new_default_reps = mv.get("reps")
+                        if new_default_reps != entry.default_reps:
+                            print(f"Updating entry {entry.id}: {entry.lift_type} reps from {entry.default_reps} to {new_default_reps}")
+                            entry.default_reps = new_default_reps
+                            
+                            # Reset athlete's reps to match new default_reps when config changes
+                            entry.reps = new_default_reps
+                            print(f"  Reset athlete reps to {new_default_reps}")
+                            
+                            # Update timer settings
+                            timer = mv.get("timer") or {}
+                            entry.attempt_time_limit = int(timer.get("attempt_seconds", 60))
+                            entry.break_time = int(timer.get("break_seconds", 120))
+                            entry.entry_config = mv
+                            updated_count += 1
+                        break
+            
+            if updated_count > 0:
+                print(f"Updated {updated_count} AthleteEntry records with new competition config")
 
         # Commit all changes
         db.session.commit()
@@ -357,7 +396,7 @@ def flights_management():
         flights = Flight.query.options(
             db.joinedload(Flight.event).joinedload(Event.competition),
             db.joinedload(Flight.athlete_flights).joinedload(AthleteFlight.athlete),
-            # Direct competition relationship removed
+            db.joinedload(Flight.competition)  # Direct competition relationship
         ).order_by(Flight.order).all()
         
         # Build hierarchical competition data structure
@@ -404,8 +443,7 @@ def flights_management():
             # Get flights directly associated with this competition (not through events)
             direct_flights = []
             for flight in flights:
-                # Direct competition flights removed since competition_id doesn't exist
-                if False:
+                if hasattr(flight, 'competition_id') and flight.competition_id == comp.id and not flight.event_id:
                     # Get athletes for this flight
                     flight_athletes = []
                     if hasattr(flight, 'athlete_flights') and flight.athlete_flights:
@@ -493,9 +531,8 @@ def flights_management():
             event_name = None
             
             # First check if flight has direct competition relationship
-            # Get competition through event relationship
-            if flight.event and flight.event.competition:
-                competition_id = flight.event.competition_id
+            if hasattr(flight, 'competition_id') and flight.competition_id:
+                competition_id = flight.competition_id
                 # Find competition name from our competitions data
                 competition = next((c for c in competitions if c.id == competition_id), None)
                 if competition:
@@ -1454,7 +1491,7 @@ def create_flight():
         # Reload with relationships
         flight = Flight.query.options(
             db.joinedload(Flight.event).joinedload(Event.competition),
-            # Direct competition relationship removed
+            db.joinedload(Flight.competition)
         ).get(flight.id)
         
         return jsonify({
@@ -1467,8 +1504,9 @@ def create_flight():
                 'is_active': flight.is_active,
                 'event_id': flight.event_id,
                 'event_name': flight.event.name if flight.event else None,
-                'competition_id': flight.event.competition_id if flight.event and flight.event.competition else None,
-                'competition_name': flight.event.competition.name if flight.event and flight.event.competition else None,
+                'competition_id': flight.competition_id or (flight.event.competition_id if flight.event and flight.event.competition else None),
+                'competition_name': (flight.competition.name if flight.competition 
+                                   else (flight.event.competition.name if flight.event and flight.event.competition else None)),
                 'athlete_count': 0
             }
         }), 201
@@ -1523,7 +1561,7 @@ def get_flight(flight_id):
     try:
         flight = Flight.query.options(
             joinedload(Flight.event).joinedload(Event.competition),
-            # Direct competition relationship removed
+            joinedload(Flight.competition)
         ).get(flight_id)
         
         if not flight:
@@ -1538,10 +1576,10 @@ def get_flight(flight_id):
         event_name = None
         
         # First check if flight has direct competition relationship
-        # Get competition through event relationship
-        if flight.event and flight.event.competition:
-            competition_id = flight.event.competition_id
-            competition_name = flight.event.competition.name
+        if hasattr(flight, 'competition_id') and flight.competition_id:
+            competition_id = flight.competition_id
+            if hasattr(flight, 'competition') and flight.competition:
+                competition_name = flight.competition.name
         
         # Then check if flight has event relationship
         if flight.event:
@@ -1599,11 +1637,9 @@ def update_flight(flight_id):
                         'status': 'error',
                         'message': 'Competition not found'
                     }), 404
-                # competition_id field removed from Flight model
+                flight.competition_id = int(competition_id)
             else:
-                # competition_id field removed from Flight model
-                pass
-
+                flight.competition_id = None
         if 'event_id' in data:
             event_id = data['event_id']
             if event_id:
@@ -1617,8 +1653,7 @@ def update_flight(flight_id):
                 flight.event_id = int(event_id)
                 # Update competition_id from event if not explicitly set
                 if 'competition_id' not in data:
-                    # competition_id field removed from Flight model
-                    pass
+                    flight.competition_id = event.competition_id
             else:
                 # Allow setting event_id to None
                 flight.event_id = None
@@ -1628,7 +1663,7 @@ def update_flight(flight_id):
         # Reload with relationships
         flight = Flight.query.options(
             db.joinedload(Flight.event).joinedload(Event.competition),
-            # Direct competition relationship removed,
+            db.joinedload(Flight.competition),
             db.joinedload(Flight.athlete_flights)
         ).get(flight_id)
         
@@ -1642,8 +1677,9 @@ def update_flight(flight_id):
                 'is_active': flight.is_active,
                 'event_id': flight.event_id,
                 'event_name': flight.event.name if flight.event else None,
-                'competition_id': flight.event.competition_id if flight.event and flight.event.competition else None,
-                'competition_name': flight.event.competition.name if flight.event and flight.event.competition else None,
+                'competition_id': flight.competition_id or (flight.event.competition_id if flight.event and flight.event.competition else None),
+                'competition_name': (flight.competition.name if flight.competition 
+                                   else (flight.event.competition.name if flight.event and flight.event.competition else None)),
                 'athlete_count': len(flight.athlete_flights) if flight.athlete_flights else 0
             }
         }), 200
@@ -2228,7 +2264,15 @@ def reorder_flight_athletes(flight_id):
                 'message': 'No athlete order data provided'
             }), 400
         
-        # Update each athlete's order
+        # Get flight info to find the event
+        flight = Flight.query.get(flight_id)
+        if not flight:
+            return jsonify({
+                'status': 'error',
+                'message': 'Flight not found'
+            }), 404
+        
+        # Update each athlete's order in both AthleteFlight and AthleteEntry
         for item in athlete_orders:
             athlete_id = item.get('athlete_id')
             new_order = item.get('order')
@@ -2236,6 +2280,7 @@ def reorder_flight_athletes(flight_id):
             if athlete_id is None or new_order is None:
                 continue
                 
+            # Update AthleteFlight order
             athlete_flight = AthleteFlight.query.filter_by(
                 flight_id=flight_id, 
                 athlete_id=athlete_id
@@ -2243,6 +2288,17 @@ def reorder_flight_athletes(flight_id):
             
             if athlete_flight:
                 athlete_flight.order = new_order
+                
+                # Update corresponding AthleteEntry entry_order for this athlete and event
+                if flight.event:
+                    athlete_entries = AthleteEntry.query.filter_by(
+                        athlete_id=athlete_id,
+                        event_id=flight.event.id,
+                        flight_id=flight_id
+                    ).all()
+                    
+                    for entry in athlete_entries:
+                        entry.entry_order = new_order
         
         db.session.commit()
         

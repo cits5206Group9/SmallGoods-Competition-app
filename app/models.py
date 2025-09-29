@@ -75,14 +75,15 @@ class Event(db.Model):
 class Flight(db.Model):
     """Groups of athletes competing together"""
     id = db.Column(db.Integer, primary_key=True)
-    event_id = db.Column(db.Integer, db.ForeignKey("event.id"), nullable=False)
+    event_id = db.Column(db.Integer, db.ForeignKey("event.id"), nullable=True)
+    competition_id = db.Column(db.Integer, db.ForeignKey("competition.id"), nullable=True)
     name = db.Column(db.String(50), nullable=False)
     order = db.Column(db.Integer, nullable=False)
     is_active = db.Column(db.Boolean, default=False)
-    competition_id = db.Column(db.Integer, db.ForeignKey("competition.id"), nullable=True)
+    
     # Relationships
-    competition = db.relationship("Competition", backref="flights", lazy=True)
     athlete_flights = db.relationship("AthleteFlight", backref="flight", lazy=True)
+    competition = db.relationship("Competition", backref="flights", lazy=True)
 
 class Athlete(db.Model):
     """Competition participants"""
@@ -123,6 +124,7 @@ class AthleteEntry(db.Model):
     lift_type = db.Column(db.String(50), nullable=False) # e.g., "snatch", "clean_jerk"
     attempt_time_limit = db.Column(db.Integer, default=60)  # seconds
     break_time = db.Column(db.Integer, default=120)  # seconds
+    default_reps = db.Column(db.JSON)
     reps = db.Column(db.JSON)
 
     opening_weights = db.Column(db.Integer)
@@ -167,13 +169,13 @@ class Attempt(db.Model):
     attempt_number = db.Column(db.Integer, nullable=False)
     requested_weight = db.Column(db.Float, nullable=False)
     actual_weight = db.Column(db.Float)
-    final_result = db.Column(db.Enum(AttemptResult), default=AttemptResult.DNF)
+    final_result = db.Column(db.Enum(AttemptResult), default=None)
     started_at = db.Column(db.DateTime)
     completed_at = db.Column(db.DateTime)
     lifting_order = db.Column(db.Integer)
 
     # Relationships
-    athlete = db.relationship("Athlete", backref="direct_attempts")
+    athlete = db.relationship("Athlete", backref="attempts")
     referee_decisions = db.relationship("RefereeDecision", backref="attempt", lazy=True, cascade="all, delete-orphan")
     
 class RefereeAssignment(db.Model):
