@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "base_athlete.html" %}
 
 {% block title %}Athlete Dashboard - SmallGoods{% endblock %}
 
@@ -38,8 +38,8 @@
             <!-- Timer Card -->
             <div class="timer-card">
                 <h2>Next Attempt</h2>
-                <div class="timer countdown-timer" id="main-timer" data-time="{{ next_attempt.time if next_attempt else 0 }}">
-                    {% if next_attempt %}
+                <div class="timer countdown-timer" id="main-timer" data-time="{{ next_attempt.time if next_attempt and next_attempt.time else 0 }}">
+                    {% if next_attempt and next_attempt.time %}
                         {% set minutes = (next_attempt.time // 60)|int %}
                         {% set seconds = (next_attempt.time % 60)|int %}
                         {{ '%d:%02d'|format(minutes, seconds) }}
@@ -128,28 +128,58 @@
                                 <div class="movement-section">
                                     <h4>{{ entry.movement_name }}</h4>
                                     
-                                    <!-- Opening Weight for this movement -->
-                                    <div class="opening-weights-section">
-                                        <h5>Opening Weight</h5>
-                                        {% set lift_key = entry.lift_type %}
-                                        {% set weight = entry.opening_weights or 0 %}
-                                        <div class="weight-display">
-                                            <strong>{{ entry.movement_name }}:</strong>
-                                            <span class="weight-value">
-                                                {{ weight if weight else 'Not set' }}{% if weight %}kg{% endif %}
-                                            </span>
-                                            <form class="weight-form" style="display: none;" 
-                                                  action="{{ url_for('athlete.update_opening_weight') }}" method="POST">
-                                                <input type="hidden" name="event_id" value="{{ entry.event.id }}">
-                                                <input type="hidden" name="lift_key" value="{{ lift_key }}">
-                                                <input type="number" name="weight" value="{{ weight or 0 }}" 
-                                                       step="0.5" min="0" required>
-                                                <span>kg</span>
-                                                <button type="submit" class="submit-weight">Save</button>
-                                            </form>
+                                    <!-- User Input section -->
+                                    <div class="user-input-section">
+
+                                        <!-- Reps Preference for this movement -->
+                                        <div class="reps-section">
+                                            <div class="reps-header">
+                                                <h5>Reps per Attempt</h5>
+                                                <small class="reps-desc">Choose your reps ([1,1,1]: 3 attempts with 1 rep each)</small>
+                                            </div>
+
+                                            {% set lift_key = entry.lift_type %}
+                                            {% set reps_value = entry.reps or [1,1,1] %}
+                                            {% set reps_display = entry.reps_display or '[1,1,1]' %}
+                                            <div class="reps-display">
+                                                <span class="reps-value">
+                                                    {{ reps_display }}
+                                                </span>
+                                                <small class="reps-max">Max: {{ entry.reps_max_display or '[1,1,1]' }}</small>
+                                                <form class="reps-form" style="display: none;" 
+                                                    action="{{ url_for('athlete.update_reps') }}" method="POST">
+                                                    <input type="hidden" name="event_id" value="{{ entry.event.id }}">
+                                                    <input type="hidden" name="lift_key" value="{{ lift_key }}">
+                                                    <input type="text" name="reps" value="{{ reps_display }}" 
+                                                        placeholder="[1,1,1]" pattern="\[[\d,\s]+\]" title="Format: [1,1,1]" required>
+                                                    <button type="submit" class="submit-reps">Save</button>
+                                                </form>
+                                            </div>
+                                        </div>
+
+                                        <!-- Opening Weight for this movement -->
+                                        <div class="opening-weights-section">
+                                            <div class="opening-weights-header">
+                                                <h5>Opening Weight</h5>
+                                            </div>
+                                            {% set lift_key = entry.lift_type %}
+                                            {% set weight = entry.opening_weights or 0 %}
+                                            <div class="weight-display">
+                                                <span class="weight-value">
+                                                    {{ weight if weight else 'Not set' }}{% if weight %}kg{% endif %}
+                                                </span>
+                                                <form class="weight-form" style="display: none;" 
+                                                    action="{{ url_for('athlete.update_opening_weight') }}" method="POST">
+                                                    <input type="hidden" name="event_id" value="{{ entry.event.id }}">
+                                                    <input type="hidden" name="lift_key" value="{{ lift_key }}">
+                                                    <input type="number" name="weight" value="{{ weight or 0 }}" 
+                                                        step="0.5" min="0" required>
+                                                    <span>kg</span>
+                                                    <button type="submit" class="submit-weight">Save</button>
+                                                </form>
+                                            </div>
                                         </div>
                                     </div>
-
                                     <!-- Attempts for this movement -->
                                     <div class="attempts-section">
                                         <h5>Attempts</h5>
@@ -157,22 +187,33 @@
                                             {% for attempt in entry.attempts|sort(attribute='attempt_number') %}
                                             <div class="attempt {% if not attempt.final_result %}next-attempt{% endif %}" 
                                                  data-attempt-id="{{ attempt.id }}">
-                                                <span>Attempt {{ attempt.attempt_number }}:</span>
+                                                <span>Attempt {{ attempt.number }}:</span>
                                                 {% if not attempt.final_result %}
-                                                <div class="weight-display">
-                                                    <span class="weight-value">
-                                                        {{ attempt.requested_weight }}kg
-                                                    </span>
-                                                    <form class="weight-form" style="display: none;" 
-                                                          action="{{ url_for('athlete.update_attempt_weight') }}" method="POST">
-                                                        <input type="hidden" name="attempt_id" value="{{ attempt.id }}">
-                                                        <input type="number" name="weight" 
-                                                               value="{{ attempt.requested_weight }}" 
-                                                               step="0.5" min="0" required>
-                                                        <span>kg</span>
-                                                        <button type="submit" class="submit-weight">Save</button>
-                                                    </form>
-                                                </div>
+                                                    {% if attempt.number == 1 %}
+                                                        <!-- Attempt 1 shows opening weight -->
+                                                        <div class="weight-display">
+                                                            <span class="weight-value">
+                                                                {{ entry.opening_weights or '0.0kg' }}{% if entry.opening_weights %}kg{% endif %}
+                                                            </span>
+                                                            <span class="weight-note">(Opening Weight)</span>
+                                                        </div>
+                                                    {% else %}
+                                                        <!-- Attempts 2+ can be edited independently -->
+                                                        <div class="weight-display">
+                                                            <span class="weight-value">
+                                                                {{ attempt.requested_weight }}kg
+                                                            </span>
+                                                            <form class="weight-form" style="display: none;" 
+                                                                  action="{{ url_for('athlete.update_attempt_weight') }}" method="POST">
+                                                                <input type="hidden" name="attempt_id" value="{{ attempt.id }}">
+                                                                <input type="number" name="weight" 
+                                                                       value="{{ attempt.requested_weight }}" 
+                                                                       step="0.5" min="0" required>
+                                                                <span>kg</span>
+                                                                <button type="submit" class="submit-weight">Save</button>
+                                                            </form>
+                                                        </div>
+                                                    {% endif %}
                                                 {% else %}
                                                 <span>{{ attempt.requested_weight }}kg</span>
                                                 {% endif %}
@@ -205,5 +246,17 @@
 {% endblock %}
 
 {% block scripts %}
+<script src="/socket.io/socket.io.js"></script>
+<script>
+    // Pass competition data to JavaScript
+    {% if competition %}
+    window.competitionData = {
+        id: {{ competition.id }},
+        name: {{ competition.name|tojson }}
+    };
+    {% else %}
+    window.competitionData = null;
+    {% endif %}
+</script>
 <script src="{{ url_for('static', filename='js/athlete.js') }}"></script>
 {% endblock %}
