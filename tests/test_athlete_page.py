@@ -19,10 +19,11 @@ def client(app):
     return app.test_client()
 
 
-# Test data setup
+# Test data setup and cleanup
 @pytest.fixture(autouse=True)
 def setup_test_data(app):
     with app.app_context():
+        # Setup: Create fresh database schema
         db.drop_all()
         db.create_all()
 
@@ -97,6 +98,10 @@ def setup_test_data(app):
             attempt = Attempt(athlete_id=athlete.id, athlete_entry_id=entry.id, attempt_number=i, requested_weight=100, final_result=None)
             db.session.add(attempt)
         db.session.commit()
+
+        yield
+        db.session.remove()
+        db.drop_all()
 
 
 def test_athlete_dashboard_renders(client):
