@@ -41,7 +41,10 @@ def login():
                 flash(f"Welcome {admin_user.first_name}!", "success")
                 return redirect(url_for("admin.admin_dashboard"))
             else:
-                flash("Invalid admin credentials", "error")
+                if admin_user:
+                    flash("Incorrect password. Please try again.", "error")
+                else:
+                    flash("No admin account found with this email address.", "error")
                 return render_template("login.html", contact=contact)
         else:
             # No password provided - attempt athlete login with email only

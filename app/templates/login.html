@@ -17,9 +17,13 @@
       <p class="auth-subtitle">Sign in to your account</p>
     {% endif %}
     
-    {% if error %}
-      <div class="alert alert-error">{{ error }}</div>
-    {% endif %}
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }}">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
     
     <form method="POST" class="auth-form" id="loginForm">
       <div class="form-group">
@@ -48,24 +52,17 @@
       </div>
       
       {% if not is_athlete_login %}
-                <div class="form-group">
+      <div class="form-group">
             <label for="password">Password <span style="color: #6b7280; font-weight: normal;">(Admin only - Athletes leave blank)</span></label>
-            <div class="input-group">
-              <span class="input-icon">
-                <svg width="20" height="20" fill="currentColor" viewBox="0 0 20 20">
-                  <path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"></path>
-                </svg>
-              </span>
-              <input
-                type="password"
-                id="password"
-                name="password"
-                placeholder="Enter your password (leave blank if you're an athlete)"
-              />
-            </div>
+            <input
+              type="password"
+              id="password"
+              name="password"
+              placeholder="Enter your password (leave blank if you're an athlete)"
+            />
             <div class="error-message" id="passwordError"></div>
             <p style="font-size: 0.85rem; color: #6b7280; margin-top: 0.5rem; margin-bottom: 0;">
-              <strong>Athletes:</strong> Just enter your email above and click Login<br>
+              <strong>Athletes:</strong> Enter your email above and click Login<br>
               <strong>Admins:</strong> Enter both email and password
             </p>
           </div>

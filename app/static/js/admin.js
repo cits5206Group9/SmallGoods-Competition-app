@@ -108,16 +108,49 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    alert('Account updated successfully!');
+                    showFlashMessage('Password changed successfully!', 'success');
                     closeAccountModal();
+                    // Reset form
+                    document.getElementById('newPassword').value = '';
                 } else {
-                    alert('Error updating account: ' + (data.error || 'Unknown error'));
+                    showFlashMessage(data.error || 'Error updating password', 'error');
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                alert('An error occurred while updating your account.');
+                showFlashMessage('An error occurred while updating your password.', 'error');
             });
         });
     }
 });
+
+// Flash Message System
+function showFlashMessage(message, type) {
+    // Remove existing flash messages
+    const existingFlash = document.querySelector('.flash-message');
+    if (existingFlash) {
+        existingFlash.remove();
+    }
+    
+    // Create flash message element
+    const flashDiv = document.createElement('div');
+    flashDiv.className = `flash-message flash-${type}`;
+    flashDiv.textContent = message;
+    
+    // Add close button
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'flash-close';
+    closeBtn.innerHTML = '×';
+    closeBtn.onclick = () => flashDiv.remove();
+    flashDiv.appendChild(closeBtn);
+    
+    // Insert at top of page
+    document.body.insertBefore(flashDiv, document.body.firstChild);
+    
+    // Auto-hide after 5 seconds
+    setTimeout(() => {
+        if (flashDiv.parentNode) {
+            flashDiv.remove();
+        }
+    }, 5000);
+}
