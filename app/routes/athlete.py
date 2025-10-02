@@ -191,10 +191,14 @@ def ensure_athlete_entries_for_event(athlete_id: int, event_id: int, flight_id: 
     movements = extract_movements_for_event(event)
     created = []
 
-    # Gather existing lift_types for this athlete+event
+    # Gather existing lift_types for this athlete+event+flight combination
     existing = {
         ae.lift_type
-        for ae in AthleteEntry.query.filter_by(athlete_id=athlete_id, event_id=event_id).all()
+        for ae in AthleteEntry.query.filter_by(
+            athlete_id=athlete_id, 
+            event_id=event_id, 
+            flight_id=flight_id
+        ).all()
     }
 
     for mv in movements or []:
@@ -228,17 +232,26 @@ def ensure_athlete_entries_for_event(athlete_id: int, event_id: int, flight_id: 
         # Create Attempt records for each AthleteEntry
         for ae in created:
             # Determine number of attempts based on reps array length
-            num_attempts = len(ae.default_reps)
+            num_attempts = len(ae.default_reps) if ae.default_reps else 3  # Default to 3 attempts
             
             for attempt_num in range(1, num_attempts + 1):
-                attempt = Attempt(
+                # Check if attempt already exists for this athlete+flight+attempt_number
+                existing_attempt = Attempt.query.filter_by(
                     athlete_id=athlete_id,
-                    athlete_entry_id=ae.id,
-                    attempt_number=attempt_num,
-                    requested_weight=0.0,
-                    final_result=None
-                )
-                db.session.add(attempt)
+                    flight_id=flight_id,
+                    attempt_number=attempt_num
+                ).first()
+                
+                if not existing_attempt:
+                    attempt = Attempt(
+                        athlete_id=athlete_id,
+                        athlete_entry_id=ae.id,
+                        flight_id=flight_id,
+                        attempt_number=attempt_num,
+                        requested_weight=0.0,
+                        final_result=None
+                    )
+                    db.session.add(attempt)
         
         db.session.commit()
 
