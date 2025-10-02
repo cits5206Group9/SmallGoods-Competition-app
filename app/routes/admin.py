@@ -78,6 +78,7 @@ def get_competition_model(id):
         'id': event.id,
         'name': event.name,
         'gender': event.gender,
+        'sport_type': event.sport_type.value if event.sport_type else None,
         'flights': [{
             'id': flight.id,
             'name': flight.name,
@@ -90,11 +91,9 @@ def get_competition_model(id):
         'name': competition.name,
         'start_date': competition.start_date.isoformat() if competition.start_date else None,
         'description': competition.description,
-        'sport_type': competition.sport_type.value if competition.sport_type else None,
         'events': events_data,  # Include the actual events data
         'config': competition.config or {
             'name': competition.name,
-            'sport_type': competition.sport_type.value if competition.sport_type else None,
             'comp_date': competition.start_date.isoformat() if competition.start_date else None,
             'features': {
                 'allowAthleteInput': True,
@@ -138,9 +137,8 @@ def save_competition_model():
 
         # Update basic fields
         competition.name = data['name']
-        competition.sport_type = SportType(data['sport_type'])
         competition.start_date = datetime.strptime(data['comp_date'], '%Y-%m-%d').date()
-        competition.description = f"Sport type: {data['sport_type']}"
+        competition.description = data.get('description', '')
 
         competition.start_date = datetime.now().date()
 
@@ -149,7 +147,6 @@ def save_competition_model():
         # Store the complete configuration
         competition.config = {
             'name': data['name'],
-            'sport_type': data['sport_type'],
             'comp_date': data['comp_date'],
             'features': data.get('features', {
                 'allowAthleteInput': True,
@@ -181,6 +178,7 @@ def save_competition_model():
                 if event and event.competition_id == competition.id:
                     event.name = event_data['name']
                     event.gender = event_data.get('gender')
+                    event.sport_type = SportType(event_data['sport_type']) if event_data.get('sport_type') else SportType.OLYMPIC_WEIGHTLIFTING
                     if not hasattr(event, 'scoring_type') or event.scoring_type is None:
                         event.scoring_type = ScoringType.MAX
                     event.is_active = True
@@ -191,6 +189,7 @@ def save_competition_model():
                     competition=competition,
                     name=event_data['name'],
                     gender=event_data.get('gender'),
+                    sport_type=SportType(event_data['sport_type']) if event_data.get('sport_type') else SportType.OLYMPIC_WEIGHTLIFTING,
                     scoring_type=ScoringType.MAX,  # Default scoring type
                     is_active=True
                 )
@@ -804,7 +803,6 @@ def get_competitions():
             {
                 'id': comp.id,
                 'name': comp.name,
-                'sport_type': comp.sport_type.value if comp.sport_type else None,
                 'is_active': comp.is_active,
                 'start_date': comp.start_date.isoformat() if comp.start_date else None
             }
@@ -830,7 +828,6 @@ def get_competition_details(competition_id):
         return jsonify({
             'id': competition.id,
             'name': competition.name,
-            'sport_type': competition.sport_type.value if competition.sport_type else None,
             'description': competition.description,
             'is_active': competition.is_active,
             'start_date': competition.start_date.isoformat() if competition.start_date else None,

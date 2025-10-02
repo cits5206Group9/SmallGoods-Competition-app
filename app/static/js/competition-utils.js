@@ -5,7 +5,6 @@ window.CompetitionUtils = (function() {
     function createEmptyModel() {
         return {
             name: '',
-            sport_type: '',
             features: {
                 allowAthleteInput: true,
                 allowCoachAssignment: true,
@@ -52,7 +51,6 @@ window.CompetitionUtils = (function() {
         const comp = {
             name: $('#comp-name').value.trim(),
             comp_date: $('#comp-date').value,
-            sport_type: $('#sport-type').value,
             features: {
                 allowAthleteInput: !!$('#allow-athlete-input').checked,
                 allowCoachAssignment: !!$('#allow-coach-assignment').checked,
@@ -69,6 +67,7 @@ window.CompetitionUtils = (function() {
             const event = {
                 id: eventId ? parseInt(eventId) : undefined,  // Convert to number if exists
                 name: $('.event-name', eventCard)?.value.trim() || '',
+                sport_type: $('.event-sport-type', eventCard)?.value || '',
                 gender: $('.event-gender', eventCard)?.value || '',
                 order: {
                     rule: $('.event-attempt-ordering', eventCard)?.value || '',
@@ -204,7 +203,6 @@ window.CompetitionUtils = (function() {
         
         // Load basic fields
         $('#comp-name').value = data.name || '';
-        $('#sport-type').value = data.sport_type || '';
         $('#comp-date').value = data.date || '';
         $('#allow-athlete-input').checked = !!(data.features?.allowAthleteInput);
         $('#allow-coach-assignment').checked = !!(data.features?.allowCoachAssignment);

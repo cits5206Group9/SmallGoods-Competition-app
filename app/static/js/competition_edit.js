@@ -58,7 +58,6 @@
         
         // Load basic fields
         $('#comp-name').value = data.name || '';
-        $('#sport-type').value = data.sport_type || '';
         $('#comp-date').value = data.start_date || '';
         $('#allow-athlete-input').checked = !!(config.features?.allowAthleteInput);
         $('#allow-coach-assignment').checked = !!(config.features?.allowCoachAssignment);
@@ -77,6 +76,7 @@
             
             lastEvent.dataset.eventId = eventId ? String(eventId) : '';  // Store event ID in the DOM
             $('.event-name', lastEvent).value = evt.name || '';
+            $('.event-sport-type', lastEvent).value = evt.sport_type || '';
             $('.event-gender', lastEvent).value = evt.gender || '';
             $('.event-attempt-ordering', lastEvent).value = evt.order?.rule || '';
             $('.event-custom-order', lastEvent).value = (evt.order?.custom_order || []).join(',');
