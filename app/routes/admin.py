@@ -1,11 +1,12 @@
 from asyncio.log import logger
 from flask import Blueprint, render_template, request, jsonify, session, redirect, url_for
 from ..extensions import db
-from ..models import (Competition, Athlete, Flight, Event, SportType, AthleteFlight, ScoringType, Referee,TimerLog,Attempt, AttemptResult, AthleteEntry)
+from ..models import (Competition, Athlete, Flight, Event, SportType, AthleteFlight, ScoringType, Referee,TimerLog,Attempt, AttemptResult, AthleteEntry, User, UserRole)
 from ..utils.referee_generator import generate_sample_referee_data, generate_random_username, generate_random_password
 from datetime import datetime,timezone
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import joinedload
+from werkzeug.security import generate_password_hash
 
 admin_bp = Blueprint('admin', __name__, url_prefix='/admin')
 
@@ -2576,3 +2577,41 @@ def api_timer_defaults():
         "event_id": event_id,
         "flight_id": flight_id
     })
+
+@admin_bp.route('/update-account', methods=['POST'])
+def update_account():
+    """Update admin account settings"""
+    auth_check = require_admin_auth()
+    if auth_check:
+        return jsonify({'success': False, 'error': 'Not authenticated'}), 401
+    
+    try:
+        user_id = session.get('user_id')
+        user = User.query.get(user_id)
+        
+        if not user:
+            return jsonify({'success': False, 'error': 'User not found in database'}), 404
+            
+        if user.role != UserRole.ADMIN:
+            return jsonify({'success': False, 'error': 'User is not an admin'}), 403
+        
+        new_password = request.form.get('new_password')
+        
+        # Validate and update password
+        if not new_password or not new_password.strip():
+            return jsonify({'success': False, 'error': 'Password is required'}), 400
+            
+        if len(new_password.strip()) < 6:
+            return jsonify({'success': False, 'error': 'Password must be at least 6 characters long'}), 400
+        
+        user.password_hash = generate_password_hash(new_password.strip())
+        
+        # Commit changes
+        db.session.commit()
+        
+        return jsonify({'success': True, 'message': 'Account updated successfully'})
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error updating admin account: {str(e)}")
+        return jsonify({'success': False, 'error': 'An error occurred while updating account'}), 500
