@@ -76,6 +76,14 @@
                         <button class="btn btn-sm btn-secondary edit-athlete" data-athlete-id="{{ athlete.id }}">
                             <i class="icon-edit"></i> Edit
                         </button>
+                        {% if athlete.email %}
+                        <button class="btn btn-sm btn-success create-user-account" 
+                                data-athlete-id="{{ athlete.id }}" 
+                                data-athlete-email="{{ athlete.email }}"
+                                data-athlete-name="{{ athlete.first_name }} {{ athlete.last_name }}">
+                            <i class="icon-user"></i> Create Account
+                        </button>
+                        {% endif %}
                         <button class="btn btn-sm btn-danger delete-athlete" data-athlete-id="{{ athlete.id }}">
                             <i class="icon-delete"></i> Delete
                         </button>
@@ -199,6 +207,28 @@
         <div class="form-actions">
             <button type="button" class="btn btn-secondary" id="cancel-delete-btn">Cancel</button>
             <button type="button" class="btn btn-danger" id="confirm-delete-btn">Delete</button>
+        </div>
+    </div>
+</div>
+
+<!-- Create User Account Modal -->
+<div id="create-user-modal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Create User Account</h2>
+            <span class="close">&times;</span>
+        </div>
+        <div class="modal-body">
+            <p>Create a user account for <strong id="create-user-athlete-name"></strong>?</p>
+            <p>Email: <strong id="create-user-athlete-email"></strong></p>
+            <div class="info-note">
+                <i class="icon-info"></i>
+                <span>The athlete will be able to log in using their email address to access their athlete dashboard.</span>
+            </div>
+        </div>
+        <div class="form-actions">
+            <button type="button" class="btn btn-secondary" id="cancel-create-user-btn">Cancel</button>
+            <button type="button" class="btn btn-success" id="confirm-create-user-btn">Create Account</button>
         </div>
     </div>
 </div>

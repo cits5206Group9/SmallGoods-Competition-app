@@ -124,6 +124,12 @@ def create_app(config_name: str | None = None) -> Flask:
     app.register_blueprint(coach_bp)
     app.register_blueprint(athlete_bp)
     
+    # Add root route that redirects to login
+    @app.route('/')
+    def index():
+        from flask import redirect, url_for
+        return redirect(url_for('login.login'))
+    
     # Register WebSocket event handlers
     register_all_handlers()
     logger.info("Flask app created successfully")
