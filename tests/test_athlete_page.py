@@ -58,7 +58,6 @@ def setup_test_data(app):
             name="TestComp",
             description="desc",
             start_date=date(2025, 9, 28),
-            sport_type=SportType.OLYMPIC_WEIGHTLIFTING,
             is_active=True
         )
         db.session.add(comp)
@@ -70,6 +69,7 @@ def setup_test_data(app):
             competition_id=comp.id,
             weight_category="Open",
             gender="M",
+            sport_type=SportType.OLYMPIC_WEIGHTLIFTING,
             scoring_type=ScoringType.MAX,
             is_active=True
         )
