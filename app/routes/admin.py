@@ -627,7 +627,8 @@ def create_athlete():
                 'bodyweight': athlete.bodyweight,
                 'competition_id': athlete.competition_id,
                 'competition_name': athlete.competition.name if athlete.competition else None,
-                'is_active': athlete.is_active
+                'is_active': athlete.is_active,
+                'has_user_account': athlete.user_id is not None
             }
         }), 201
         
@@ -668,7 +669,8 @@ def get_athlete(athlete_id):
             'bodyweight': athlete.bodyweight,
             'competition_id': athlete.competition_id,
             'competition_name': athlete.competition.name if athlete.competition else None,
-            'is_active': athlete.is_active
+            'is_active': athlete.is_active,
+            'has_user_account': athlete.user_id is not None
         }), 200
         
     except Exception as e:
@@ -734,7 +736,8 @@ def update_athlete(athlete_id):
                 'bodyweight': athlete.bodyweight,
                 'competition_id': athlete.competition_id,
                 'competition_name': athlete.competition.name if athlete.competition else None,
-                'is_active': athlete.is_active
+                'is_active': athlete.is_active,
+                'has_user_account': athlete.user_id is not None
             }
         }), 200
         
@@ -776,6 +779,81 @@ def delete_athlete(athlete_id):
         return jsonify({
             'status': 'error',
             'message': 'Failed to delete athlete: ' + str(e)
+        }), 500
+
+@admin_bp.route('/athletes/<int:athlete_id>/create-user', methods=['POST'])
+def create_user_for_athlete(athlete_id):
+    """Create a user account for an athlete"""
+    try:
+        from ..models import User, UserRole
+        from werkzeug.security import generate_password_hash
+        
+        athlete = Athlete.query.get(athlete_id)
+        
+        if not athlete:
+            return jsonify({
+                'status': 'error',
+                'message': 'Athlete not found'
+            }), 404
+        
+        if not athlete.email:
+            return jsonify({
+                'status': 'error',
+                'message': 'Athlete must have an email address to create user account'
+            }), 400
+        
+        # Check if athlete already has a user account
+        if athlete.user_id:
+            existing_user = User.query.get(athlete.user_id)
+            if existing_user:
+                return jsonify({
+                    'status': 'error',
+                    'message': 'Athlete already has a user account'
+                }), 400
+        
+        # Check if user with this email already exists
+        existing_user = User.query.filter_by(email=athlete.email).first()
+        if existing_user:
+            return jsonify({
+                'status': 'error',
+                'message': 'A user account with this email already exists'
+            }), 400
+        
+        # Create new user account (no password needed for athletes as per requirement)
+        user = User(
+            email=athlete.email,
+            password_hash=generate_password_hash(''),  # Empty password - athletes login with email only
+            first_name=athlete.first_name,
+            last_name=athlete.last_name,
+            role=UserRole.ATHLETE,
+            is_active=True
+        )
+        
+        db.session.add(user)
+        db.session.flush()  # Get the user ID
+        
+        # Link the athlete to the user
+        athlete.user_id = user.id
+        
+        db.session.commit()
+        
+        return jsonify({
+            'status': 'success',
+            'message': f'User account created successfully for {athlete.first_name} {athlete.last_name}',
+            'user': {
+                'id': user.id,
+                'email': user.email,
+                'first_name': user.first_name,
+                'last_name': user.last_name,
+                'role': user.role.name
+            }
+        }), 201
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'status': 'error',
+            'message': 'Failed to create user account: ' + str(e)
         }), 500
 
 # Competition API Routes

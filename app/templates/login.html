@@ -168,8 +168,13 @@
 {% block content %}
 <div class="auth-container">
   <div class="auth-card">
-    <h2>Welcome back</h2>
-    <p class="auth-subtitle">Sign in to your account</p>
+    {% if is_athlete_login %}
+      <h2>Athlete Login</h2>
+      <p class="auth-subtitle">Enter your email to access your athlete dashboard</p>
+    {% else %}
+      <h2>Welcome back</h2>
+      <p class="auth-subtitle">Sign in to your account</p>
+    {% endif %}
     
     {% if error %}
       <div class="alert alert-error">{{ error }}</div>
@@ -177,33 +182,62 @@
     
     <form method="POST" class="auth-form" id="loginForm">
       <div class="form-group">
-        <label for="contact">Email or phone</label>
-        <input 
-          type="text" 
-          id="contact" 
-          name="contact" 
-          required 
-          placeholder="Enter your email or phone number"
-          value="{{ request.form.get('contact', '') }}"
-        >
+        {% if is_athlete_login %}
+          <label for="contact">Email address</label>
+          <input 
+            type="email" 
+            id="contact" 
+            name="contact" 
+            required 
+            placeholder="Enter your email address"
+            value="{{ email or request.form.get('contact', '') }}"
+          >
+        {% else %}
+          <label for="contact">Email or phone</label>
+          <input 
+            type="text" 
+            id="contact" 
+            name="contact" 
+            required 
+            placeholder="Enter your email or phone number"
+            value="{{ request.form.get('contact', '') }}"
+          >
+        {% endif %}
         <div class="error-message" id="contactError"></div>
       </div>
       
-      <div class="form-group">
-        <label for="password">Password</label>
-        <input 
-          type="password" 
-          id="password" 
-          name="password" 
-          required 
-          placeholder="Enter your password"
-        >
-        <div class="error-message" id="passwordError"></div>
-      </div>
+      {% if not is_athlete_login %}
+                <div class="form-group">
+            <label for="password">Password <span style="color: #6b7280; font-weight: normal;">(Admin only - Athletes leave blank)</span></label>
+            <div class="input-group">
+              <span class="input-icon">
+                <svg width="20" height="20" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"></path>
+                </svg>
+              </span>
+              <input
+                type="password"
+                id="password"
+                name="password"
+                placeholder="Enter your password (leave blank if you're an athlete)"
+              />
+            </div>
+            <div class="error-message" id="passwordError"></div>
+            <p style="font-size: 0.85rem; color: #6b7280; margin-top: 0.5rem; margin-bottom: 0;">
+              <strong>Athletes:</strong> Just enter your email above and click Login<br>
+              <strong>Admins:</strong> Enter both email and password
+            </p>
+          </div>
+      {% endif %}
       
       <button type="submit" class="btn btn-primary" id="loginBtn">
-        <span class="btn-text">Sign In</span>
-        <span class="btn-loading" style="display: none;">Signing in...</span>
+        {% if is_athlete_login %}
+          <span class="btn-text">Access Dashboard</span>
+          <span class="btn-loading" style="display: none;">Accessing...</span>
+        {% else %}
+          <span class="btn-text">Sign In</span>
+          <span class="btn-loading" style="display: none;">Signing in...</span>
+        {% endif %}
       </button>
     </form>
     
@@ -223,28 +257,24 @@
     const loginBtn = document.getElementById('loginBtn');
     const btnText = loginBtn.querySelector('.btn-text');
     const btnLoading = loginBtn.querySelector('.btn-loading');
-    
     // Client-side validation
     function validateContact(value) {
       if (!value.trim()) {
-        return 'Please enter your email or phone number';
+        return 'Please enter your email address';
       }
       
-      // Basic email or phone validation
+      // Always validate as email for simplicity
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      const phoneRegex = /^[\d\s+()-]+$/;
-      
-      if (!emailRegex.test(value) && !phoneRegex.test(value)) {
-        return 'Please enter a valid email address or phone number';
+      if (!emailRegex.test(value)) {
+        return 'Please enter a valid email address';
       }
       
       return '';
     }
     
     function validatePassword(value) {
-      if (!value) {
-        return 'Please enter your password';
-      }
+      // Password is optional - athletes can login with just email
+      // Admins need both email and password, but validation is done server-side
       return '';
     }
     
@@ -252,11 +282,16 @@
       const errorElement = document.getElementById(fieldId + 'Error');
       const inputElement = document.getElementById(fieldId);
       
-      errorElement.textContent = message;
-      if (message) {
-        inputElement.classList.add('error');
-      } else {
-        inputElement.classList.remove('error');
+      if (errorElement) {
+        errorElement.textContent = message;
+      }
+      
+      if (inputElement) {
+        if (message) {
+          inputElement.classList.add('error');
+        } else {
+          inputElement.classList.remove('error');
+        }
       }
     }
     
@@ -266,10 +301,12 @@
       showError('contact', error);
     });
     
-    passwordInput.addEventListener('blur', function() {
-      const error = validatePassword(this.value);
-      showError('password', error);
-    });
+    if (passwordInput) {
+      passwordInput.addEventListener('blur', function() {
+        const error = validatePassword(this.value);
+        showError('password', error);
+      });
+    }
     
     // Clear errors on input
     contactInput.addEventListener('input', function() {
@@ -278,11 +315,13 @@
       }
     });
     
-    passwordInput.addEventListener('input', function() {
-      if (this.classList.contains('error')) {
-        showError('password', '');
-      }
-    });
+    if (passwordInput) {
+      passwordInput.addEventListener('input', function() {
+        if (this.classList.contains('error')) {
+          showError('password', '');
+        }
+      });
+    }
     
     // Form submission
     form.addEventListener('submit', function(e) {
@@ -290,10 +329,12 @@
       
       // Validate all fields
       const contactError = validateContact(contactInput.value);
-      const passwordError = validatePassword(passwordInput.value);
+      const passwordError = passwordInput ? validatePassword(passwordInput.value) : '';
       
       showError('contact', contactError);
-      showError('password', passwordError);
+      if (passwordInput) {
+        showError('password', passwordError);
+      }
       
       // If no errors, submit form
       if (!contactError && !passwordError) {
