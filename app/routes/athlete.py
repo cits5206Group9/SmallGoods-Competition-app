@@ -339,7 +339,8 @@ def athlete_dashboard():
                     'id': entry.event.id,
                     'name': entry.event.name,
                     'weight_category': entry.event.weight_category,
-                    'gender': entry.event.gender
+                    'gender': entry.event.gender,
+                    'sport_type': entry.event.sport_type
                 },
                 'lift_type': entry.lift_type,
                 'movement_name': entry.movement_name,
