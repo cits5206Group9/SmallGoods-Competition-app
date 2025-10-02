@@ -38,7 +38,6 @@ def login():
                 session['user_role'] = admin_user.role.name
                 session['is_admin'] = True
                 
-                flash(f"Welcome {admin_user.first_name}!", "success")
                 return redirect(url_for("admin.admin_dashboard"))
             else:
                 if admin_user:
@@ -86,10 +85,14 @@ def admin_logout():
     """Admin logout via GET"""
     from flask import session
     session.clear()
-    flash("Admin logged out successfully", "success")
+    flash("You have been logged out successfully", "success")
     return redirect(url_for("login.login"))
 
-# Placeholder routes for links
-@login_bp.get("/forgot-password")
-def forgot_password():
-    return "<h1>Forgot Password</h1><p>Password reset functionality will go here...</p>"
+@login_bp.route("/athlete/logout")
+def athlete_logout():
+    """Athlete logout via GET"""
+    from flask import session
+    session.clear()
+    flash("You have been logged out successfully", "success")
+    return redirect(url_for("login.login"))
+
