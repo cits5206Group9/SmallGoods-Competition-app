@@ -35,6 +35,18 @@
                 Display
               </a>
             </li>
+            <li>
+              <!-- Admin Logout Button -->
+              {% if session.get('is_admin') %}
+              <div class="admin-logout">
+                <a href="{{ url_for('login.admin_logout') }}" class="logout-btn">
+                  <span>Admin</span>
+                  <span class="logout-text">Logout</span>
+                </a>
+              </div>
+              {% endif %}
+
+            </li>
             {# Add more items with plain paths when you have the routes:
             <li>
               <a href="/admin/flights-management"
@@ -51,6 +63,7 @@
             #}
           </ul>
         </nav>
+        
       </div>
     </header>
 

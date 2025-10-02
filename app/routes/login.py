@@ -25,10 +25,24 @@ def login():
 
         # If password is provided, attempt admin login
         if password:
-            # TODO: Implement admin authentication logic
-            # For now, just show the form data for admin login
-            flash(f"Admin login attempt for: {contact}", "info")
-            return redirect(url_for("login.login"))
+            # Check for admin user in database
+            from ..models import UserRole
+            from werkzeug.security import check_password_hash
+            
+            admin_user = User.query.filter_by(email=contact, role=UserRole.ADMIN, is_active=True).first()
+            
+            if admin_user and check_password_hash(admin_user.password_hash, password):
+                # Set session for admin
+                from flask import session
+                session['user_id'] = admin_user.id
+                session['user_role'] = admin_user.role.name
+                session['is_admin'] = True
+                
+                flash(f"Welcome {admin_user.first_name}!", "success")
+                return redirect(url_for("admin.admin_dashboard"))
+            else:
+                flash("Invalid admin credentials", "error")
+                return render_template("login.html", contact=contact)
         else:
             # No password provided - attempt athlete login with email only
             from ..models import UserRole, Athlete
@@ -55,61 +69,22 @@ def login():
 
     return render_template("login.html")
 
-# Logout route for athletes
-@login_bp.route("/logout", methods=["POST"])
+# Logout routes
+@login_bp.route("/logout", methods=["GET", "POST"])
 def logout():
     """Logout user (admin or athlete)"""
     from flask import session
     session.clear()
     flash("You have been logged out successfully", "success")
     return redirect(url_for("login.login"))
-    """Athlete login using email only"""
-    if request.method == "POST":
-        # Check if this is email-only login (no password field)
-        email = request.form.get("contact") or request.form.get("email")
-        password = request.form.get("password")
-        
-        # If password field exists, this is regular login - redirect to main login
-        if password:
-            flash("Athletes should login with email only", "info")
-            return render_template("login.html", is_athlete_login=True)
-        
-        if not email:
-            flash("Email is required", "error")
-            return render_template("login.html", is_athlete_login=True)
-        
-        # Find user by email with athlete role
-        from ..models import UserRole, Athlete
-        user = User.query.filter_by(email=email, role=UserRole.ATHLETE, is_active=True).first()
-        
-        if user:
-            # Find the corresponding athlete record
-            athlete = Athlete.query.filter_by(user_id=user.id).first()
-            if athlete:
-                # Set session for athlete
-                from flask import session
-                session['user_id'] = user.id
-                session['user_role'] = user.role.name
-                session['athlete_id'] = athlete.id
-                
-                flash(f"Welcome {user.first_name}!", "success")
-                return redirect(url_for("athlete.athlete_dashboard"))
-            else:
-                flash("No athlete profile found for this user", "error")
-        else:
-            flash("No account found with this email address", "error")
-        
-        return render_template("login.html", is_athlete_login=True, email=email)
-    
-    return render_template("login.html", is_athlete_login=True)
 
-@login_bp.route("/athlete/logout", methods=["POST"])
-def athlete_logout():
-    """Logout athlete"""
+@login_bp.route("/admin/logout")
+def admin_logout():
+    """Admin logout via GET"""
     from flask import session
     session.clear()
-    flash("You have been logged out successfully", "success")
-    return redirect(url_for("login.athlete_login"))
+    flash("Admin logged out successfully", "success")
+    return redirect(url_for("login.login"))
 
 # Placeholder routes for links
 @login_bp.get("/forgot-password")
