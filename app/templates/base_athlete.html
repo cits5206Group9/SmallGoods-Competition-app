@@ -28,6 +28,15 @@
                 Competition Status
               </a>
             </li>
+            <li>
+              <!-- Athlete Logout -->
+              {% if session.get('user_id') and session.get('user_role') == 'ATHLETE' %}
+              <a href="{{ url_for('login.athlete_logout') }}" class="nav-link">
+                <span>→</span>
+                Log out
+              </a>
+              {% endif %}
+            </li>
           </ul>
         </nav>
       </div>

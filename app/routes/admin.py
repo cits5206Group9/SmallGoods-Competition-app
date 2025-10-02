@@ -1,7 +1,7 @@
 from asyncio.log import logger
 from flask import Blueprint, render_template, request, jsonify, session, redirect, url_for, flash
 from ..extensions import db
-from ..models import (Competition, Athlete, Flight, Event, SportType, AthleteFlight, ScoringType, Referee,TimerLog,Attempt, AttemptResult, AthleteEntry, User, UserRole)
+from ..models import (Competition, Athlete, Flight, Event, SportType, AthleteFlight, ScoringType, Referee,TimerLog,Attempt, AttemptResult, AthleteEntry, User, UserRole, CoachAssignment, Timer)
 from ..utils.referee_generator import generate_sample_referee_data, generate_random_username, generate_random_password
 from datetime import datetime,timezone
 from sqlalchemy.exc import IntegrityError
@@ -768,7 +768,7 @@ def update_athlete(athlete_id):
 
 @admin_bp.route('/athletes/<int:athlete_id>', methods=['DELETE'])
 def delete_athlete(athlete_id):
-    """Delete an athlete"""
+    """Delete an athlete and all associated records"""
     try:
         athlete = Athlete.query.get(athlete_id)
         
@@ -778,16 +778,63 @@ def delete_athlete(athlete_id):
                 'message': 'Athlete not found'
             }), 404
         
+        # Get the associated user record if it exists
+        user_record = None
+        if athlete.user_id:
+            user_record = User.query.get(athlete.user_id)
+        
+        # Delete all related records in correct order (deepest dependencies first)
+        
+        # 1. Delete Attempts (references athlete_id and athlete_entry_id)
+        attempts = Attempt.query.filter_by(athlete_id=athlete_id).all()
+        for attempt in attempts:
+            db.session.delete(attempt)
+        print(f"Deleted {len(attempts)} attempts for athlete {athlete_id}")
+        
+        # 2. Delete Coach Assignments (references athlete_id)
+        coach_assignments = CoachAssignment.query.filter_by(athlete_id=athlete_id).all()
+        for assignment in coach_assignments:
+            db.session.delete(assignment)
+        print(f"Deleted {len(coach_assignments)} coach assignments for athlete {athlete_id}")
+        
+        # 3. Delete Athlete Entries (references athlete_id)
+        athlete_entries = AthleteEntry.query.filter_by(athlete_id=athlete_id).all()
+        for entry in athlete_entries:
+            db.session.delete(entry)
+        print(f"Deleted {len(athlete_entries)} athlete entries for athlete {athlete_id}")
+        
+        # 4. Delete Athlete Flights (references athlete_id)
+        athlete_flights = AthleteFlight.query.filter_by(athlete_id=athlete_id).all()
+        for flight in athlete_flights:
+            db.session.delete(flight)
+        print(f"Deleted {len(athlete_flights)} athlete flights for athlete {athlete_id}")
+        
+        # 5. Update any Timer records that reference this athlete (set to null instead of delete)
+        timers = Timer.query.filter_by(current_athlete_id=athlete_id).all()
+        for timer in timers:
+            timer.current_athlete_id = None
+        print(f"Updated {len(timers)} timer references for athlete {athlete_id}")
+        
+        # 6. Finally delete the athlete record
         db.session.delete(athlete)
+        
+        # 7. Delete the associated user record if it exists
+        if user_record:
+            db.session.delete(user_record)
+            print(f"Deleted user account for athlete: {user_record.email}")
+        
         db.session.commit()
+        
+        message = 'Athlete deleted successfully'
         
         return jsonify({
             'status': 'success',
-            'message': 'Athlete deleted successfully'
+            'message': message
         }), 200
         
     except Exception as e:
         db.session.rollback()
+        print(f"Error deleting athlete {athlete_id}: {str(e)}")
         return jsonify({
             'status': 'error',
             'message': 'Failed to delete athlete: ' + str(e)
