@@ -491,6 +491,59 @@ input:focus, select:focus, textarea:focus {
   background-color: var(--ink-200);
 }
 
+/* Flash Messages */
+.flash-message {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  padding: 1rem 1.5rem;
+  border-radius: var(--radius-md);
+  color: white;
+  font-weight: 600;
+  z-index: 3000;
+  max-width: 400px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  animation: slideInRight 0.3s ease-out;
+}
+
+.flash-success {
+  background-color: #10b981;
+}
+
+.flash-error {
+  background-color: #ef4444;
+}
+
+.flash-close {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 1.5rem;
+  font-weight: bold;
+  cursor: pointer;
+  padding: 0;
+  margin-left: auto;
+  line-height: 1;
+}
+
+.flash-close:hover {
+  opacity: 0.8;
+}
+
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
 /* Main wrapper for pages that extend base.html */
 .page-main {
   max-width: 1100px;

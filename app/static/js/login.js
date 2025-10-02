@@ -1,4 +1,24 @@
 document.addEventListener('DOMContentLoaded', function() {
+  // Auto-hide flash messages after 5 seconds
+  const alerts = document.querySelectorAll('.alert');
+  alerts.forEach(alert => {
+    // Add close button
+    const closeBtn = document.createElement('button');
+    closeBtn.innerHTML = '×';
+    closeBtn.style.cssText = 'background:none;border:none;font-size:1.2em;font-weight:bold;cursor:pointer;float:right;margin-left:10px;';
+    closeBtn.onclick = () => alert.remove();
+    alert.appendChild(closeBtn);
+    
+    // Auto-hide after 5 seconds
+    setTimeout(() => {
+      if (alert.parentNode) {
+        alert.style.opacity = '0';
+        alert.style.transition = 'opacity 0.3s ease';
+        setTimeout(() => alert.remove(), 300);
+      }
+    }, 5000);
+  });
+
   const form = document.getElementById('loginForm');
   const contactInput = document.getElementById('contact');
   const passwordInput = document.getElementById('password');
