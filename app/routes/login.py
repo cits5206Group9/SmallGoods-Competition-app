@@ -60,7 +60,6 @@ def login():
                     session['user_role'] = user.role.name
                     session['athlete_id'] = athlete.id
                     
-                    flash(f"Welcome {user.first_name}!", "success")
                     return redirect(url_for("athlete.athlete_dashboard"))
                 else:
                     flash("No athlete profile found for this user", "error")
