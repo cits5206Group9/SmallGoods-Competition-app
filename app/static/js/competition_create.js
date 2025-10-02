@@ -4,7 +4,6 @@
 
   // Root UI elements
   const compNameEl = $('#comp-name');
-  const sportTypeEl = $('#sport-type');
   const compDateEl = $('#comp-date');
   const allowAthleteInputEl = $('#allow-athlete-input');
   const allowCoachAssignmentEl = $('#allow-coach-assignment');
@@ -33,7 +32,6 @@
   function createEmptyModel() {
     return {
       name: '',
-      sport_type: '',
       features: {
         allowAthleteInput: true,
         allowCoachAssignment: true,
@@ -81,7 +79,6 @@
     const comp = {
       name: compNameEl.value.trim(),
       comp_date: compDateEl.value,
-      sport_type: sportTypeEl.value,
       features: {
         allowAthleteInput: !!allowAthleteInputEl.checked,
         allowCoachAssignment: !!allowCoachAssignmentEl.checked,
@@ -94,6 +91,7 @@
     $$('.event-card', eventsContainer).forEach(eventCard => {
       const event = {
         name: $('.event-name', eventCard)?.value.trim() || '',
+        sport_type: $('.event-sport-type', eventCard)?.value || '',
         gender: $('.event-gender', eventCard)?.value || '',
         order: {
           rule: $('.event-attempt-ordering', eventCard)?.value || '',
@@ -282,7 +280,6 @@
   function clearAll() {
     // Reset DOM
     compNameEl.value = '';
-    sportTypeEl.value = '';
     compDateEl.value = '';
     allowAthleteInputEl.checked = true;
     allowCoachAssignmentEl.checked = true;
@@ -297,7 +294,6 @@
     clearAll();
 
     compNameEl.value = data.name || '';
-    sportTypeEl.value = data.sport_type || '';
     compDateEl.value = data.comp_date || '';
     allowAthleteInputEl.checked = !!(data.features?.allowAthleteInput);
     allowCoachAssignmentEl.checked = !!(data.features?.allowCoachAssignment);
@@ -308,6 +304,7 @@
       const lastEvent = eventsContainer.lastElementChild;
 
       $('.event-name', lastEvent).value = evt.name || '';
+      $('.event-sport-type', lastEvent).value = evt.sport_type || '';
       $('.event-gender', lastEvent).value = evt.gender || '';
       $('.event-attempt-ordering', lastEvent).value = evt.order?.rule || '';
       $('.event-custom-order', lastEvent).value = (evt.order?.custom_order || []).join(',');
@@ -359,7 +356,7 @@
   });
 
   // Top-level inputs update preview
-  [compNameEl, sportTypeEl, compDateEl, allowAthleteInputEl, allowCoachAssignmentEl, enableAttemptOrderingEl]
+  [compNameEl, compDateEl, allowAthleteInputEl, allowCoachAssignmentEl, enableAttemptOrderingEl]
     .forEach(el => el.addEventListener('input', renderPreview));
 
   saveLocalBtn.addEventListener('click', saveToLocal);
