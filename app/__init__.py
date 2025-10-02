@@ -116,6 +116,7 @@ def create_app(config_name: str | None = None) -> Flask:
     # Handle database initialization
     with app.app_context():
         _initialize_database(config, app.instance_path)
+        _seed_admin_user()
 
     # Register blueprints
     app.register_blueprint(admin_bp)
@@ -168,4 +169,33 @@ def _initialize_database(config, instance_path: str) -> None:
         if config.is_sqlite():
             db_path = config.get_db_path(instance_path)
             logger.error(f"Computed DB path: {db_path}")
+        raise
+
+def _seed_admin_user() -> None:
+    """Create the default admin user if it doesn't exist."""
+    try:
+        from .models import User, UserRole
+        from werkzeug.security import generate_password_hash
+        
+        # Check if admin user already exists
+        admin_user = User.query.filter_by(email="admin@email.com", role=UserRole.ADMIN).first()
+        
+        if not admin_user:
+            logger.info("Creating default admin user...")
+            admin_user = User(
+                email="admin@email.com",
+                password_hash=generate_password_hash("SG-PASSWORD"),
+                first_name="Admin",
+                last_name="User",
+                role=UserRole.ADMIN,
+                is_active=True
+            )
+            db.session.add(admin_user)
+            db.session.commit()
+            logger.info("Default admin user created successfully!")
+        else:
+            logger.info("Admin user already exists")
+    except Exception as e:
+        logger.error(f"Error creating admin user: {e}")
+        db.session.rollback()
         raise

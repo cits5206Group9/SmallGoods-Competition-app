@@ -9,9 +9,17 @@ from sqlalchemy.orm import joinedload
 
 admin_bp = Blueprint('admin', __name__, url_prefix='/admin')
 
+def require_admin_auth():
+    """Check if user is authenticated as admin"""
+    if not session.get('is_admin') or not session.get('user_id'):
+        return redirect(url_for('login.login'))
+    return None
 
 @admin_bp.route('/')
 def admin_dashboard():
+    auth_check = require_admin_auth()
+    if auth_check:
+        return auth_check
     return render_template('admin/admin.html')
 
 @admin_bp.route('/competition-model')
@@ -322,6 +330,9 @@ def save_competition_model():
 from . import timer
 @admin_bp.route('/atheletes-management')
 def atheletes_management():
+    auth_check = require_admin_auth()
+    if auth_check:
+        return auth_check
     # Get pagination parameters
     page = request.args.get('page', 1, type=int)
     per_page = 10
