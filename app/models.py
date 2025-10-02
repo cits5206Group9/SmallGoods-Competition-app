@@ -80,10 +80,16 @@ class Flight(db.Model):
     name = db.Column(db.String(50), nullable=False)
     order = db.Column(db.Integer, nullable=False)
     is_active = db.Column(db.Boolean, default=False)
+    movement_type = db.Column(db.String(50), nullable=True)  # e.g., "snatch", "clean_jerk", "squat", "bench", "deadlift"
     
     # Relationships
     athlete_flights = db.relationship("AthleteFlight", backref="flight", lazy=True)
     competition = db.relationship("Competition", backref="flights", lazy=True)
+    
+    # Each flight should have only one movement type within an event
+    __table_args__ = (
+        db.UniqueConstraint("event_id", "movement_type", name="uq_event_movement_flight"),
+    )
 
 class Athlete(db.Model):
     """Competition participants"""
@@ -134,9 +140,9 @@ class AthleteEntry(db.Model):
     attempts = db.relationship("Attempt", backref="athlete_entry", lazy=True, cascade="all, delete-orphan")
     event = db.relationship("Event", backref="athlete_entries")
     
-    # Prevent duplicate (athlete, event, lift_type)
+    # Prevent duplicate (athlete, event, lift_type) - Allow athlete in multiple flights of different movements
     __table_args__ = (
-        db.UniqueConstraint("athlete_id", "event_id", "lift_type", name="uq_athlete_event_lift"),
+        db.UniqueConstraint("athlete_id", "flight_id", "lift_type", name="uq_athlete_flight_lift"),
     )
 
     @property
