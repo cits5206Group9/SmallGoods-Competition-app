@@ -372,6 +372,9 @@ class FlightManager {
     const sortByWeightBtn = document.getElementById("sort-by-weight");
     const sortByNameBtn = document.getElementById("sort-by-name");
     const randomizeOrderBtn = document.getElementById("randomize-order");
+    const generateTestAttemptsBtn = document.getElementById("generate-test-attempts");
+    const refreshAttemptsBtn = document.getElementById("refresh-attempts");
+    const markFirstCompletedBtn = document.getElementById("mark-first-completed");
 
     if (sortByWeightBtn) {
       sortByWeightBtn.addEventListener("click", () =>
@@ -384,6 +387,21 @@ class FlightManager {
     if (randomizeOrderBtn) {
       randomizeOrderBtn.addEventListener("click", () =>
         this.sortAttempts("random")
+      );
+    }
+    if (generateTestAttemptsBtn) {
+      generateTestAttemptsBtn.addEventListener("click", () =>
+        this.generateTestAttempts()
+      );
+    }
+    if (refreshAttemptsBtn) {
+      refreshAttemptsBtn.addEventListener("click", () =>
+        this.loadFlightAttemptOrder()
+      );
+    }
+    if (markFirstCompletedBtn) {
+      markFirstCompletedBtn.addEventListener("click", () =>
+        this.markFirstAttemptCompleted()
       );
     }
 
@@ -1635,36 +1653,143 @@ class FlightManager {
     container.innerHTML = "";
     
     if (attempts.length === 0) {
-      container.innerHTML = '<p class="no-attempts">No attempts found for this flight.</p>';
+      container.innerHTML = `
+        <div class="no-attempts">
+          <p>No attempts found for this flight.</p>
+          <p><small>Add some athletes to this flight and generate test attempts to see them here.</small></p>
+        </div>
+      `;
       return;
     }
     
-    attempts.forEach((attempt, index) => {
+    // Separate finished and pending attempts
+    const finishedAttempts = [];
+    const pendingAttempts = [];
+    
+    attempts.forEach(attempt => {
+      const isFinished = attempt.completed_at || attempt.final_result;
+      if (isFinished) {
+        finishedAttempts.push(attempt);
+      } else {
+        pendingAttempts.push(attempt);
+      }
+    });
+    
+    // Sort pending attempts by lifting_order
+    pendingAttempts.sort((a, b) => {
+      const orderA = a.lifting_order || 999999;
+      const orderB = b.lifting_order || 999999;
+      if (orderA === orderB) {
+        return a.id - b.id; // Secondary sort by ID
+      }
+      return orderA - orderB;
+    });
+    
+    // Sort finished attempts by completion order (completed_at or lifting_order)
+    finishedAttempts.sort((a, b) => {
+      if (a.completed_at && b.completed_at) {
+        return new Date(a.completed_at) - new Date(b.completed_at);
+      }
+      const orderA = a.lifting_order || 999999;
+      const orderB = b.lifting_order || 999999;
+      return orderA - orderB;
+    });
+    
+    // Display pending attempts first, then finished attempts
+    const orderedAttempts = [...pendingAttempts, ...finishedAttempts];
+    
+    orderedAttempts.forEach((attempt, index) => {
       const item = document.createElement("div");
-      item.className = "attempt-item";
+      const isFinished = attempt.completed_at || attempt.final_result;
+      const isInProgress = attempt.started_at && !isFinished;
+      
+      // Determine status and styling
+      let statusClass = "waiting";
+      let statusText = "Waiting";
+      let itemClass = "attempt-item";
+      
+      if (isFinished) {
+        itemClass += " attempt-finished";
+        if (attempt.final_result) {
+          switch(attempt.final_result) {
+            case "good_lift":
+              statusClass = "success";
+              statusText = "Good Lift";
+              break;
+            case "no_lift":
+              statusClass = "failed";
+              statusText = "No Lift";
+              break;
+            default:
+              statusClass = "finished";
+              statusText = attempt.final_result;
+          }
+        } else {
+          statusClass = "finished";
+          statusText = "Finished";
+        }
+      } else if (isInProgress) {
+        statusClass = "in-progress";
+        statusText = "In Progress";
+        itemClass += " attempt-in-progress";
+      } else {
+        itemClass += " attempt-waiting";
+      }
+      
+      item.className = itemClass;
       item.dataset.attemptId = attempt.id;
+      item.dataset.finished = isFinished ? "true" : "false";
+      item.dataset.athleteId = attempt.athlete_id;
+      
       item.innerHTML = `
-        <div class="attempt-number">${attempt.lifting_order || index + 1}</div>
+        <div class="attempt-number">${index + 1}</div>
         <div class="attempt-athlete-name">${attempt.athlete_name}</div>
-        <div class="attempt-athlete-weight">${attempt.requested_weight}kg</div>
+        <div class="attempt-athlete-weight">
+          <input type="number" 
+                 class="weight-input" 
+                 value="${attempt.requested_weight}" 
+                 min="1" 
+                 step="0.5"
+                 ${isFinished ? 'disabled' : ''}
+                 data-attempt-id="${attempt.id}">
+          <span class="weight-unit">kg</span>
+        </div>
         <div class="attempt-details">Attempt ${attempt.attempt_number}</div>
-        <div class="attempt-status">${attempt.final_result || 'Pending'}</div>
+        <div class="attempt-status ${statusClass}">${statusText}</div>
       `;
       container.appendChild(item);
     });
     
-    // Initialize sortable for drag and drop reordering
+    // Add event listeners for weight editing
+    this.addWeightEditListeners();
+    
+    // Initialize sortable only for non-finished attempts
     this.initializeAttemptsSortable();
   }
 
   // Initialize sortable for attempt reordering
   initializeAttemptsSortable() {
     const container = document.getElementById("attempt-order-list");
-    if (!container || this.attemptsSortable) return;
+    if (!container) return;
+    
+    // Destroy existing sortable if it exists
+    if (this.attemptsSortable) {
+      this.attemptsSortable.destroy();
+      this.attemptsSortable = null;
+    }
     
     this.attemptsSortable = Sortable.create(container, {
       animation: 150,
       ghostClass: 'sortable-ghost',
+      filter: '.attempt-finished', // Prevent dragging finished attempts
+      preventOnFilter: false,
+      onStart: (evt) => {
+        // Check if item is finished
+        if (evt.item.classList.contains('attempt-finished')) {
+          this.showNotification('Cannot reorder finished attempts', 'warning');
+          return false;
+        }
+      },
       onEnd: () => {
         this.updateAttemptOrder();
       }
@@ -1678,10 +1803,34 @@ class FlightManager {
     const container = document.getElementById("attempt-order-list");
     const items = Array.from(container.querySelectorAll(".attempt-item"));
     
-    const updates = items.map((item, index) => ({
-      id: parseInt(item.dataset.attemptId),
-      lifting_order: index + 1
-    }));
+    // Only reorder non-finished attempts, preserve finished attempts at the end
+    const updates = [];
+    let order = 1;
+    
+    for (const item of items) {
+      const isFinished = item.dataset.finished === "true";
+      
+      if (!isFinished) {
+        updates.push({
+          id: parseInt(item.dataset.attemptId),
+          lifting_order: order
+        });
+        order++;
+      }
+    }
+    
+    // Set finished attempts to have higher lifting_order to keep them at the end
+    for (const item of items) {
+      const isFinished = item.dataset.finished === "true";
+      
+      if (isFinished) {
+        updates.push({
+          id: parseInt(item.dataset.attemptId),
+          lifting_order: order
+        });
+        order++;
+      }
+    }
     
     try {
       const response = await fetch(`/admin/flights/${this.currentFlightId}/attempts/reorder`, {
@@ -1705,6 +1854,138 @@ class FlightManager {
       this.showNotification('Error updating attempt order', 'error');
       // Reload to restore original order
       this.loadFlightAttemptOrder();
+    }
+  }
+
+  // Add event listeners for weight editing
+  addWeightEditListeners() {
+    const weightInputs = document.querySelectorAll('.weight-input');
+    weightInputs.forEach(input => {
+      input.addEventListener('change', (e) => this.handleWeightChange(e));
+      input.addEventListener('blur', (e) => this.handleWeightChange(e));
+    });
+  }
+
+  // Handle weight change with validation
+  async handleWeightChange(event) {
+    const input = event.target;
+    const attemptId = input.dataset.attemptId;
+    const newWeight = parseFloat(input.value);
+    const attemptItem = input.closest('.attempt-item');
+    const athleteId = attemptItem.dataset.athleteId;
+    
+    if (!newWeight || newWeight <= 0) {
+      this.showNotification('Weight must be a positive number', 'error');
+      input.focus();
+      return;
+    }
+    
+    // Validate weight progression for this athlete
+    if (!this.validateWeightProgression(athleteId, attemptId, newWeight)) {
+      input.focus();
+      return;
+    }
+    
+    try {
+      const response = await fetch(`/admin/attempts/${attemptId}/weight`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: JSON.stringify({ weight: newWeight })
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to update weight');
+      }
+      
+      const result = await response.json();
+      this.showNotification('Weight updated successfully', 'success');
+      
+      // Update the display
+      input.value = newWeight;
+      
+    } catch (error) {
+      console.error('Error updating weight:', error);
+      this.showNotification(error.message || 'Error updating weight', 'error');
+      // Reload to restore original weight
+      this.loadFlightAttemptOrder();
+    }
+  }
+
+  // Validate weight progression for an athlete
+  validateWeightProgression(athleteId, currentAttemptId, newWeight) {
+    const athleteAttempts = Array.from(document.querySelectorAll(`.attempt-item[data-athlete-id="${athleteId}"]`));
+    
+    for (const attemptItem of athleteAttempts) {
+      const attemptId = attemptItem.dataset.attemptId;
+      if (attemptId === currentAttemptId) continue;
+      
+      const weightInput = attemptItem.querySelector('.weight-input');
+      const otherWeight = parseFloat(weightInput.value);
+      const attemptNumber = parseInt(attemptItem.querySelector('.attempt-details').textContent.match(/\d+/)[0]);
+      const currentAttemptNumber = parseInt(document.querySelector(`[data-attempt-id="${currentAttemptId}"] .attempt-details`).textContent.match(/\d+/)[0]);
+      
+      // For the same athlete, later attempts must have weight >= earlier attempts
+      if (currentAttemptNumber > attemptNumber && newWeight < otherWeight) {
+        this.showNotification(`Attempt ${currentAttemptNumber} weight (${newWeight}kg) cannot be less than attempt ${attemptNumber} weight (${otherWeight}kg) for the same athlete`, 'error');
+        return false;
+      }
+      
+      if (currentAttemptNumber < attemptNumber && newWeight > otherWeight) {
+        this.showNotification(`Attempt ${currentAttemptNumber} weight (${newWeight}kg) cannot be greater than attempt ${attemptNumber} weight (${otherWeight}kg) for the same athlete`, 'error');
+        return false;
+      }
+    }
+    
+    return true;
+  }
+
+  // Generate test attempts for a flight
+  async generateTestAttempts() {
+    if (!this.currentFlightId) {
+      this.showNotification("No flight selected", "error");
+      return;
+    }
+
+    const button = document.getElementById("generate-test-attempts");
+    if (button) {
+      const originalText = button.textContent;
+      button.textContent = 'Generating...';
+      button.disabled = true;
+    }
+
+    try {
+      const response = await fetch(`/admin/flights/${this.currentFlightId}/attempts/generate-test`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest'
+        }
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to generate test attempts');
+      }
+
+      const result = await response.json();
+      this.showNotification(result.message || 'Test attempts generated successfully', "success");
+      
+      // Reload attempt order to show new attempts
+      this.loadFlightAttemptOrder();
+      
+    } catch (error) {
+      console.error('Error generating test attempts:', error);
+      this.showNotification(error.message || 'Error generating test attempts', "error");
+    } finally {
+      // Restore button state
+      if (button) {
+        button.textContent = 'Generate Test Attempts';
+        button.disabled = false;
+      }
     }
   }
 
@@ -1891,6 +2172,44 @@ class FlightManager {
       
       // Reinitialize sortable after removal
       this.initializeFlightsSortable();
+    }
+  }
+  
+  async markFirstAttemptCompleted() {
+    if (!this.currentFlightId) return;
+
+    try {
+      // Find the first pending attempt (not finished)
+      const attempts = this.currentAttempts || [];
+      const firstPendingAttempt = attempts.find(attempt => attempt.status !== 'finished');
+      
+      if (!firstPendingAttempt) {
+        alert('No pending attempts found to mark as completed.');
+        return;
+      }
+
+      const response = await fetch('/admin/update_attempt_status', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          attempt_id: firstPendingAttempt.id,
+          status: 'finished'
+        })
+      });
+
+      if (response.ok) {
+        // Reload the attempt order to show the updated queue
+        await this.loadFlightAttemptOrder();
+        showFlightMessage(`Attempt by ${firstPendingAttempt.athlete_name} marked as completed.`, 'success');
+      } else {
+        const errorData = await response.json();
+        showFlightMessage(`Error: ${errorData.error}`, 'error');
+      }
+    } catch (error) {
+      console.error('Error marking attempt as completed:', error);
+      showFlightMessage('Error marking attempt as completed', 'error');
     }
   }
   
