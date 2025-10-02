@@ -875,6 +875,61 @@
   margin-bottom: 0;
 }
 
+/* Attempt state styling */
+.attempt-waiting {
+  border-left: 4px solid #007bff;
+  background: #f8f9ff;
+}
+
+.attempt-in-progress {
+  border-left: 4px solid #28a745;
+  background: #f0f9f0;
+}
+
+.attempt-finished {
+  border-left: 4px solid #6c757d;
+  background: #f8f9fa;
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.attempt-finished .weight-input {
+  background: #e9ecef;
+  cursor: not-allowed;
+}
+
+.attempt-athlete-weight {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.weight-input {
+  width: 80px;
+  padding: 0.25rem 0.5rem;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+.weight-input:focus {
+  outline: none;
+  border-color: #3498db;
+  box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+}
+
+.weight-input:disabled {
+  background: #e9ecef;
+  cursor: not-allowed;
+}
+
+.weight-unit {
+  font-size: 0.8rem;
+  color: #6c757d;
+  font-weight: 500;
+}
+
 .attempt-number {
   font-weight: bold;
   color: #495057;
@@ -914,18 +969,33 @@
   font-weight: 500;
 }
 
-.attempt-status:contains("Pending") {
-  background: #ffc107;
-  color: #856404;
+.attempt-status.waiting {
+  background: #007bff;
+  color: white;
 }
 
-.attempt-status:contains("good_lift") {
+.attempt-status.in-progress {
   background: #28a745;
   color: white;
 }
 
-.attempt-status:contains("no_lift") {
+.attempt-status.finished {
+  background: #6c757d;
+  color: white;
+}
+
+.attempt-status.success {
+  background: #28a745;
+  color: white;
+}
+
+.attempt-status.failed {
   background: #dc3545;
+  color: white;
+}
+
+.attempt-status.other {
+  background: #6c757d;
   color: white;
 }
 
@@ -934,6 +1004,14 @@
   color: #6c757d;
   font-style: italic;
   padding: 2rem;
+}
+
+.no-attempts p {
+  margin-bottom: 0.5rem;
+}
+
+.no-attempts small {
+  color: #adb5bd;
 }
 
 .sortable-ghost {
