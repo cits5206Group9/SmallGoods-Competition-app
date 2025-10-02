@@ -172,6 +172,11 @@ class Attempt(db.Model):
         db.ForeignKey("athlete_entry.id", name="fk_attempt_athlete_entry_id"), 
         nullable=False
     )
+    flight_id = db.Column(
+        db.Integer, 
+        db.ForeignKey("flight.id", name="fk_attempt_flight_id"), 
+        nullable=False
+    )
     attempt_number = db.Column(db.Integer, nullable=False)
     requested_weight = db.Column(db.Float, nullable=False)
     actual_weight = db.Column(db.Float)
@@ -179,9 +184,11 @@ class Attempt(db.Model):
     started_at = db.Column(db.DateTime)
     completed_at = db.Column(db.DateTime)
     lifting_order = db.Column(db.Integer)
+    status = db.Column(db.String(20), default='waiting')  # 'waiting', 'in-progress', 'finished'
 
     # Relationships
     athlete = db.relationship("Athlete", backref="attempts")
+    flight = db.relationship("Flight", backref="attempts")
     referee_decisions = db.relationship("RefereeDecision", backref="attempt", lazy=True, cascade="all, delete-orphan")
     
 class RefereeAssignment(db.Model):

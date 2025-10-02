@@ -13,6 +13,8 @@ class FlightManager {
     this.filteredFlights = []; // Store filtered flights
     this.currentPage = 1;
     this.flightsPerPage = 12;
+    this.allAttempts = []; // Store all attempts for filtering
+    this.currentEditingAttemptId = null; // For editing attempts
     
     // Data structures - no localStorage, just in-memory
     this.competitions = [];
@@ -375,6 +377,10 @@ class FlightManager {
     const generateTestAttemptsBtn = document.getElementById("generate-test-attempts");
     const refreshAttemptsBtn = document.getElementById("refresh-attempts");
     const markFirstCompletedBtn = document.getElementById("mark-first-completed");
+    const addNewAttemptBtn = document.getElementById("add-new-attempt");
+    const athleteNameFilter = document.getElementById("athlete-name-filter");
+    const statusFilter = document.getElementById("attempt-status-filter");
+    const clearFiltersBtn = document.getElementById("clear-filters");
 
     if (sortByWeightBtn) {
       sortByWeightBtn.addEventListener("click", () =>
@@ -404,12 +410,38 @@ class FlightManager {
         this.markFirstAttemptCompleted()
       );
     }
+    if (addNewAttemptBtn) {
+      addNewAttemptBtn.addEventListener("click", () =>
+        this.showAddAttemptModal()
+      );
+    }
+    if (athleteNameFilter) {
+      athleteNameFilter.addEventListener("input", () => this.applyFiltersAndRedisplay());
+    }
+    if (statusFilter) {
+      statusFilter.addEventListener("change", () => this.applyFiltersAndRedisplay());
+    }
+    if (clearFiltersBtn) {
+      clearFiltersBtn.addEventListener("click", () => this.clearFilters());
+    }
+
+    // Attempt modal event listeners
+    const saveAttemptBtn = document.getElementById("save-attempt-btn");
+    const cancelAttemptBtn = document.getElementById("cancel-attempt-btn");
+    
+    if (saveAttemptBtn) {
+      saveAttemptBtn.addEventListener("click", () => this.saveAttempt());
+    }
+    if (cancelAttemptBtn) {
+      cancelAttemptBtn.addEventListener("click", () => this.closeModals());
+    }
 
     // Click outside modal to close
     window.addEventListener("click", (event) => {
       if (
         event.target === this.flightModal ||
-        event.target === this.deleteFlightModal
+        event.target === this.deleteFlightModal ||
+        event.target === document.getElementById("attempt-modal")
       ) {
         this.closeModals();
       }
@@ -1221,7 +1253,8 @@ class FlightManager {
       this.displayAvailableAthletes(availableAthletes);
       this.displayAvailableAthletesPagination();
       this.displayFlightAthletes(flightData.athletes || []);
-      this.initializeAttemptOrder(flightData.athletes || []);
+      // Load actual attempts for this flight, not just athletes
+      this.loadFlightAttemptOrder();
       
     } catch (error) {
       console.error("Error loading flight athletes:", error);
@@ -1467,7 +1500,7 @@ class FlightManager {
     }
   }
 
-  initializeAttemptOrder(athletes) {
+  initializeAthleteOrder(athletes) {
     const container = document.getElementById("attempt-order-list");
     container.innerHTML = "";
 
@@ -1492,7 +1525,7 @@ class FlightManager {
       container.appendChild(item);
     });
 
-    // Initialize sortable for attempt order
+    // Initialize sortable for athlete order
     if (this.attemptsSortable) {
       this.attemptsSortable.destroy();
     }
@@ -1509,7 +1542,7 @@ class FlightManager {
       },
       onEnd: (evt) => {
         evt.item.classList.remove('dragging');
-        this.updateAttemptOrder();
+        this.updateAthleteDisplayOrder();
         // Only update server if position actually changed
         if (evt.newIndex !== evt.oldIndex) {
           this.updateAthleteOrder();
@@ -1518,7 +1551,7 @@ class FlightManager {
     });
   }
 
-  updateAttemptOrder() {
+  updateAthleteDisplayOrder() {
     const items = document.querySelectorAll(".attempt-item");
     items.forEach((item, index) => {
       item.querySelector(".attempt-number").textContent = index + 1;
@@ -1650,13 +1683,19 @@ class FlightManager {
     const container = document.getElementById("attempt-order-list");
     if (!container) return;
     
+    // Store all attempts for filtering
+    this.allAttempts = attempts;
+    
+    // Apply filters
+    const filteredAttempts = this.applyAttemptFilters(attempts);
+    
     container.innerHTML = "";
     
-    if (attempts.length === 0) {
+    if (filteredAttempts.length === 0) {
       container.innerHTML = `
         <div class="no-attempts">
-          <p>No attempts found for this flight.</p>
-          <p><small>Add some athletes to this flight and generate test attempts to see them here.</small></p>
+          <p>No attempts found${attempts.length > 0 ? ' for current filters' : ' for this flight'}.</p>
+          <p><small>${attempts.length > 0 ? 'Try adjusting your filters or ' : 'Add some athletes to this flight and '}generate test attempts to see them here.</small></p>
         </div>
       `;
       return;
@@ -1666,8 +1705,17 @@ class FlightManager {
     const finishedAttempts = [];
     const pendingAttempts = [];
     
-    attempts.forEach(attempt => {
-      const isFinished = attempt.completed_at || attempt.final_result;
+    filteredAttempts.forEach(attempt => {
+      // Use status field as primary indicator, fall back to legacy fields
+      let isFinished = false;
+      
+      if (attempt.status) {
+        isFinished = ['finished', 'success', 'failed'].includes(attempt.status.toLowerCase());
+      } else {
+        // Fallback for backward compatibility
+        isFinished = attempt.completed_at || attempt.final_result;
+      }
+      
       if (isFinished) {
         finishedAttempts.push(attempt);
       } else {
@@ -1700,40 +1748,83 @@ class FlightManager {
     
     orderedAttempts.forEach((attempt, index) => {
       const item = document.createElement("div");
-      const isFinished = attempt.completed_at || attempt.final_result;
-      const isInProgress = attempt.started_at && !isFinished;
       
-      // Determine status and styling
+      // Use the status field from database as primary source
       let statusClass = "waiting";
       let statusText = "Waiting";
       let itemClass = "attempt-item";
+      let isFinished = false;
+      let isInProgress = false;
       
-      if (isFinished) {
-        itemClass += " attempt-finished";
-        if (attempt.final_result) {
-          switch(attempt.final_result) {
-            case "good_lift":
-              statusClass = "success";
-              statusText = "Good Lift";
-              break;
-            case "no_lift":
-              statusClass = "failed";
-              statusText = "No Lift";
-              break;
-            default:
-              statusClass = "finished";
-              statusText = attempt.final_result;
-          }
-        } else {
-          statusClass = "finished";
-          statusText = "Finished";
+      // Primary logic: use the status field from database
+      if (attempt.status) {
+        switch(attempt.status.toLowerCase()) {
+          case "waiting":
+            statusClass = "waiting";
+            statusText = "Waiting";
+            itemClass += " attempt-waiting";
+            break;
+          case "in-progress":
+            statusClass = "in-progress";
+            statusText = "In Progress";
+            itemClass += " attempt-in-progress";
+            isInProgress = true;
+            break;
+          case "finished":
+            statusClass = "finished";
+            statusText = "Finished";
+            itemClass += " attempt-finished";
+            isFinished = true;
+            break;
+          case "success":
+            statusClass = "success";
+            statusText = "Success";
+            itemClass += " attempt-finished";
+            isFinished = true;
+            break;
+          case "failed":
+            statusClass = "failed";
+            statusText = "Failed";
+            itemClass += " attempt-finished";
+            isFinished = true;
+            break;
+          default:
+            statusClass = "waiting";
+            statusText = attempt.status;
+            itemClass += " attempt-waiting";
         }
-      } else if (isInProgress) {
-        statusClass = "in-progress";
-        statusText = "In Progress";
-        itemClass += " attempt-in-progress";
       } else {
-        itemClass += " attempt-waiting";
+        // Fallback logic for backward compatibility (if status field is missing)
+        isFinished = attempt.completed_at || attempt.final_result;
+        isInProgress = attempt.started_at && !isFinished;
+        
+        if (isFinished) {
+          itemClass += " attempt-finished";
+          if (attempt.final_result) {
+            switch(attempt.final_result) {
+              case "good_lift":
+                statusClass = "success";
+                statusText = "Good Lift";
+                break;
+              case "no_lift":
+                statusClass = "failed";
+                statusText = "No Lift";
+                break;
+              default:
+                statusClass = "finished";
+                statusText = attempt.final_result;
+            }
+          } else {
+            statusClass = "finished";
+            statusText = "Finished";
+          }
+        } else if (isInProgress) {
+          statusClass = "in-progress";
+          statusText = "In Progress";
+          itemClass += " attempt-in-progress";
+        } else {
+          itemClass += " attempt-waiting";
+        }
       }
       
       item.className = itemClass;
@@ -1748,7 +1839,6 @@ class FlightManager {
           <input type="number" 
                  class="weight-input" 
                  value="${attempt.requested_weight}" 
-                 min="1" 
                  step="0.5"
                  ${isFinished ? 'disabled' : ''}
                  data-attempt-id="${attempt.id}">
@@ -1756,6 +1846,14 @@ class FlightManager {
         </div>
         <div class="attempt-details">Attempt ${attempt.attempt_number}</div>
         <div class="attempt-status ${statusClass}">${statusText}</div>
+        <div class="attempt-item-actions">
+          <button class="action-btn edit" onclick="flightManager.editAttempt(${attempt.id})" title="Edit Attempt">
+            Edit
+          </button>
+          <button class="action-btn delete" onclick="flightManager.deleteAttempt(${attempt.id})" title="Delete Attempt">
+            Delete
+          </button>
+        </div>
       `;
       container.appendChild(item);
     });
@@ -1790,8 +1888,38 @@ class FlightManager {
           return false;
         }
       },
+      onMove: (evt) => {
+        // Prevent non-finished attempts from being moved below finished attempts
+        const draggedItem = evt.dragged;
+        const relatedItem = evt.related;
+        
+        // If dragging a non-finished item
+        if (!draggedItem.classList.contains('attempt-finished')) {
+          // And trying to place it after a finished item, prevent it
+          if (relatedItem && relatedItem.classList.contains('attempt-finished')) {
+            return false; // Prevent the move
+          }
+        }
+        
+        return true; // Allow the move
+      },
       onEnd: () => {
+        this.updateAttemptDisplayOrder();
         this.updateAttemptOrder();
+      }
+    });
+  }
+
+  // Update display order numbers after drag and drop
+  updateAttemptDisplayOrder() {
+    const container = document.getElementById("attempt-order-list");
+    if (!container) return;
+    
+    const items = container.querySelectorAll(".attempt-item");
+    items.forEach((item, index) => {
+      const numberElement = item.querySelector(".attempt-number");
+      if (numberElement) {
+        numberElement.textContent = index + 1;
       }
     });
   }
@@ -1874,13 +2002,14 @@ class FlightManager {
     const attemptItem = input.closest('.attempt-item');
     const athleteId = attemptItem.dataset.athleteId;
     
-    if (!newWeight || newWeight <= 0) {
-      this.showNotification('Weight must be a positive number', 'error');
+    // Allow any numeric value including negative weights and zero
+    if (isNaN(newWeight)) {
+      this.showNotification('Weight must be a valid number', 'error');
       input.focus();
       return;
     }
     
-    // Validate weight progression for this athlete
+    // Validate weight progression for this athlete (validation disabled in function)
     if (!this.validateWeightProgression(athleteId, attemptId, newWeight)) {
       input.focus();
       return;
@@ -1915,8 +2044,12 @@ class FlightManager {
     }
   }
 
-  // Validate weight progression for an athlete
+  // Validate weight progression for an athlete (DISABLED - allows any weight values)
   validateWeightProgression(athleteId, currentAttemptId, newWeight) {
+    // Validation disabled to allow flexible weight adjustments
+    return true;
+    
+    /* ORIGINAL VALIDATION CODE (DISABLED)
     const athleteAttempts = Array.from(document.querySelectorAll(`.attempt-item[data-athlete-id="${athleteId}"]`));
     
     for (const attemptItem of athleteAttempts) {
@@ -1939,6 +2072,7 @@ class FlightManager {
         return false;
       }
     }
+    */
     
     return true;
   }
@@ -2184,7 +2318,7 @@ class FlightManager {
       const firstPendingAttempt = attempts.find(attempt => attempt.status !== 'finished');
       
       if (!firstPendingAttempt) {
-        alert('No pending attempts found to mark as completed.');
+        this.showNotification('No pending attempts found to mark as completed.', 'warning');
         return;
       }
 
@@ -2202,19 +2336,216 @@ class FlightManager {
       if (response.ok) {
         // Reload the attempt order to show the updated queue
         await this.loadFlightAttemptOrder();
-        showFlightMessage(`Attempt by ${firstPendingAttempt.athlete_name} marked as completed.`, 'success');
+        this.showNotification(`Attempt by ${firstPendingAttempt.athlete_name} marked as completed.`, 'success');
       } else {
         const errorData = await response.json();
-        showFlightMessage(`Error: ${errorData.error}`, 'error');
+        this.showNotification(`Error: ${errorData.error}`, 'error');
       }
     } catch (error) {
       console.error('Error marking attempt as completed:', error);
-      showFlightMessage('Error marking attempt as completed', 'error');
+      this.showNotification('Error marking attempt as completed', 'error');
     }
+  }
+
+  // Filter functionality
+  applyAttemptFilters(attempts) {
+    const athleteFilter = document.getElementById("athlete-name-filter")?.value.toLowerCase() || '';
+    const statusFilter = document.getElementById("attempt-status-filter")?.value || '';
+    
+    return attempts.filter(attempt => {
+      // Athlete name filter
+      if (athleteFilter && !attempt.athlete_name.toLowerCase().includes(athleteFilter)) {
+        return false;
+      }
+      
+      // Status filter
+      if (statusFilter) {
+        const isFinished = attempt.status === 'finished' || attempt.completed_at || attempt.final_result;
+        const isInProgress = attempt.status === 'in-progress' || (attempt.started_at && !isFinished);
+        let currentStatus = 'waiting';
+        
+        if (isFinished) {
+          currentStatus = 'finished';
+        } else if (isInProgress) {
+          currentStatus = 'in-progress';
+        }
+        
+        if (currentStatus !== statusFilter) {
+          return false;
+        }
+      }
+      
+      return true;
+    });
+  }
+
+  applyFiltersAndRedisplay() {
+    if (this.allAttempts) {
+      this.displayAttemptOrder(this.allAttempts);
+    }
+  }
+
+  clearFilters() {
+    document.getElementById("athlete-name-filter").value = '';
+    document.getElementById("attempt-status-filter").value = '';
+    this.applyFiltersAndRedisplay();
+  }
+
+  // Attempt editing functionality
+  showAddAttemptModal() {
+    if (!this.currentFlightId) {
+      this.showNotification('Please select a flight first', 'warning');
+      return;
+    }
+    
+    this.currentEditingAttemptId = null;
+    this.populateAttemptModal();
+    this.showModal('attempt-modal');
+  }
+
+  async populateAttemptModal(attemptData = null) {
+    const modal = document.getElementById('attempt-modal');
+    const title = document.getElementById('attempt-modal-title');
+    
+    // Set modal title and show athlete name for editing
+    if (attemptData) {
+      title.textContent = `Edit Attempt - ${attemptData.athlete_name}`;
+      
+      // Populate form with existing data
+      document.getElementById('attempt_number').value = attemptData.attempt_number;
+      document.getElementById('attempt_weight').value = attemptData.requested_weight;
+      document.getElementById('attempt_status').value = attemptData.status || 'waiting';
+      document.getElementById('attempt_lifting_order').value = attemptData.lifting_order || '';
+    } else {
+      title.textContent = 'Add New Attempt';
+      // Reset form for new attempt
+      document.getElementById('attempt-form').reset();
+    }
+  }
+
+  async editAttempt(attemptId) {
+    try {
+      const response = await fetch(`/admin/attempts/${attemptId}`);
+      if (response.ok) {
+        const attemptData = await response.json();
+        this.currentEditingAttemptId = attemptId;
+        await this.populateAttemptModal(attemptData);
+        this.showModal('attempt-modal');
+      } else {
+        this.showNotification('Error loading attempt data', 'error');
+      }
+    } catch (error) {
+      console.error('Error loading attempt:', error);
+      this.showNotification('Error loading attempt data', 'error');
+    }
+  }
+
+  async deleteAttempt(attemptId) {
+    if (!confirm('Are you sure you want to delete this attempt?')) {
+      return;
+    }
+    
+    try {
+      const response = await fetch(`/admin/attempts/${attemptId}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+      
+      if (response.ok) {
+        await this.loadFlightAttemptOrder();
+        this.showNotification('Attempt deleted successfully', 'success');
+      } else {
+        const errorData = await response.json();
+        this.showNotification(`Error: ${errorData.error}`, 'error');
+      }
+    } catch (error) {
+      console.error('Error deleting attempt:', error);
+      this.showNotification('Error deleting attempt', 'error');
+    }
+  }
+
+  async saveAttempt() {
+    const form = document.getElementById('attempt-form');
+    const formData = new FormData(form);
+    
+    // For editing, we don't change the athlete, so use the stored athlete_id
+    let athleteId;
+    if (this.currentEditingAttemptId) {
+      // Get athlete_id from the current attempt data
+      const currentAttempt = this.allAttempts.find(a => a.id === this.currentEditingAttemptId);
+      athleteId = currentAttempt ? currentAttempt.athlete_id : null;
+    } else {
+      // For new attempts, we would need athlete selection, but this is edit-only now
+      this.showNotification('Adding new attempts is not supported in this interface', 'error');
+      return;
+    }
+    
+    // Validate required fields
+    const attemptNumber = formData.get('attempt_number');
+    const requestedWeight = formData.get('requested_weight');
+    
+    if (!athleteId || !attemptNumber || !requestedWeight) {
+      this.showNotification('Please fill in all required fields', 'error');
+      return;
+    }
+    
+    const data = {
+      athlete_id: parseInt(athleteId),
+      attempt_number: parseInt(attemptNumber),
+      requested_weight: parseFloat(requestedWeight),
+      status: formData.get('status') || 'waiting',
+      lifting_order: formData.get('lifting_order') ? parseInt(formData.get('lifting_order')) : null,
+      flight_id: this.currentFlightId
+    };
+    
+    try {
+      // Only update existing attempts now
+      const response = await fetch(`/admin/attempts/${this.currentEditingAttemptId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+      });
+      
+      if (response.ok) {
+        this.closeModals();
+        await this.loadFlightAttemptOrder();
+        this.showNotification('Attempt updated successfully', 'success');
+      } else {
+        const errorData = await response.json();
+        this.showNotification(`Error: ${errorData.error}`, 'error');
+      }
+    } catch (error) {
+      console.error('Error saving attempt:', error);
+      this.showNotification('Error saving attempt', 'error');
+    }
+  }
+
+  showModal(modalId) {
+    const modal = document.getElementById(modalId);
+    if (modal) {
+      modal.style.display = 'block';
+    }
+  }
+
+  closeModals() {
+    const modals = ['flight-modal', 'delete-flight-modal', 'attempt-modal'];
+    modals.forEach(modalId => {
+      const modal = document.getElementById(modalId);
+      if (modal) {
+        modal.style.display = 'none';
+      }
+    });
+    
+    // Reset editing state
+    this.currentEditingAttemptId = null;
   }
   
 }
 
 document.addEventListener("DOMContentLoaded", function () {
-  new FlightManager();
+  window.flightManager = new FlightManager();
 });

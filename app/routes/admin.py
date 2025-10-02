@@ -2168,14 +2168,25 @@ def remove_athlete_from_flight(flight_id, athlete_id):
         flight = Flight.query.get(flight_id)
         athlete = Athlete.query.get(athlete_id)
         
-        # Remove related AthleteEntry records for this athlete and event
+        # Remove related AthleteEntry records for this athlete and specific flight
         if flight and flight.event:
             athlete_entries = AthleteEntry.query.filter_by(
                 athlete_id=athlete_id,
-                event_id=flight.event.id
+                event_id=flight.event.id,
+                flight_id=flight_id  # Only remove entries for this specific flight
             ).all()
             
             for entry in athlete_entries:
+                # Also remove related attempts for this specific flight
+                attempts = Attempt.query.filter_by(
+                    athlete_id=athlete_id,
+                    athlete_entry_id=entry.id,
+                    flight_id=flight_id
+                ).all()
+                
+                for attempt in attempts:
+                    db.session.delete(attempt)
+                    
                 db.session.delete(entry)
         
         db.session.delete(athlete_flight)
@@ -2508,11 +2519,9 @@ def get_flight_attempts_order(flight_id):
     try:
         flight = Flight.query.get_or_404(flight_id)
         
-        # Get all attempts for athletes in this flight, ordered by lifting_order
-        attempts = db.session.query(Attempt).join(
-            AthleteFlight, Attempt.athlete_id == AthleteFlight.athlete_id
-        ).filter(
-            AthleteFlight.flight_id == flight_id
+        # Get all attempts for this specific flight, ordered by lifting_order
+        attempts = db.session.query(Attempt).filter(
+            Attempt.flight_id == flight_id
         ).order_by(
             Attempt.lifting_order.asc().nulls_last(),
             Attempt.id.asc()  # Secondary sort for consistent ordering
@@ -2530,10 +2539,8 @@ def get_flight_attempts_order(flight_id):
         if needs_commit:
             db.session.commit()
             # Re-query to get updated data
-            attempts = db.session.query(Attempt).join(
-                AthleteFlight, Attempt.athlete_id == AthleteFlight.athlete_id
-            ).filter(
-                AthleteFlight.flight_id == flight_id
+            attempts = db.session.query(Attempt).filter(
+                Attempt.flight_id == flight_id
             ).order_by(
                 Attempt.lifting_order.asc(),
                 Attempt.id.asc()
@@ -2548,6 +2555,7 @@ def get_flight_attempts_order(flight_id):
                 'attempt_number': attempt.attempt_number,
                 'requested_weight': attempt.requested_weight,
                 'lifting_order': attempt.lifting_order,
+                'status': attempt.status,
                 'final_result': attempt.final_result.value if attempt.final_result else None,
                 'started_at': attempt.started_at.isoformat() if attempt.started_at else None,
                 'completed_at': attempt.completed_at.isoformat() if attempt.completed_at else None
@@ -2665,20 +2673,28 @@ def generate_test_attempts(flight_id):
             
             # Create 3 attempts for each athlete (typical for weightlifting)
             for attempt_num in range(1, 4):
-                # Check if attempt already exists
+                # Check if attempt already exists for this athlete in this flight
                 existing = Attempt.query.filter_by(
                     athlete_id=athlete.id,
+                    flight_id=flight_id,
                     attempt_number=attempt_num
                 ).first()
                 
                 if not existing:
+                    # Get athlete entry for this flight
+                    athlete_entry = AthleteEntry.query.join(AthleteFlight).filter(
+                        AthleteEntry.athlete_id == athlete.id,
+                        AthleteFlight.flight_id == flight_id
+                    ).first()
+                    
                     # Create a test attempt with a reasonable weight
                     base_weight = 50 + (athlete.id % 20) * 5  # Vary weights based on athlete ID
                     attempt_weight = base_weight + (attempt_num - 1) * 5  # Increase each attempt
                     
                     attempt = Attempt(
                         athlete_id=athlete.id,
-                        athlete_entry_id=None,  # We might not have athlete entries yet
+                        athlete_entry_id=athlete_entry.id if athlete_entry else None,
+                        flight_id=flight_id,
                         attempt_number=attempt_num,
                         requested_weight=attempt_weight,
                         lifting_order=lifting_order
@@ -2711,10 +2727,11 @@ def update_attempt_weight(attempt_id):
         data = request.get_json()
         new_weight = data.get('weight')
         
-        if not new_weight or new_weight <= 0:
+        # Allow any numeric weight value (including negative, zero, etc.)
+        if new_weight is None or not isinstance(new_weight, (int, float)):
             return jsonify({
                 'status': 'error',
-                'message': 'Weight must be a positive number'
+                'message': 'Weight must be a valid number'
             }), 400
         
         # Check if attempt is already finished
@@ -2724,25 +2741,8 @@ def update_attempt_weight(attempt_id):
                 'message': 'Cannot modify weight of a finished attempt'
             }), 400
         
-        # Validate weight progression for this athlete
-        athlete_attempts = Attempt.query.filter_by(athlete_id=attempt.athlete_id).all()
-        for other_attempt in athlete_attempts:
-            if other_attempt.id == attempt_id:
-                continue
-                
-            # For the same athlete, later attempts must have weight >= earlier attempts
-            if attempt.attempt_number > other_attempt.attempt_number:
-                if new_weight < other_attempt.requested_weight:
-                    return jsonify({
-                        'status': 'error',
-                        'message': f'Attempt {attempt.attempt_number} weight ({new_weight}kg) cannot be less than attempt {other_attempt.attempt_number} weight ({other_attempt.requested_weight}kg) for the same athlete'
-                    }), 400
-            elif attempt.attempt_number < other_attempt.attempt_number:
-                if new_weight > other_attempt.requested_weight:
-                    return jsonify({
-                        'status': 'error',
-                        'message': f'Attempt {attempt.attempt_number} weight ({new_weight}kg) cannot be greater than attempt {other_attempt.attempt_number} weight ({other_attempt.requested_weight}kg) for the same athlete'
-                    }), 400
+        # Weight progression validation DISABLED - allow any weight values
+        # (Original validation code removed to allow flexible weight adjustments)
         
         # Update the weight
         attempt.requested_weight = new_weight
@@ -2768,9 +2768,6 @@ def update_attempt_weight(attempt_id):
 @admin_bp.route('/update_attempt_status', methods=['POST'])
 def update_attempt_status():
     """Update the status of an attempt"""
-    if session.get('role') != 'admin':
-        return jsonify({'error': 'Unauthorized access'}), 403
-    
     try:
         data = request.get_json()
         
@@ -2809,3 +2806,165 @@ def update_attempt_status():
         db.session.rollback()
         print(f"Error updating attempt status: {str(e)}")
         return jsonify({'error': 'Failed to update attempt status'}), 500
+
+
+@admin_bp.route('/attempts/<int:attempt_id>', methods=['GET'])
+def get_attempt(attempt_id):
+    """Get a specific attempt"""
+    try:
+        attempt = Attempt.query.get_or_404(attempt_id)
+        
+        # Get athlete information
+        athlete = Athlete.query.get(attempt.athlete_id)
+        athlete_name = f"{athlete.first_name} {athlete.last_name}" if athlete else "Unknown Athlete"
+        
+        return jsonify({
+            'id': attempt.id,
+            'athlete_id': attempt.athlete_id,
+            'athlete_name': athlete_name,
+            'attempt_number': attempt.attempt_number,
+            'requested_weight': attempt.requested_weight,
+            'status': attempt.status or 'waiting',
+            'lifting_order': attempt.lifting_order,
+            'completed_at': attempt.completed_at.isoformat() if attempt.completed_at else None,
+            'final_result': attempt.final_result
+        })
+        
+    except Exception as e:
+        print(f"Error getting attempt: {str(e)}")
+        return jsonify({'error': 'Failed to get attempt'}), 500
+
+
+@admin_bp.route('/attempts', methods=['POST'])
+def create_attempt():
+    """Create a new attempt"""
+    try:
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+        
+        # Validate required fields
+        required_fields = ['athlete_id', 'attempt_number', 'requested_weight', 'flight_id']
+        for field in required_fields:
+            if field not in data:
+                return jsonify({'error': f'{field} is required'}), 400
+        
+        # Check if athlete is in the flight
+        athlete_flight = AthleteFlight.query.filter_by(
+            athlete_id=data['athlete_id'],
+            flight_id=data['flight_id']
+        ).first()
+        
+        if not athlete_flight:
+            return jsonify({'error': 'Athlete is not registered in this flight'}), 400
+        
+        # Check for duplicate attempt (per athlete per flight)
+        existing_attempt = Attempt.query.filter_by(
+            athlete_id=data['athlete_id'],
+            flight_id=data['flight_id'],
+            attempt_number=data['attempt_number']
+        ).first()
+        
+        if existing_attempt:
+            return jsonify({'error': f'Attempt {data["attempt_number"]} already exists for this athlete in this flight'}), 400
+        
+        # Get athlete entry for this flight
+        athlete_entry = AthleteEntry.query.join(AthleteFlight).filter(
+            AthleteEntry.athlete_id == data['athlete_id'],
+            AthleteFlight.flight_id == data['flight_id']
+        ).first()
+        
+        if not athlete_entry:
+            return jsonify({'error': 'No athlete entry found for this athlete in this flight'}), 400
+        
+        # Create new attempt
+        attempt = Attempt(
+            athlete_id=data['athlete_id'],
+            athlete_entry_id=athlete_entry.id,
+            flight_id=data['flight_id'],
+            attempt_number=data['attempt_number'],
+            requested_weight=data['requested_weight'],
+            lifting_order=data.get('lifting_order'),
+        )
+        
+        # Set status if provided
+        if 'status' in data:
+            attempt.status = data['status']
+        
+        db.session.add(attempt)
+        db.session.commit()
+        
+        return jsonify({
+            'message': 'Attempt created successfully',
+            'attempt_id': attempt.id
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error creating attempt: {str(e)}")
+        return jsonify({'error': 'Failed to create attempt'}), 500
+
+
+@admin_bp.route('/attempts/<int:attempt_id>', methods=['PUT'])
+def update_attempt(attempt_id):
+    """Update an existing attempt"""
+    try:
+        attempt = Attempt.query.get_or_404(attempt_id)
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+        
+        # Update fields if provided
+        if 'requested_weight' in data:
+            attempt.requested_weight = data['requested_weight']
+        
+        if 'status' in data:
+            attempt.status = data['status']
+            
+        if 'lifting_order' in data:
+            attempt.lifting_order = data['lifting_order']
+            
+        if 'attempt_number' in data:
+            # Check for duplicate attempt numbers for the same athlete in the same flight
+            existing_attempt = Attempt.query.filter_by(
+                athlete_id=attempt.athlete_id,
+                flight_id=attempt.flight_id,
+                attempt_number=data['attempt_number']
+            ).filter(Attempt.id != attempt_id).first()
+            
+            if existing_attempt:
+                return jsonify({'error': f'Attempt {data["attempt_number"]} already exists for this athlete in this flight'}), 400
+            
+            attempt.attempt_number = data['attempt_number']
+        
+        db.session.commit()
+        
+        return jsonify({'message': 'Attempt updated successfully'})
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error updating attempt: {str(e)}")
+        return jsonify({'error': 'Failed to update attempt'}), 500
+
+
+@admin_bp.route('/attempts/<int:attempt_id>', methods=['DELETE'])
+def delete_attempt(attempt_id):
+    """Delete an attempt"""
+    try:
+        attempt = Attempt.query.get_or_404(attempt_id)
+        
+        # Don't allow deletion of finished attempts
+        if attempt.completed_at or attempt.final_result:
+            return jsonify({'error': 'Cannot delete finished attempts'}), 400
+        
+        db.session.delete(attempt)
+        db.session.commit()
+        
+        return jsonify({'message': 'Attempt deleted successfully'})
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error deleting attempt: {str(e)}")
+        return jsonify({'error': 'Failed to delete attempt'}), 500

@@ -854,7 +854,7 @@
 
 .attempt-item {
   display: grid;
-  grid-template-columns: 50px 1fr auto auto auto;
+  grid-template-columns: 50px 1fr auto auto auto auto;
   gap: 1rem;
   align-items: center;
   padding: 0.75rem;
@@ -864,6 +864,7 @@
   border-radius: 4px;
   cursor: move;
   transition: all 0.2s;
+  position: relative;
 }
 
 .attempt-item:hover {
@@ -1019,6 +1020,115 @@
   background: #e9ecef;
 }
 
+/* Attempt Filter Controls */
+.attempt-filter-controls {
+  background: #f8f9fa;
+  padding: 1rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.filter-group label {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #495057;
+}
+
+.filter-input, .filter-select {
+  padding: 0.5rem;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  min-width: 150px;
+}
+
+.filter-input:focus, .filter-select:focus {
+  border-color: #80bdff;
+  box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+  outline: none;
+}
+
+/* Attempt Item Enhancement */
+
+.attempt-item-actions {
+  display: flex;
+  gap: 0.25rem;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  justify-self: end;
+}
+
+.attempt-item:hover .attempt-item-actions {
+  opacity: 1;
+}
+
+.action-btn {
+  padding: 0.25rem 0.5rem;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 0.75rem;
+  transition: all 0.2s ease;
+}
+
+.action-btn.edit {
+  background: #ffc107;
+  color: #212529;
+}
+
+.action-btn.edit:hover {
+  background: #e0a800;
+}
+
+.action-btn.delete {
+  background: #dc3545;
+  color: white;
+}
+
+.action-btn.delete:hover {
+  background: #c82333;
+}
+
+/* Attempt Modal Specific Styles */
+#attempt-modal .modal-content {
+  max-width: 500px;
+}
+
+#attempt-modal .form-group {
+  margin-bottom: 1rem;
+}
+
+#attempt-modal label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+  color: #495057;
+}
+
+#attempt-modal input, #attempt-modal select {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  font-size: 1rem;
+}
+
+#attempt-modal input:focus, #attempt-modal select:focus {
+  border-color: #80bdff;
+  box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+  outline: none;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .attempt-item {
@@ -1034,5 +1144,18 @@
   .attempt-controls .btn {
     flex: 1;
     min-width: 120px;
+  }
+  
+  .attempt-filter-controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .filter-group {
+    width: 100%;
+  }
+  
+  .filter-input, .filter-select {
+    min-width: auto;
   }
 }
