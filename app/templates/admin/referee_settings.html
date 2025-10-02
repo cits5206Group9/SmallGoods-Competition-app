@@ -823,7 +823,7 @@ class RefereeSettings {
                 this.competitions.forEach(comp => {
                     const option = document.createElement('option');
                     option.value = comp.id;
-                    option.textContent = `${comp.name} (${comp.sport_type || 'Unknown'})`;
+                    option.textContent = comp.name;
                     
                     // Mark current competition as selected
                     if (comp.id.toString() === this.selectedCompetitionId) {

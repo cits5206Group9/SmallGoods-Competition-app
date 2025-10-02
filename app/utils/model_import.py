@@ -17,7 +17,7 @@ def import_competition_model(data):
         # Create base competition
         competition = Competition(
             name=data['name'],
-            description=f"Sport type: {data.get('sport_type', 'Not specified')}",
+            description=data.get('description', ''),
             start_date=datetime.now().date(),
             end_date=datetime.now().date(),
             is_active=True
