@@ -50,7 +50,6 @@ class Competition(db.Model):
     name = db.Column(db.String(200), nullable=False)
     description = db.Column(db.Text)
     start_date = db.Column(db.Date, nullable=False)
-    sport_type = db.Column(db.Enum(SportType), nullable=False)
     is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     config = db.Column(db.JSON)
@@ -66,6 +65,7 @@ class Event(db.Model):
     name = db.Column(db.String(150), nullable=False)
     weight_category = db.Column(db.String(50))
     gender = db.Column(db.String(10))
+    sport_type = db.Column(db.Enum(SportType), nullable=False)
     scoring_type = db.Column(db.Enum(ScoringType), nullable=False, default=ScoringType.MAX)
     is_active = db.Column(db.Boolean, default=False)
 

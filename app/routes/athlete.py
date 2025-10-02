@@ -367,7 +367,6 @@ def athlete_dashboard():
                 'name': competition.name,
                 'description': competition.description,
                 'start_date': competition.start_date.strftime('%Y-%m-%d'),
-                'sport_type': competition.sport_type.value if competition.sport_type else None,
                 'is_active': competition.is_active,
                 'rankings': []  # Add rankings if needed
             }
