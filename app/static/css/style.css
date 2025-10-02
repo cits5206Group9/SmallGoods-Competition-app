@@ -236,6 +236,11 @@ input:focus, select:focus, textarea:focus {
   --brand-600:#2a6fe0;
   --brand-500:#3d7ff0;
   --ink-0:#ffffff;
+  --ink-25:#fafbfc;
+  --ink-50:#f4f6f8;
+  --ink-200:#e1e7ef;
+  --ink-400:#8a9ba8;
+  --ink-600:#5c6f7f;
   --ink-700:#24344d;
   --line:#e6edfb;
   --shadow-soft:0 6px 18px rgba(10, 61, 147, .08);
@@ -289,36 +294,201 @@ input:focus, select:focus, textarea:focus {
 .site-nav .nav-link:active { transform: translateY(1px); }
 .site-nav .nav-link.active { background:#fff; color:var(--brand-700); }
 
-/* Admin Logout Button */
-.admin-logout {
+/* Admin Dropdown Menu */
+.admin-dropdown {
+  position: relative;
   margin-left: auto;
 }
 
-.logout-btn {
+.admin-menu-btn {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.5rem 0.75rem;
+  padding: 0.75rem 1rem;
   border-radius: var(--radius-md);
-  text-decoration: none;
+  background: transparent;
+  border: none;
   color: var(--ink-0);
   font-weight: 600;
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  cursor: pointer;
   transition: all 0.2s ease;
+  font-size: 0.95rem;
+  text-decoration: none;
 }
 
-.logout-btn:hover {
-  background: rgba(255, 255, 255, 0.2);
-  transform: translateY(-1px);
+.admin-menu-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-md);
 }
 
-.logout-btn:active {
+.dropdown-arrow {
+  transition: transform 0.2s ease;
+}
+
+.admin-menu-btn.active .dropdown-arrow {
+  transform: rotate(180deg);
+}
+
+.admin-dropdown-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 0.5rem;
+  background: white;
+  border-radius: var(--radius-md);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  min-width: 180px;
+  overflow: hidden;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-10px);
+  transition: all 0.2s ease;
+  z-index: 1000;
+}
+
+.admin-dropdown-menu.show {
+  opacity: 1;
+  visibility: visible;
   transform: translateY(0);
 }
 
-.logout-text {
-  font-size: 0.9rem;
+.dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  text-decoration: none;
+  color: var(--ink-600);
+  font-weight: 500;
+  transition: background-color 0.15s ease;
+  border: none;
+  background: none;
+  width: 100%;
+  text-align: left;
+}
+
+.dropdown-item:hover {
+  background-color: var(--ink-50);
+}
+
+.dropdown-item svg {
+  width: 16px;
+  height: 16px;
+  opacity: 0.7;
+}
+
+/* Account Settings Modal */
+.modal {
+  display: none;
+  position: fixed;
+  z-index: 2000;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+  background-color: rgba(0, 0, 0, 0.5);
+}
+
+.modal-content {
+  background-color: white;
+  margin: 5% auto;
+  padding: 0;
+  border-radius: var(--radius-lg);
+  width: 90%;
+  max-width: 500px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem;
+  border-bottom: 1px solid var(--ink-200);
+}
+
+.modal-header h2 {
+  margin: 0;
+  color: var(--ink-700);
+  font-size: 1.5rem;
+}
+
+.close {
+  color: var(--ink-400);
+  font-size: 28px;
+  font-weight: bold;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.close:hover {
+  color: var(--ink-600);
+}
+
+.modal-body {
+  padding: 1.5rem;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+  padding: 1rem 1.5rem;
+  border-top: 1px solid var(--ink-200);
+  background-color: var(--ink-25);
+}
+
+.form-group {
+  margin-bottom: 1.25rem;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+  color: var(--ink-700);
+}
+
+.form-group input {
+  width: 100%;
+  padding: 0.75rem;
+  border: 2px solid var(--ink-200);
+  border-radius: var(--radius-md);
+  font-size: 1rem;
+  transition: border-color 0.2s ease;
+}
+
+.form-group input:focus {
+  outline: none;
+  border-color: var(--brand-500);
+}
+
+.btn {
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-primary {
+  background-color: var(--brand-500);
+  color: white;
+}
+
+.btn-primary:hover {
+  background-color: var(--brand-600);
+}
+
+.btn-secondary {
+  background-color: var(--ink-100);
+  color: var(--ink-600);
+}
+
+.btn-secondary:hover {
+  background-color: var(--ink-200);
 }
 
 /* Main wrapper for pages that extend base.html */
