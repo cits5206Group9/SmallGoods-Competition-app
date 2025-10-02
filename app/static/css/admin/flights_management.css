@@ -806,3 +806,155 @@
     transform: translate(-50%, -50%) rotate(360deg);
   }
 }
+
+/* Attempt Order Management Styles */
+.attempt-order-section {
+  margin-top: 2rem;
+  padding-top: 2rem;
+  border-top: 1px solid #e9ecef;
+}
+
+.attempt-order-section h3 {
+  color: #2c3e50;
+  margin-bottom: 1rem;
+}
+
+.attempt-instructions {
+  color: #6c757d;
+  margin-bottom: 1rem;
+  padding: 0.75rem;
+  background: #f8f9fa;
+  border-radius: 4px;
+  border-left: 4px solid #17a2b8;
+}
+
+.attempt-instructions .icon-info {
+  margin-right: 0.5rem;
+}
+
+.attempt-controls {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.attempt-controls .btn {
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+}
+
+.attempt-order-list {
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  min-height: 200px;
+  padding: 1rem;
+  background: #f8f9fa;
+}
+
+.attempt-item {
+  display: grid;
+  grid-template-columns: 50px 1fr auto auto auto;
+  gap: 1rem;
+  align-items: center;
+  padding: 0.75rem;
+  margin-bottom: 0.5rem;
+  background: white;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  cursor: move;
+  transition: all 0.2s;
+}
+
+.attempt-item:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transform: translateY(-1px);
+}
+
+.attempt-item:last-child {
+  margin-bottom: 0;
+}
+
+.attempt-number {
+  font-weight: bold;
+  color: #495057;
+  text-align: center;
+  background: #e9ecef;
+  border-radius: 50%;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.9rem;
+}
+
+.attempt-athlete-name {
+  font-weight: 500;
+  color: #2c3e50;
+}
+
+.attempt-athlete-weight {
+  font-weight: bold;
+  color: #495057;
+  text-align: center;
+}
+
+.attempt-details {
+  color: #6c757d;
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+.attempt-status {
+  font-size: 0.8rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 12px;
+  text-align: center;
+  font-weight: 500;
+}
+
+.attempt-status:contains("Pending") {
+  background: #ffc107;
+  color: #856404;
+}
+
+.attempt-status:contains("good_lift") {
+  background: #28a745;
+  color: white;
+}
+
+.attempt-status:contains("no_lift") {
+  background: #dc3545;
+  color: white;
+}
+
+.no-attempts {
+  text-align: center;
+  color: #6c757d;
+  font-style: italic;
+  padding: 2rem;
+}
+
+.sortable-ghost {
+  opacity: 0.5;
+  background: #e9ecef;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .attempt-item {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+    text-align: center;
+  }
+  
+  .attempt-controls {
+    justify-content: center;
+  }
+  
+  .attempt-controls .btn {
+    flex: 1;
+    min-width: 120px;
+  }
+}

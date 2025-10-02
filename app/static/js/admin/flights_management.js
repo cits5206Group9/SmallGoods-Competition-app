@@ -309,6 +309,14 @@ class FlightManager {
         this.applyFlightFilters()
       );
     }
+    
+    // Movement filter
+    const movementFilter = document.getElementById("movement-filter");
+    if (movementFilter) {
+      movementFilter.addEventListener("change", () =>
+        this.applyFlightFilters()
+      );
+    }
 
     // Modal form elements
     if (this.flightCompetitionSelect) {
@@ -567,6 +575,9 @@ class FlightManager {
       : "";
     const statusValue = this.statusFilter ? this.statusFilter.value : "";
     const eventValue = this.eventFilter ? this.eventFilter.value : "";
+    const movementValue = document.getElementById("movement-filter") 
+      ? document.getElementById("movement-filter").value 
+      : "";
 
     this.filteredFlights = this.allFlights.filter((flight) => {
       const matchesSearch =
@@ -575,7 +586,9 @@ class FlightManager {
         (flight.event_name &&
           flight.event_name.toLowerCase().includes(searchTerm)) ||
         (flight.competition_name &&
-          flight.competition_name.toLowerCase().includes(searchTerm));
+          flight.competition_name.toLowerCase().includes(searchTerm)) ||
+        (flight.movement_type &&
+          flight.movement_type.toLowerCase().includes(searchTerm));
 
       const matchesCompetition =
         !competitionValue || flight.competition_name === competitionValue;
@@ -586,9 +599,11 @@ class FlightManager {
         (statusValue === "inactive" && !flight.is_active);
 
       const matchesEvent = !eventValue || flight.event_name === eventValue;
+      
+      const matchesMovement = !movementValue || flight.movement_type === movementValue;
 
       return (
-        matchesSearch && matchesCompetition && matchesStatus && matchesEvent
+        matchesSearch && matchesCompetition && matchesStatus && matchesEvent && matchesMovement
       );
     });
 
@@ -741,6 +756,7 @@ class FlightManager {
         <div class="flight-event-info">
             <small><strong>Competition:</strong> ${competitionInfo}</small>
             <small><strong>Event:</strong> ${eventInfo}</small>
+            <small><strong>Movement:</strong> ${flight.movement_type || 'No Movement'}</small>
         </div>
     `;
 
@@ -931,6 +947,7 @@ class FlightManager {
         document.getElementById("flight_name").value = flight.name || '';
         document.getElementById("flight_order").value = flight.order || 1;
         document.getElementById("flight_is_active").checked = flight.is_active || false;
+        document.getElementById("flight_movement_type").value = flight.movement_type || '';
 
         // Set competition if available
         if (flight.competition_id) {
@@ -955,6 +972,7 @@ class FlightManager {
         document.getElementById("flight_name").value = flightData.name || '';
         document.getElementById("flight_order").value = flightData.order || 1;
         document.getElementById("flight_is_active").checked = flightData.is_active || false;
+        document.getElementById("flight_movement_type").value = flightData.movement_type || '';
 
         // Set competition and event if available
         if (flightData.competition_id) {
@@ -998,7 +1016,8 @@ class FlightManager {
       name: formData.get("flight_name"),
       order: parseInt(formData.get("flight_order")),
       is_active: formData.has("is_active"),
-      competition_id: parseInt(competitionId)
+      competition_id: parseInt(competitionId),
+      movement_type: formData.get("movement_type") || null
     };
 
     // Only add event_id if it's provided and not empty
@@ -1120,6 +1139,9 @@ class FlightManager {
 
     // Load flight athletes
     await this.loadFlightAthletes(flightId);
+    
+    // Load attempt order for this flight
+    await this.loadFlightAttemptOrder();
 
     // Show athletes section
     this.flightsList.style.display = "none";
@@ -1530,6 +1552,11 @@ class FlightManager {
   }
 
   async sortAttempts(sortType) {
+    if (!this.currentFlightId) {
+      this.showNotification("No flight selected", "error");
+      return;
+    }
+
     // Show loading state on the clicked button
     const buttonMap = {
       'weight': document.getElementById('sort-by-weight'),
@@ -1544,66 +1571,140 @@ class FlightManager {
       clickedButton.disabled = true;
     }
 
-    const container = document.getElementById("attempt-order-list");
-    const items = Array.from(container.querySelectorAll(".attempt-item"));
-
-    switch (sortType) {
-      case "weight":
-        items.sort((a, b) => {
-          const weightA =
-            parseFloat(
-              a.querySelector(".attempt-athlete-weight").textContent
-            ) || 0;
-          const weightB =
-            parseFloat(
-              b.querySelector(".attempt-athlete-weight").textContent
-            ) || 0;
-          return weightA - weightB;
-        });
-        break;
-      case "name":
-        items.sort((a, b) => {
-          const nameA = a.querySelector(".attempt-athlete-name").textContent;
-          const nameB = b.querySelector(".attempt-athlete-name").textContent;
-          return nameA.localeCompare(nameB);
-        });
-        break;
-      case "random":
-        for (let i = items.length - 1; i > 0; i--) {
-          const j = Math.floor(Math.random() * (i + 1));
-          [items[i], items[j]] = [items[j], items[i]];
-        }
-        break;
-    }
-
-    // Clear container and re-add sorted items
-    container.innerHTML = "";
-    items.forEach((item, index) => {
-      item.querySelector(".attempt-number").textContent = index + 1;
-      container.appendChild(item);
-    });
-
-    // Save the new order to the database
     try {
-      await this.updateAthleteOrder();
-      
-      // Show success state briefly
-      if (clickedButton) {
-        clickedButton.textContent = '✓ Saved';
-        clickedButton.style.background = '#28a745';
-        setTimeout(() => {
-          clickedButton.textContent = originalText;
-          clickedButton.style.background = '';
-          clickedButton.disabled = false;
-        }, 2000);
+      const response = await fetch(`/admin/flights/${this.currentFlightId}/attempts/sort/${sortType}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest'
+        }
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || `Failed to sort attempts by ${sortType}`);
       }
+
+      const result = await response.json();
+      this.showNotification(result.message || `Attempts sorted by ${sortType} successfully`, "success");
+      
+      // Reload attempt order
+      this.loadFlightAttemptOrder();
+      
     } catch (error) {
-      // Reset button on error
+      console.error('Error sorting attempts:', error);
+      this.showNotification(error.message || `Error sorting attempts by ${sortType}`, "error");
+    } finally {
+      // Restore button state
       if (clickedButton) {
-        clickedButton.textContent = originalText;
+        const buttonText = {
+          'weight': 'Sort by Weight',
+          'name': 'Sort by Name', 
+          'random': 'Randomize Order'
+        };
+        clickedButton.textContent = buttonText[sortType] || 'Sort';
         clickedButton.disabled = false;
       }
-      throw error; // Re-throw to let updateAthleteOrder handle the error display
+    }
+  }
+
+  // Load and display flight attempt order
+  async loadFlightAttemptOrder() {
+    if (!this.currentFlightId) return;
+    
+    try {
+      const response = await fetch(`/admin/flights/${this.currentFlightId}/attempts/order`);
+      if (!response.ok) {
+        throw new Error('Failed to load attempt order');
+      }
+      
+      const data = await response.json();
+      this.displayAttemptOrder(data.attempts || []);
+      
+    } catch (error) {
+      console.error('Error loading attempt order:', error);
+      this.showNotification('Error loading attempt order', 'error');
+    }
+  }
+
+  // Display attempt order in the UI
+  displayAttemptOrder(attempts) {
+    const container = document.getElementById("attempt-order-list");
+    if (!container) return;
+    
+    container.innerHTML = "";
+    
+    if (attempts.length === 0) {
+      container.innerHTML = '<p class="no-attempts">No attempts found for this flight.</p>';
+      return;
+    }
+    
+    attempts.forEach((attempt, index) => {
+      const item = document.createElement("div");
+      item.className = "attempt-item";
+      item.dataset.attemptId = attempt.id;
+      item.innerHTML = `
+        <div class="attempt-number">${attempt.lifting_order || index + 1}</div>
+        <div class="attempt-athlete-name">${attempt.athlete_name}</div>
+        <div class="attempt-athlete-weight">${attempt.requested_weight}kg</div>
+        <div class="attempt-details">Attempt ${attempt.attempt_number}</div>
+        <div class="attempt-status">${attempt.final_result || 'Pending'}</div>
+      `;
+      container.appendChild(item);
+    });
+    
+    // Initialize sortable for drag and drop reordering
+    this.initializeAttemptsSortable();
+  }
+
+  // Initialize sortable for attempt reordering
+  initializeAttemptsSortable() {
+    const container = document.getElementById("attempt-order-list");
+    if (!container || this.attemptsSortable) return;
+    
+    this.attemptsSortable = Sortable.create(container, {
+      animation: 150,
+      ghostClass: 'sortable-ghost',
+      onEnd: () => {
+        this.updateAttemptOrder();
+      }
+    });
+  }
+
+  // Update attempt order after drag and drop
+  async updateAttemptOrder() {
+    if (!this.currentFlightId) return;
+    
+    const container = document.getElementById("attempt-order-list");
+    const items = Array.from(container.querySelectorAll(".attempt-item"));
+    
+    const updates = items.map((item, index) => ({
+      id: parseInt(item.dataset.attemptId),
+      lifting_order: index + 1
+    }));
+    
+    try {
+      const response = await fetch(`/admin/flights/${this.currentFlightId}/attempts/reorder`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: JSON.stringify({ updates })
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to update attempt order');
+      }
+      
+      const result = await response.json();
+      this.showNotification(result.message || 'Attempt order updated successfully', 'success');
+      
+    } catch (error) {
+      console.error('Error updating attempt order:', error);
+      this.showNotification('Error updating attempt order', 'error');
+      // Reload to restore original order
+      this.loadFlightAttemptOrder();
     }
   }
 

@@ -114,13 +114,21 @@ console.log("Data setup complete - no localStorage used");
           <select id="event-filter" class="filter-select">
             <option value="">All Events</option>
           </select>
+          <select id="movement-filter" class="filter-select">
+            <option value="">All Movements</option>
+            <option value="snatch">Snatch</option>
+            <option value="clean_jerk">Clean & Jerk</option>
+            <option value="squat">Squat</option>
+            <option value="bench">Bench Press</option>
+            <option value="deadlift">Deadlift</option>
+          </select>
         </div>
       </div>
 
       <div class="flights-grid" id="flights-grid">
         <!-- SSR rendered flight cards -->
         {% for flight in flights %}
-        <div class="flight-card" data-flight-id="{{ flight.id }}" data-competition-id="{{ flight.competition_id or '' }}" data-event-id="{{ flight.event_id or '' }}">
+        <div class="flight-card" data-flight-id="{{ flight.id }}" data-competition-id="{{ flight.competition_id or '' }}" data-event-id="{{ flight.event_id or '' }}" data-movement-type="{{ flight.movement_type or '' }}">
           <div class="flight-header">
             <h3>{{ flight.name }}</h3>
             <div class="flight-order">Order: {{ flight.order }}</div>
@@ -128,6 +136,7 @@ console.log("Data setup complete - no localStorage used");
           <div class="flight-info">
             <p><strong>Competition:</strong> {{ flight.competition_name or 'No Competition' }}</p>
             <p><strong>Event:</strong> {{ flight.event_name or 'No Event' }}</p>
+            <p><strong>Movement:</strong> {{ flight.movement_type or 'No Movement' }}</p>
             <p><strong>Athletes:</strong> {{ flight.athlete_count }}</p>
             <p><strong>Status:</strong> 
               <span class="status-badge {{ 'active' if flight.is_active else 'inactive' }}">
@@ -278,6 +287,17 @@ console.log("Data setup complete - no localStorage used");
           <label for="flight_event_id">Event</label>
           <select id="flight_event_id" name="event_id">
             <option value="">Select Event (Optional)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="flight_movement_type">Movement Type</label>
+          <select id="flight_movement_type" name="movement_type">
+            <option value="">Select Movement (Optional)</option>
+            <option value="snatch">Snatch</option>
+            <option value="clean_jerk">Clean & Jerk</option>
+            <option value="squat">Squat</option>
+            <option value="bench">Bench Press</option>
+            <option value="deadlift">Deadlift</option>
           </select>
         </div>
         <div class="form-group">

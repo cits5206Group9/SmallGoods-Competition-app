@@ -551,6 +551,7 @@ def flights_management():
                 'name': flight.name,
                 'order': flight.order,
                 'is_active': flight.is_active,
+                'movement_type': flight.movement_type,
                 'event_id': flight.event_id,
                 'event_name': event_name,
                 'competition_id': competition_id,
@@ -1482,7 +1483,8 @@ def create_flight():
             competition_id=competition_id,
             name=data.get('name', '').strip(),
             order=int(data.get('order', 1)),
-            is_active=bool(data.get('is_active', False))
+            is_active=bool(data.get('is_active', False)),
+            movement_type=data.get('movement_type', '').strip() or None
         )
         
         db.session.add(flight)
@@ -1502,6 +1504,7 @@ def create_flight():
                 'name': flight.name,
                 'order': flight.order,
                 'is_active': flight.is_active,
+                'movement_type': flight.movement_type,
                 'event_id': flight.event_id,
                 'event_name': flight.event.name if flight.event else None,
                 'competition_id': flight.competition_id or (flight.event.competition_id if flight.event and flight.event.competition else None),
@@ -1594,6 +1597,7 @@ def get_flight(flight_id):
             'name': flight.name,
             'order': flight.order,
             'is_active': flight.is_active,
+            'movement_type': flight.movement_type,
             'event_id': flight.event_id,
             'event_name': event_name,
             'competition_id': competition_id,
@@ -1627,6 +1631,10 @@ def update_flight(flight_id):
             flight.order = int(data['order'])
         if 'is_active' in data:
             flight.is_active = bool(data['is_active'])
+        if 'movement_type' in data:
+            flight.movement_type = data['movement_type'].strip() or None
+        if 'movement_type' in data:
+            flight.movement_type = data['movement_type'].strip() or None
         if 'competition_id' in data:
             competition_id = data['competition_id']
             if competition_id:
@@ -1675,6 +1683,7 @@ def update_flight(flight_id):
                 'name': flight.name,
                 'order': flight.order,
                 'is_active': flight.is_active,
+                'movement_type': flight.movement_type,
                 'event_id': flight.event_id,
                 'event_name': flight.event.name if flight.event else None,
                 'competition_id': flight.competition_id or (flight.event.competition_id if flight.event and flight.event.competition else None),
@@ -2487,3 +2496,117 @@ def api_timer_defaults():
         "event_id": event_id,
         "flight_id": flight_id
     })
+
+# Lifting Order Management Routes
+@admin_bp.route('/flights/<int:flight_id>/attempts/order', methods=['GET'])
+def get_flight_attempts_order(flight_id):
+    """Get attempts ordered by lifting_order for a flight"""
+    try:
+        flight = Flight.query.get_or_404(flight_id)
+        
+        # Get all attempts for athletes in this flight, ordered by lifting_order
+        attempts = db.session.query(Attempt).join(
+            AthleteFlight, Attempt.athlete_id == AthleteFlight.athlete_id
+        ).filter(
+            AthleteFlight.flight_id == flight_id
+        ).order_by(Attempt.lifting_order.asc()).all()
+        
+        attempts_data = []
+        for attempt in attempts:
+            attempts_data.append({
+                'id': attempt.id,
+                'athlete_id': attempt.athlete_id,
+                'athlete_name': f"{attempt.athlete.first_name} {attempt.athlete.last_name}",
+                'attempt_number': attempt.attempt_number,
+                'requested_weight': attempt.requested_weight,
+                'lifting_order': attempt.lifting_order,
+                'final_result': attempt.final_result.value if attempt.final_result else None
+            })
+        
+        return jsonify({
+            'status': 'success',
+            'attempts': attempts_data
+        }), 200
+        
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': 'Failed to retrieve attempts order: ' + str(e)
+        }), 500
+
+@admin_bp.route('/flights/<int:flight_id>/attempts/reorder', methods=['POST'])
+def reorder_flight_attempts(flight_id):
+    """Reorder attempts by lifting_order for a flight"""
+    try:
+        flight = Flight.query.get_or_404(flight_id)
+        data = request.get_json()
+        updates = data.get('updates', [])
+        
+        for update in updates:
+            attempt_id = update.get('id')
+            new_lifting_order = update.get('lifting_order')
+            
+            attempt = Attempt.query.get(attempt_id)
+            if attempt:
+                attempt.lifting_order = new_lifting_order
+        
+        db.session.commit()
+        
+        return jsonify({
+            'status': 'success',
+            'message': 'Attempt order updated successfully'
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'status': 'error',
+            'message': 'Failed to update attempt order: ' + str(e)
+        }), 500
+
+@admin_bp.route('/flights/<int:flight_id>/attempts/sort/<sort_type>', methods=['POST'])
+def sort_flight_attempts(flight_id, sort_type):
+    """Sort attempts by various criteria (weight, name, random)"""
+    try:
+        flight = Flight.query.get_or_404(flight_id)
+        
+        # Get all attempts for athletes in this flight
+        attempts = db.session.query(Attempt).join(
+            AthleteFlight, Attempt.athlete_id == AthleteFlight.athlete_id
+        ).filter(
+            AthleteFlight.flight_id == flight_id
+        ).all()
+        
+        if sort_type == 'weight':
+            # Sort by requested weight (ascending)
+            attempts.sort(key=lambda x: x.requested_weight or 0)
+        elif sort_type == 'name':
+            # Sort by athlete name
+            attempts.sort(key=lambda x: f"{x.athlete.first_name} {x.athlete.last_name}")
+        elif sort_type == 'random':
+            # Randomize order
+            import random
+            random.shuffle(attempts)
+        else:
+            return jsonify({
+                'status': 'error',
+                'message': 'Invalid sort type. Use: weight, name, or random'
+            }), 400
+        
+        # Update lifting_order based on new order
+        for i, attempt in enumerate(attempts):
+            attempt.lifting_order = i + 1
+        
+        db.session.commit()
+        
+        return jsonify({
+            'status': 'success',
+            'message': f'Attempts sorted by {sort_type} successfully'
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'status': 'error',
+            'message': 'Failed to sort attempts: ' + str(e)
+        }), 500
