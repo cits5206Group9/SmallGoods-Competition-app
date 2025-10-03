@@ -114,13 +114,21 @@ console.log("Data setup complete - no localStorage used");
           <select id="event-filter" class="filter-select">
             <option value="">All Events</option>
           </select>
+          <select id="movement-filter" class="filter-select">
+            <option value="">All Movements</option>
+            <option value="snatch">Snatch</option>
+            <option value="clean_jerk">Clean & Jerk</option>
+            <option value="squat">Squat</option>
+            <option value="bench">Bench Press</option>
+            <option value="deadlift">Deadlift</option>
+          </select>
         </div>
       </div>
 
       <div class="flights-grid" id="flights-grid">
         <!-- SSR rendered flight cards -->
         {% for flight in flights %}
-        <div class="flight-card" data-flight-id="{{ flight.id }}" data-competition-id="{{ flight.competition_id or '' }}" data-event-id="{{ flight.event_id or '' }}">
+        <div class="flight-card" data-flight-id="{{ flight.id }}" data-competition-id="{{ flight.competition_id or '' }}" data-event-id="{{ flight.event_id or '' }}" data-movement-type="{{ flight.movement_type or '' }}">
           <div class="flight-header">
             <h3>{{ flight.name }}</h3>
             <div class="flight-order">Order: {{ flight.order }}</div>
@@ -128,6 +136,7 @@ console.log("Data setup complete - no localStorage used");
           <div class="flight-info">
             <p><strong>Competition:</strong> {{ flight.competition_name or 'No Competition' }}</p>
             <p><strong>Event:</strong> {{ flight.event_name or 'No Event' }}</p>
+            <p><strong>Movement:</strong> {{ flight.movement_type or 'No Movement' }}</p>
             <p><strong>Athletes:</strong> {{ flight.athlete_count }}</p>
             <p><strong>Status:</strong> 
               <span class="status-badge {{ 'active' if flight.is_active else 'inactive' }}">
@@ -231,6 +240,25 @@ console.log("Data setup complete - no localStorage used");
       <p class="attempt-instructions">
         <i class="icon-info"></i> Drag athlete boxes to reorder, or use the buttons below to sort automatically. All changes are saved automatically.
       </p>
+      
+      <!-- Attempt Filter Controls -->
+      <div class="attempt-filter-controls">
+        <div class="filter-group">
+          <label for="athlete-name-filter">Filter by Athlete:</label>
+          <input type="text" id="athlete-name-filter" placeholder="Search athlete name..." class="filter-input">
+        </div>
+        <div class="filter-group">
+          <label for="attempt-status-filter">Filter by Status:</label>
+          <select id="attempt-status-filter" class="filter-select">
+            <option value="">All Status</option>
+            <option value="waiting">Waiting</option>
+            <option value="in-progress">In Progress</option>
+            <option value="finished">Finished</option>
+          </select>
+        </div>
+        <button class="btn btn-secondary" id="clear-filters">Clear Filters</button>
+      </div>
+      
       <div class="attempt-controls">
         <button class="btn btn-secondary" id="sort-by-weight">
           Sort by Weight
@@ -240,6 +268,15 @@ console.log("Data setup complete - no localStorage used");
         </button>
         <button class="btn btn-secondary" id="randomize-order">
           Randomize Order
+        </button>
+        <button class="btn btn-info" id="generate-test-attempts">
+          Generate Test Attempts
+        </button>
+        <button class="btn btn-warning" id="mark-first-completed">
+          Mark First as Completed
+        </button>
+        <button class="btn btn-primary" id="refresh-attempts">
+          Refresh
         </button>
       </div>
       <div class="attempt-order-list" id="attempt-order-list">
@@ -278,6 +315,17 @@ console.log("Data setup complete - no localStorage used");
           <label for="flight_event_id">Event</label>
           <select id="flight_event_id" name="event_id">
             <option value="">Select Event (Optional)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="flight_movement_type">Movement Type</label>
+          <select id="flight_movement_type" name="movement_type">
+            <option value="">Select Movement (Optional)</option>
+            <option value="snatch">Snatch</option>
+            <option value="clean_jerk">Clean & Jerk</option>
+            <option value="squat">Squat</option>
+            <option value="bench">Bench Press</option>
+            <option value="deadlift">Deadlift</option>
           </select>
         </div>
         <div class="form-group">
@@ -342,6 +390,44 @@ console.log("Data setup complete - no localStorage used");
       >
         Delete
       </button>
+    </div>
+  </div>
+</div>
+
+<!-- Add/Edit Attempt Modal -->
+<div id="attempt-modal" class="modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2 id="attempt-modal-title">Add New Attempt</h2>
+      <span class="close">&times;</span>
+    </div>
+    <div class="modal-body">
+      <form id="attempt-form">
+        <div class="form-group">
+          <label for="attempt_number">Attempt Number *</label>
+          <input type="number" id="attempt_number" name="attempt_number" min="1" max="3" required>
+        </div>
+        <div class="form-group">
+          <label for="attempt_weight">Requested Weight (kg) *</label>
+          <input type="number" id="attempt_weight" name="requested_weight" step="0.5" required>
+        </div>
+        <div class="form-group">
+          <label for="attempt_status">Status</label>
+          <select id="attempt_status" name="status">
+            <option value="waiting">Waiting</option>
+            <option value="in-progress">In Progress</option>
+            <option value="finished">Finished</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="attempt_lifting_order">Lifting Order</label>
+          <input type="number" id="attempt_lifting_order" name="lifting_order" min="1">
+        </div>
+      </form>
+    </div>
+    <div class="form-actions">
+      <button type="button" class="btn btn-secondary" id="cancel-attempt-btn">Cancel</button>
+      <button type="button" class="btn btn-primary" id="save-attempt-btn">Save Attempt</button>
     </div>
   </div>
 </div>
