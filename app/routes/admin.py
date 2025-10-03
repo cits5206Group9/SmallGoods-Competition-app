@@ -1,17 +1,26 @@
 from asyncio.log import logger
-from flask import Blueprint, render_template, request, jsonify, session, redirect, url_for
+from flask import Blueprint, render_template, request, jsonify, session, redirect, url_for, flash
 from ..extensions import db
-from ..models import (Competition, Athlete, Flight, Event, SportType, AthleteFlight, ScoringType, Referee,TimerLog,Attempt, AttemptResult, AthleteEntry)
+from ..models import (Competition, Athlete, Flight, Event, SportType, AthleteFlight, ScoringType, Referee,TimerLog,Attempt, AttemptResult, AthleteEntry, User, UserRole, CoachAssignment, Timer)
 from ..utils.referee_generator import generate_sample_referee_data, generate_random_username, generate_random_password
 from datetime import datetime,timezone
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import joinedload
+from werkzeug.security import generate_password_hash
 
 admin_bp = Blueprint('admin', __name__, url_prefix='/admin')
 
+def require_admin_auth():
+    """Check if user is authenticated as admin"""
+    if not session.get('is_admin') or not session.get('user_id'):
+        return redirect(url_for('login.login'))
+    return None
 
 @admin_bp.route('/')
 def admin_dashboard():
+    auth_check = require_admin_auth()
+    if auth_check:
+        return auth_check
     return render_template('admin/admin.html')
 
 @admin_bp.route('/competition-model')
@@ -321,6 +330,9 @@ def save_competition_model():
 from . import timer
 @admin_bp.route('/atheletes-management')
 def atheletes_management():
+    auth_check = require_admin_auth()
+    if auth_check:
+        return auth_check
     # Get pagination parameters
     page = request.args.get('page', 1, type=int)
     per_page = 10
@@ -627,7 +639,8 @@ def create_athlete():
                 'bodyweight': athlete.bodyweight,
                 'competition_id': athlete.competition_id,
                 'competition_name': athlete.competition.name if athlete.competition else None,
-                'is_active': athlete.is_active
+                'is_active': athlete.is_active,
+                'has_user_account': athlete.user_id is not None
             }
         }), 201
         
@@ -668,7 +681,8 @@ def get_athlete(athlete_id):
             'bodyweight': athlete.bodyweight,
             'competition_id': athlete.competition_id,
             'competition_name': athlete.competition.name if athlete.competition else None,
-            'is_active': athlete.is_active
+            'is_active': athlete.is_active,
+            'has_user_account': athlete.user_id is not None
         }), 200
         
     except Exception as e:
@@ -734,7 +748,8 @@ def update_athlete(athlete_id):
                 'bodyweight': athlete.bodyweight,
                 'competition_id': athlete.competition_id,
                 'competition_name': athlete.competition.name if athlete.competition else None,
-                'is_active': athlete.is_active
+                'is_active': athlete.is_active,
+                'has_user_account': athlete.user_id is not None
             }
         }), 200
         
@@ -753,7 +768,7 @@ def update_athlete(athlete_id):
 
 @admin_bp.route('/athletes/<int:athlete_id>', methods=['DELETE'])
 def delete_athlete(athlete_id):
-    """Delete an athlete"""
+    """Delete an athlete and all associated records"""
     try:
         athlete = Athlete.query.get(athlete_id)
         
@@ -763,19 +778,141 @@ def delete_athlete(athlete_id):
                 'message': 'Athlete not found'
             }), 404
         
+        # Get the associated user record if it exists
+        user_record = None
+        if athlete.user_id:
+            user_record = User.query.get(athlete.user_id)
+        
+        # Delete all related records in correct order (deepest dependencies first)
+        
+        # 1. Delete Attempts (references athlete_id and athlete_entry_id)
+        attempts = Attempt.query.filter_by(athlete_id=athlete_id).all()
+        for attempt in attempts:
+            db.session.delete(attempt)
+        print(f"Deleted {len(attempts)} attempts for athlete {athlete_id}")
+        
+        # 2. Delete Coach Assignments (references athlete_id)
+        coach_assignments = CoachAssignment.query.filter_by(athlete_id=athlete_id).all()
+        for assignment in coach_assignments:
+            db.session.delete(assignment)
+        print(f"Deleted {len(coach_assignments)} coach assignments for athlete {athlete_id}")
+        
+        # 3. Delete Athlete Entries (references athlete_id)
+        athlete_entries = AthleteEntry.query.filter_by(athlete_id=athlete_id).all()
+        for entry in athlete_entries:
+            db.session.delete(entry)
+        print(f"Deleted {len(athlete_entries)} athlete entries for athlete {athlete_id}")
+        
+        # 4. Delete Athlete Flights (references athlete_id)
+        athlete_flights = AthleteFlight.query.filter_by(athlete_id=athlete_id).all()
+        for flight in athlete_flights:
+            db.session.delete(flight)
+        print(f"Deleted {len(athlete_flights)} athlete flights for athlete {athlete_id}")
+        
+        # 5. Update any Timer records that reference this athlete (set to null instead of delete)
+        timers = Timer.query.filter_by(current_athlete_id=athlete_id).all()
+        for timer in timers:
+            timer.current_athlete_id = None
+        print(f"Updated {len(timers)} timer references for athlete {athlete_id}")
+        
+        # 6. Finally delete the athlete record
         db.session.delete(athlete)
+        
+        # 7. Delete the associated user record if it exists
+        if user_record:
+            db.session.delete(user_record)
+            print(f"Deleted user account for athlete: {user_record.email}")
+        
+        db.session.commit()
+        
+        message = 'Athlete deleted successfully'
+        
+        return jsonify({
+            'status': 'success',
+            'message': message
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error deleting athlete {athlete_id}: {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'message': 'Failed to delete athlete: ' + str(e)
+        }), 500
+
+@admin_bp.route('/athletes/<int:athlete_id>/create-user', methods=['POST'])
+def create_user_for_athlete(athlete_id):
+    """Create a user account for an athlete"""
+    try:
+        from ..models import User, UserRole
+        from werkzeug.security import generate_password_hash
+        
+        athlete = Athlete.query.get(athlete_id)
+        
+        if not athlete:
+            return jsonify({
+                'status': 'error',
+                'message': 'Athlete not found'
+            }), 404
+        
+        if not athlete.email:
+            return jsonify({
+                'status': 'error',
+                'message': 'Athlete must have an email address to create user account'
+            }), 400
+        
+        # Check if athlete already has a user account
+        if athlete.user_id:
+            existing_user = User.query.get(athlete.user_id)
+            if existing_user:
+                return jsonify({
+                    'status': 'error',
+                    'message': 'Athlete already has a user account'
+                }), 400
+        
+        # Check if user with this email already exists
+        existing_user = User.query.filter_by(email=athlete.email).first()
+        if existing_user:
+            return jsonify({
+                'status': 'error',
+                'message': 'A user account with this email already exists'
+            }), 400
+        
+        # Create new user account (no password needed for athletes as per requirement)
+        user = User(
+            email=athlete.email,
+            password_hash=generate_password_hash(''),  # Empty password - athletes login with email only
+            first_name=athlete.first_name,
+            last_name=athlete.last_name,
+            role=UserRole.ATHLETE,
+            is_active=True
+        )
+        
+        db.session.add(user)
+        db.session.flush()  # Get the user ID
+        
+        # Link the athlete to the user
+        athlete.user_id = user.id
+        
         db.session.commit()
         
         return jsonify({
             'status': 'success',
-            'message': 'Athlete deleted successfully'
-        }), 200
+            'message': f'User account created successfully for {athlete.first_name} {athlete.last_name}',
+            'user': {
+                'id': user.id,
+                'email': user.email,
+                'first_name': user.first_name,
+                'last_name': user.last_name,
+                'role': user.role.name
+            }
+        }), 201
         
     except Exception as e:
         db.session.rollback()
         return jsonify({
             'status': 'error',
-            'message': 'Failed to delete athlete: ' + str(e)
+            'message': 'Failed to create user account: ' + str(e)
         }), 500
 
 # Competition API Routes
@@ -2965,3 +3102,41 @@ def delete_attempt(attempt_id):
         db.session.rollback()
         print(f"Error deleting attempt: {str(e)}")
         return jsonify({'error': 'Failed to delete attempt'}), 500
+
+@admin_bp.route('/update-account', methods=['POST'])
+def update_account():
+    """Update admin account settings"""
+    auth_check = require_admin_auth()
+    if auth_check:
+        return jsonify({'success': False, 'error': 'Not authenticated'}), 401
+    
+    try:
+        user_id = session.get('user_id')
+        user = User.query.get(user_id)
+        
+        if not user:
+            return jsonify({'success': False, 'error': 'User not found in database'}), 404
+            
+        if user.role != UserRole.ADMIN:
+            return jsonify({'success': False, 'error': 'User is not an admin'}), 403
+        
+        new_password = request.form.get('new_password')
+        
+        # Validate and update password
+        if not new_password or not new_password.strip():
+            return jsonify({'success': False, 'error': 'Password is required'}), 400
+            
+        if len(new_password.strip()) < 6:
+            return jsonify({'success': False, 'error': 'Password must be at least 6 characters long'}), 400
+        
+        user.password_hash = generate_password_hash(new_password.strip())
+        
+        # Commit changes
+        db.session.commit()
+        
+        return jsonify({'success': True, 'message': 'Account updated successfully'})
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error updating admin account: {str(e)}")
+        return jsonify({'success': False, 'error': 'An error occurred while updating account'}), 500
