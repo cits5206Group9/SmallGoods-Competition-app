@@ -29,10 +29,13 @@ athlete_bp = Blueprint("athlete", __name__, url_prefix="/athlete")
 def resolve_current_athlete():
     """
     Resolve the current athlete row from the DB.
-    This would use the authenticated user's email.
+    Uses the authenticated athlete ID from session.
     """
-    # Mock user login data - in production this would come from session/auth
-    mock_user_email = "harry@email.com"
+    from flask import session
+    
+    athlete_id = session.get('athlete_id')
+    if not athlete_id:
+        return None
     
     return (
         Athlete.query.options(
@@ -40,7 +43,7 @@ def resolve_current_athlete():
             joinedload(Athlete.entries),
             joinedload(Athlete.flights)
         )
-        .filter(Athlete.email == mock_user_email)
+        .filter(Athlete.id == athlete_id)
         .first()
     )
 
@@ -261,8 +264,19 @@ def ensure_athlete_entries_for_event(athlete_id: int, event_id: int, flight_id: 
 
 @athlete_bp.route("/")
 def athlete_dashboard():
+    """Athlete dashboard - requires authentication"""
+    from flask import session, redirect, url_for
+    
+    # Check if athlete is logged in
+    if 'athlete_id' not in session or 'user_id' not in session:
+        return redirect(url_for('login.login'))
 
     athlete_row = resolve_current_athlete()
+    
+    # If athlete not found despite session, clear session and redirect
+    if not athlete_row:
+        session.clear()
+        return redirect(url_for('login.login'))
 
     # Format athlete data with configuration, providing defaults if no athlete found
     athlete_config = {
@@ -325,7 +339,8 @@ def athlete_dashboard():
                     'id': entry.event.id,
                     'name': entry.event.name,
                     'weight_category': entry.event.weight_category,
-                    'gender': entry.event.gender
+                    'gender': entry.event.gender,
+                    'sport_type': entry.event.sport_type
                 },
                 'lift_type': entry.lift_type,
                 'movement_name': entry.movement_name,

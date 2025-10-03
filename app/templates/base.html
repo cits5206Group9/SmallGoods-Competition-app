@@ -35,6 +35,25 @@
                 Display
               </a>
             </li>
+            <li>
+              <!-- Admin Menu Dropdown -->
+              {% if session.get('is_admin') %}
+              <div class="admin-dropdown">
+                <button class="admin-menu-btn" id="adminMenuBtn">
+                  <span>Account</span>
+                  <span class="dropdown-arrow">▼</span>
+                </button>
+                <div class="admin-dropdown-menu" id="adminDropdownMenu">
+                  <a href="#" class="dropdown-item" id="accountSettingsBtn">
+                    Change Password
+                  </a>
+                  <a href="{{ url_for('login.admin_logout') }}" class="dropdown-item">
+                    Log out
+                  </a>
+                </div>
+              </div>
+              {% endif %}
+            </li>
             {# Add more items with plain paths when you have the routes:
             <li>
               <a href="/admin/flights-management"
@@ -51,12 +70,37 @@
             #}
           </ul>
         </nav>
+        
       </div>
     </header>
 
     <main class="container page-main">
       {% block content %}{% endblock %}
     </main>
+
+    <!-- Admin Account Settings Modal -->
+    {% if session.get('is_admin') %}
+    <div id="accountModal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>Change Password</h2>
+          <span class="close" id="closeAccountSettings">&times;</span>
+        </div>
+        <form id="accountForm">
+          <div class="modal-body">
+            <div class="form-group">
+              <label for="newPassword">New Password (Minimum length: 6 characters)</label>
+              <input type="password" id="newPassword" name="new_password" required>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" id="cancelBtn">Cancel</button>
+            <button type="submit" class="btn btn-primary">Change Password</button>
+          </div>
+        </form>
+      </div>
+    </div>
+    {% endif %}
 
     <footer class="site-footer">
       <div class="footer-inner">
@@ -69,6 +113,9 @@
     </footer>
 
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    {% if session.get('is_admin') %}
+    <script src="{{ url_for('static', filename='js/admin.js') }}"></script>
+    {% endif %}
     {% block scripts %}{% endblock %}
   </body>
 </html>

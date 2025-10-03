@@ -1,311 +1,88 @@
-{% extends "base.html" %}
+{% extends "base_login.html" %}
 
 {% block title %}Login - Small Goods Gym{% endblock %}
 
 {% block css %}
-  <style>
-  .auth-container {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    min-height: 60vh;
-    padding: 2rem 1rem;
-  }
-
-  .auth-card {
-    background: white;
-    border-radius: 12px;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    padding: 2.5rem;
-    width: 100%;
-    max-width: 400px;
-    border: 1px solid #e5e7eb;
-  }
-
-  .auth-card h2 {
-    text-align: center;
-    margin-bottom: 0.5rem;
-    color: #1f2937;
-    font-size: 1.75rem;
-    font-weight: 600;
-  }
-
-  .auth-subtitle {
-    text-align: center;
-    color: #6b7280;
-    margin-bottom: 2rem;
-    font-size: 0.95rem;
-  }
-
-  .auth-form {
-    display: flex;
-    flex-direction: column;
-    gap: 1.5rem;
-  }
-
-  .form-group {
-    display: flex;
-    flex-direction: column;
-  }
-
-  .form-group label {
-    font-weight: 500;
-    color: #374151;
-    margin-bottom: 0.5rem;
-    font-size: 0.9rem;
-  }
-
-  .form-group input {
-    padding: 0.75rem;
-    border: 2px solid #d1d5db;
-    border-radius: 8px;
-    font-size: 1rem;
-    transition: border-color 0.2s ease;
-  }
-
-  .form-group input:focus {
-    outline: none;
-    border-color: #3b82f6;
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-  }
-
-  .form-group input.error {
-    border-color: #ef4444;
-  }
-
-  .error-message {
-    color: #ef4444;
-    font-size: 0.85rem;
-    margin-top: 0.25rem;
-    min-height: 1rem;
-  }
-
-  .alert {
-    padding: 0.75rem;
-    border-radius: 6px;
-    margin-bottom: 1.5rem;
-    font-size: 0.9rem;
-  }
-
-  .alert-error {
-    background-color: #fef2f2;
-    color: #dc2626;
-    border: 1px solid #fecaca;
-  }
-
-  .btn {
-    padding: 0.875rem 1.5rem;
-    border: none;
-    border-radius: 8px;
-    font-size: 1rem;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    position: relative;
-  }
-
-  .btn-primary {
-    background-color: #3b82f6;
-    color: white;
-  }
-
-  .btn-primary:hover:not(:disabled) {
-    background-color: #2563eb;
-    transform: translateY(-1px);
-  }
-
-  .btn:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-    transform: none;
-  }
-
-  .auth-links {
-    text-align: center;
-    margin-top: 2rem;
-    padding-top: 1.5rem;
-    border-top: 1px solid #e5e7eb;
-  }
-
-  .auth-links p {
-    margin: 0.5rem 0;
-    color: #6b7280;
-    font-size: 0.9rem;
-  }
-
-  .link-primary {
-    color: #3b82f6;
-    text-decoration: none;
-    font-weight: 500;
-  }
-
-  .link-primary:hover {
-    text-decoration: underline;
-  }
-
-  .link-secondary {
-    color: #6b7280;
-    text-decoration: none;
-  }
-
-  .link-secondary:hover {
-    color: #374151;
-    text-decoration: underline;
-  }
-
-  @media (max-width: 480px) {
-    .auth-card {
-      padding: 1.5rem;
-    }
-    
-    .auth-container {
-      padding: 1rem;
-    }
-  }
-  </style>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/login.css') }}">
 {% endblock %}
 
 {% block content %}
 <div class="auth-container">
   <div class="auth-card">
-    <h2>Welcome back</h2>
-    <p class="auth-subtitle">Sign in to your account</p>
-    
-    {% if error %}
-      <div class="alert alert-error">{{ error }}</div>
+    {% if is_athlete_login %}
+      <h2>Athlete Login</h2>
+      <p class="auth-subtitle">Enter your email to access your athlete dashboard</p>
+    {% else %}
+      <h2>Welcome back</h2>
+      <p class="auth-subtitle">Sign in to your account</p>
     {% endif %}
+    
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }}">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
     
     <form method="POST" class="auth-form" id="loginForm">
       <div class="form-group">
-        <label for="contact">Email or phone</label>
-        <input 
-          type="text" 
-          id="contact" 
-          name="contact" 
-          required 
-          placeholder="Enter your email or phone number"
-          value="{{ request.form.get('contact', '') }}"
-        >
+        {% if is_athlete_login %}
+          <label for="contact">Email address</label>
+          <input 
+            type="email" 
+            id="contact" 
+            name="contact" 
+            required 
+            placeholder="Enter your email address"
+            value="{{ email or request.form.get('contact', '') }}"
+          >
+        {% else %}
+          <label for="contact">Email or phone</label>
+          <input 
+            type="text" 
+            id="contact" 
+            name="contact" 
+            required 
+            placeholder="Enter your email or phone number"
+            value="{{ request.form.get('contact', '') }}"
+          >
+        {% endif %}
         <div class="error-message" id="contactError"></div>
       </div>
       
+      {% if not is_athlete_login %}
       <div class="form-group">
-        <label for="password">Password</label>
-        <input 
-          type="password" 
-          id="password" 
-          name="password" 
-          required 
-          placeholder="Enter your password"
-        >
-        <div class="error-message" id="passwordError"></div>
-      </div>
+            <label for="password">Password <span style="color: #6b7280; font-weight: normal;">(Admin only - Athletes leave blank)</span></label>
+            <input
+              type="password"
+              id="password"
+              name="password"
+              placeholder="Enter your password (leave blank if you're an athlete)"
+            />
+            <div class="error-message" id="passwordError"></div>
+            <p style="font-size: 0.85rem; color: #6b7280; margin-top: 0.5rem; margin-bottom: 0;">
+              <strong>Athletes:</strong> Enter your email above and click Login<br>
+              <strong>Admins:</strong> Enter both email and password
+            </p>
+          </div>
+      {% endif %}
       
       <button type="submit" class="btn btn-primary" id="loginBtn">
-        <span class="btn-text">Sign In</span>
-        <span class="btn-loading" style="display: none;">Signing in...</span>
+        {% if is_athlete_login %}
+          <span class="btn-text">Access Dashboard</span>
+          <span class="btn-loading" style="display: none;">Accessing...</span>
+        {% else %}
+          <span class="btn-text">Sign In</span>
+          <span class="btn-loading" style="display: none;">Signing in...</span>
+        {% endif %}
       </button>
     </form>
-    
-    <div class="auth-links">
-      <p><a href="/login/forgot-password" class="link-secondary">Forgot your password?</a></p>
-    </div>
+
   </div>
 </div>
 {% endblock %}
 
 {% block scripts %}
-  <script>
-  document.addEventListener('DOMContentLoaded', function() {
-    const form = document.getElementById('loginForm');
-    const contactInput = document.getElementById('contact');
-    const passwordInput = document.getElementById('password');
-    const loginBtn = document.getElementById('loginBtn');
-    const btnText = loginBtn.querySelector('.btn-text');
-    const btnLoading = loginBtn.querySelector('.btn-loading');
-    
-    // Client-side validation
-    function validateContact(value) {
-      if (!value.trim()) {
-        return 'Please enter your email or phone number';
-      }
-      
-      // Basic email or phone validation
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      const phoneRegex = /^[\d\s+()-]+$/;
-      
-      if (!emailRegex.test(value) && !phoneRegex.test(value)) {
-        return 'Please enter a valid email address or phone number';
-      }
-      
-      return '';
-    }
-    
-    function validatePassword(value) {
-      if (!value) {
-        return 'Please enter your password';
-      }
-      return '';
-    }
-    
-    function showError(fieldId, message) {
-      const errorElement = document.getElementById(fieldId + 'Error');
-      const inputElement = document.getElementById(fieldId);
-      
-      errorElement.textContent = message;
-      if (message) {
-        inputElement.classList.add('error');
-      } else {
-        inputElement.classList.remove('error');
-      }
-    }
-    
-    // Real-time validation
-    contactInput.addEventListener('blur', function() {
-      const error = validateContact(this.value);
-      showError('contact', error);
-    });
-    
-    passwordInput.addEventListener('blur', function() {
-      const error = validatePassword(this.value);
-      showError('password', error);
-    });
-    
-    // Clear errors on input
-    contactInput.addEventListener('input', function() {
-      if (this.classList.contains('error')) {
-        showError('contact', '');
-      }
-    });
-    
-    passwordInput.addEventListener('input', function() {
-      if (this.classList.contains('error')) {
-        showError('password', '');
-      }
-    });
-    
-    // Form submission
-    form.addEventListener('submit', function(e) {
-      e.preventDefault();
-      
-      // Validate all fields
-      const contactError = validateContact(contactInput.value);
-      const passwordError = validatePassword(passwordInput.value);
-      
-      showError('contact', contactError);
-      showError('password', passwordError);
-      
-      // If no errors, submit form
-      if (!contactError && !passwordError) {
-        // Show loading state
-        loginBtn.disabled = true;
-        btnText.style.display = 'none';
-        btnLoading.style.display = 'inline';
-        
-        // Submit the form
-        this.submit();
-      }
-    });
-  });
-  </script>
+  <script src="{{ url_for('static', filename='js/login.js') }}"></script>
 {% endblock %}
