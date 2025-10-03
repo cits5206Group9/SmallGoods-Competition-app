@@ -50,7 +50,6 @@ class Competition(db.Model):
     name = db.Column(db.String(200), nullable=False)
     description = db.Column(db.Text)
     start_date = db.Column(db.Date, nullable=False)
-    sport_type = db.Column(db.Enum(SportType), nullable=False)
     is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     config = db.Column(db.JSON)
@@ -66,6 +65,7 @@ class Event(db.Model):
     name = db.Column(db.String(150), nullable=False)
     weight_category = db.Column(db.String(50))
     gender = db.Column(db.String(10))
+    sport_type = db.Column(db.Enum(SportType), nullable=False)
     scoring_type = db.Column(db.Enum(ScoringType), nullable=False, default=ScoringType.MAX)
     is_active = db.Column(db.Boolean, default=False)
 
@@ -80,10 +80,16 @@ class Flight(db.Model):
     name = db.Column(db.String(50), nullable=False)
     order = db.Column(db.Integer, nullable=False)
     is_active = db.Column(db.Boolean, default=False)
+    movement_type = db.Column(db.String(50), nullable=True)  # e.g., "snatch", "clean_jerk", "squat", "bench", "deadlift"
     
     # Relationships
     athlete_flights = db.relationship("AthleteFlight", backref="flight", lazy=True)
     competition = db.relationship("Competition", backref="flights", lazy=True)
+    
+    # Each flight should have only one movement type within an event
+    __table_args__ = (
+        db.UniqueConstraint("event_id", "movement_type", name="uq_event_movement_flight"),
+    )
 
 class Athlete(db.Model):
     """Competition participants"""
@@ -134,9 +140,9 @@ class AthleteEntry(db.Model):
     attempts = db.relationship("Attempt", backref="athlete_entry", lazy=True, cascade="all, delete-orphan")
     event = db.relationship("Event", backref="athlete_entries")
     
-    # Prevent duplicate (athlete, event, lift_type)
+    # Prevent duplicate (athlete, event, lift_type) - Allow athlete in multiple flights of different movements
     __table_args__ = (
-        db.UniqueConstraint("athlete_id", "event_id", "lift_type", name="uq_athlete_event_lift"),
+        db.UniqueConstraint("athlete_id", "flight_id", "lift_type", name="uq_athlete_flight_lift"),
     )
 
     @property
@@ -166,6 +172,11 @@ class Attempt(db.Model):
         db.ForeignKey("athlete_entry.id", name="fk_attempt_athlete_entry_id"), 
         nullable=False
     )
+    flight_id = db.Column(
+        db.Integer, 
+        db.ForeignKey("flight.id", name="fk_attempt_flight_id"), 
+        nullable=False
+    )
     attempt_number = db.Column(db.Integer, nullable=False)
     requested_weight = db.Column(db.Float, nullable=False)
     actual_weight = db.Column(db.Float)
@@ -173,9 +184,11 @@ class Attempt(db.Model):
     started_at = db.Column(db.DateTime)
     completed_at = db.Column(db.DateTime)
     lifting_order = db.Column(db.Integer)
+    status = db.Column(db.String(20), default='waiting')  # 'waiting', 'in-progress', 'finished'
 
     # Relationships
     athlete = db.relationship("Athlete", backref="attempts")
+    flight = db.relationship("Flight", backref="attempts")
     referee_decisions = db.relationship("RefereeDecision", backref="attempt", lazy=True, cascade="all, delete-orphan")
     
 class RefereeAssignment(db.Model):
