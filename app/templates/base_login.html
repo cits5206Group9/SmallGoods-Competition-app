@@ -9,6 +9,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     {% block css %}{% endblock %}
 
+
   </head>
 
   <body>
@@ -18,27 +19,6 @@
           <img src="{{ url_for('static', filename='images/logo.png') }}" alt="SmallGoods" class="brand-logo">
           <span class="brand-name">SmallGoods Competition</span>
         </a>
-
-        {% set path = request.path if request is defined else '' %}
-        <nav class="site-nav" role="navigation" aria-label="Primary">
-          <ul class="nav-list">
-            <li>
-              <a href="/display/competition"
-                 class="nav-link {{ 'active' if path.startswith('/display/competition') else '' }}">
-                Competition Status
-              </a>
-            </li>
-            <li>
-              <!-- Athlete Logout -->
-              {% if session.get('user_id') and session.get('user_role') == 'ATHLETE' %}
-              <a href="{{ url_for('login.athlete_logout') }}" class="nav-link">
-                <span>→</span>
-                Log out
-              </a>
-              {% endif %}
-            </li>
-          </ul>
-        </nav>
       </div>
     </header>
 

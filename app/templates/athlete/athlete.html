@@ -121,7 +121,7 @@
                             {% for event_id, event_data in events_by_id.items() %}
                             <div class="event-details" id="event-{{ event_id }}" 
                                  {% if not loop.first %}style="display: none;"{% endif %}>
-                                <h3>{{ event_data.event.name }}</h3>
+                                <h3>{{ event_data.event.sport_type.value.replace('_', ' ').title() }}</h3>
                                 
                                 <!-- Movement Entries -->
                                 {% for entry in event_data.entries %}

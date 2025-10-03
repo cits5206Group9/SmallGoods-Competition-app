@@ -5,6 +5,7 @@ document.addEventListener("DOMContentLoaded", function () {
   const athleteModal = document.getElementById("athlete-modal");
   const athleteForm = document.getElementById("athlete-form");
   const deleteModal = document.getElementById("delete-modal");
+  const createAccountModal = document.getElementById("create-user-modal");
   const athleteSearch = document.getElementById("athlete-search");
   const competitionFilter = document.getElementById("competition-filter");
   const genderFilter = document.getElementById("gender-filter");
@@ -12,6 +13,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
   let currentAthleteId = null;
   let deleteAthleteId = null;
+  let createAccountAthleteId = null;
 
   // Initialize
   init();
@@ -35,6 +37,11 @@ document.addEventListener("DOMContentLoaded", function () {
       btn.addEventListener("click", handleDeleteAthlete);
     });
 
+    // Create account buttons
+    document.querySelectorAll(".create-user-account").forEach((btn) => {
+      btn.addEventListener("click", handleCreateAccount);
+    });
+
     // Modal close buttons
     document.querySelectorAll(".close").forEach((closeBtn) => {
       closeBtn.addEventListener("click", closeModals);
@@ -47,6 +54,9 @@ document.addEventListener("DOMContentLoaded", function () {
     document
       .getElementById("cancel-delete-btn")
       .addEventListener("click", closeModals);
+    document
+      .getElementById("cancel-create-user-btn")
+      .addEventListener("click", closeModals);
 
     // Form submission
     athleteForm.addEventListener("submit", handleFormSubmit);
@@ -55,10 +65,15 @@ document.addEventListener("DOMContentLoaded", function () {
     document
       .getElementById("confirm-delete-btn")
       .addEventListener("click", confirmDelete);
+      
+    // Create account confirmation
+    document
+      .getElementById("confirm-create-user-btn")
+      .addEventListener("click", confirmCreateAccount);
 
     // Click outside modal to close
     window.addEventListener("click", function (event) {
-      if (event.target === athleteModal || event.target === deleteModal) {
+      if (event.target === athleteModal || event.target === deleteModal || event.target === createAccountModal) {
         closeModals();
       }
     });
@@ -107,6 +122,17 @@ document.addEventListener("DOMContentLoaded", function () {
 
     document.getElementById("delete-athlete-name").textContent = athleteName;
     deleteModal.style.display = "block";
+  }
+
+  function handleCreateAccount(event) {
+    const button = event.target.closest("button");
+    createAccountAthleteId = button.dataset.athleteId;
+    const athleteName = button.dataset.athleteName;
+    const athleteEmail = button.dataset.athleteEmail;
+
+    document.getElementById("create-user-athlete-name").textContent = athleteName;
+    document.getElementById("create-user-athlete-email").textContent = athleteEmail;
+    createAccountModal.style.display = "block";
   }
 
   async function loadAthleteData(athleteId) {
@@ -246,6 +272,40 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   }
 
+  async function confirmCreateAccount() {
+    if (!createAccountAthleteId) return;
+
+    try {
+      showLoading(createAccountModal);
+
+      const response = await fetch(`/admin/athletes/${createAccountAthleteId}/create-user`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Requested-With": "XMLHttpRequest",
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to create user account");
+      }
+
+      const result = await response.json();
+      showNotification(result.message, "success");
+
+      // Update the button in the table to show account exists
+      updateCreateAccountButton(createAccountAthleteId);
+      closeModals();
+    } catch (error) {
+      console.error("Error creating user account:", error);
+      showNotification(error.message, "error");
+    } finally {
+      hideLoading(createAccountModal);
+      createAccountAthleteId = null;
+    }
+  }
+
   function applyFilters() {
     const searchTerm = athleteSearch.value.trim();
     const competitionId = competitionFilter.value;
@@ -287,8 +347,10 @@ document.addEventListener("DOMContentLoaded", function () {
   function closeModals() {
     athleteModal.style.display = "none";
     deleteModal.style.display = "none";
+    createAccountModal.style.display = "none";
     currentAthleteId = null;
     deleteAthleteId = null;
+    createAccountAthleteId = null;
   }
 
   function showLoading(element) {
@@ -425,6 +487,15 @@ document.addEventListener("DOMContentLoaded", function () {
     row.dataset.athleteId = athlete.id;
     row.dataset.competitionId = athlete.competition_id || "";
 
+    // Create account button HTML - only show if athlete has email and no user account
+    const createAccountButton = athlete.email && !athlete.has_user_account ? 
+      `<button class="btn btn-sm btn-primary create-user-account" 
+               data-athlete-id="${athlete.id}"
+               data-athlete-name="${athlete.first_name} ${athlete.last_name}"
+               data-athlete-email="${athlete.email}">
+         <i class="icon-user-plus"></i> Create Account
+       </button>` : '';
+
     row.innerHTML = `
             <td>${athlete.first_name} ${athlete.last_name}</td>
             <td>${athlete.email || "-"}</td>
@@ -452,6 +523,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 }">
                     <i class="icon-delete"></i> Delete
                 </button>
+                ${createAccountButton}
             </td>
         `;
 
@@ -462,8 +534,24 @@ document.addEventListener("DOMContentLoaded", function () {
     row
       .querySelector(".delete-athlete")
       .addEventListener("click", handleDeleteAthlete);
+    
+    // Bind create account button if it exists
+    const createAccountBtn = row.querySelector(".create-user-account");
+    if (createAccountBtn) {
+      createAccountBtn.addEventListener("click", handleCreateAccount);
+    }
 
     return row;
+  }
+
+  function updateCreateAccountButton(athleteId) {
+    const row = document.querySelector(`tr[data-athlete-id="${athleteId}"]`);
+    if (row) {
+      const createAccountBtn = row.querySelector(".create-user-account");
+      if (createAccountBtn) {
+        createAccountBtn.remove(); // Remove the button since account now exists
+      }
+    }
   }
 
   function removeAthleteFromTable(athleteId) {
