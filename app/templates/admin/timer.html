@@ -40,7 +40,7 @@
         </div>
       </div>
 
-      <!-- Selected Flight (was “Available Competitions”) -->
+      <!-- Selected Flight -->
       <div class="card" id="tk-available-card" style="display:none">
         <div class="card-header">
           <h5><span class="ico"></span> Selected Flight</h5>
@@ -52,15 +52,14 @@
             <p class="text-muted">Choose a competition, event, and flight above.</p>
           </div>
 
-
-          <!-- NEW: summary target (we will only update this, not the whole body) -->
+          <!-- Summary -->
           <div id="tk-selected-summary" class="selected-wrap" style="display:none"></div>
 
+          <!-- Athlete & Attempt chooser -->
           <div id="tk-athlete-editor" style="margin-top:1rem; display:none">
             <div style="display:flex; gap:.75rem; align-items:center; flex-wrap:wrap">
               <label style="font-weight:600">
                 Athlete:
-                <!-- NEW: dropdown populated from selected flight -->
                 <select id="athleteSelect"
                         style="margin-left:.5rem; min-width:260px; padding:.35rem 1rem; border:1px solid #cfe0ff; border-radius:8px;"
                         disabled>
@@ -80,15 +79,11 @@
                 </select>
               </label>
 
-
-              <!-- Optional: quick refresh in case roster changes -->
               <button class="btn" id="btnReloadAthletes" type="button">Reload</button>
-
-              <!-- Keep existing Apply UX -->
               <button class="btn" id="btnAthleteApply" type="button">Apply</button>
               <span id="athleteApplied" class="text-muted" style="margin-left:.5rem"></span>
 
-              <!-- TEMP COMPAT: keep old input, but hidden; we’ll remove after JS is updated -->
+              <!-- TEMP compat input (hidden) -->
               <input id="athleteName" type="text" value="" style="display:none">
             </div>
           </div>
@@ -119,7 +114,7 @@
         </div>
       </div>
 
-      <!-- Hidden compatibility controls -->
+      <!-- Hidden compatibility controls (attempt only; break removed) -->
       <div class="visually-hidden">
         <button id="btnResume"></button>
         <button id="btnAdd10"></button>
@@ -128,19 +123,13 @@
         <button id="btn120"></button>
         <input type="number" id="attemptSetSec" value="{{ default_attempt_seconds or 60 }}">
         <button id="btnApplyAttempt"></button>
-        <input type="number" id="breakSetSec" value="{{ default_break_seconds or 600 }}">
-        <button id="btnApplyBreak"></button>
-        <button id="btnBreakStart"></button>
-        <button id="btnBreakPause"></button>
-        <button id="btnBreakResume"></button>
-        <button id="btnBreakReset"></button>
         <label><input type="checkbox" id="chkAnn">Ann</label>
         <label><input type="checkbox" id="chkLoaded">Load</label>
       </div>
 
       <!-- Current Status -->
       <div class="card mt-4">
-        <div class="card-header"><h5>Current Status</h5></div>
+        <div class="card-header"><h5>Attempt Timer</h5></div>
         <div class="card-body status-wrap">
           <div class="status-top only-timer">
             <div class="status-top__timer">
@@ -159,33 +148,30 @@
             </div>
           </div>
 
-          <div class="status-bottom one-col">
-            <div class="panel">
-              <h5>Break</h5>
-              <div class="display-time small" id="breakClock">10:00</div>
-              <div class="timer-set break-set">
-                <label for="breakHMS">Set Time :</label>
-                <input id="breakHMS" type="text" inputmode="numeric" placeholder="HH:MM:SS" value="00:10:00" class="input-hms">
-                <button class="btn" id="btnBreakApply">Apply</button>
-              </div>
-              <div class="btn-row">
-                <button class="btn primary" id="btnBreakStart">Start</button>
-                <button class="btn" id="btnBreakPause">Pause</button>
-                <button class="btn" id="btnBreakResume">Resume</button>
-                <button class="btn danger" id="btnBreakReset">Reset</button>
-              </div>
-            </div>
+          <!-- NOTE: Global Break panel removed; we now use per-athlete Rest inside pinned cards -->
+        </div>
+      </div>
+
+      <!-- Pinned Timers (per-athlete rest) -->
+      <div class="card mt-4" id="pinnedTimersCard" style="display:none">
+        <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
+          <h5>Rest/Break Timers</h5>
+          <div class="btn-row" style="display:flex;gap:.5rem;">
+            <button class="btn" id="btnPinsStartAll" type="button">Start All</button>
+            <button class="btn" id="btnPinsPauseAll" type="button">Pause All</button>
+            <button class="btn danger" id="btnPinsResetAll" type="button">Reset All</button>
           </div>
+        </div>
+        <div class="card-body">
+          <div id="pinnedTimers" class="pinned-grid"><!-- cards injected here --></div>
+          <div id="pinnedEmpty" class="text-muted" style="display:none">No pinned timers yet.</div>
         </div>
       </div>
 
       <!-- Timer Log -->
       <div class="card mt-4">
         <div class="card-header"><h5>Timer Log</h5></div>
-        <!-- (Athlete input was moved above; nothing here) -->
         <div class="card-body">
-
-          <!-- Search toolbar (add this above the table) -->
           <div id="logSearchBar" style="display:flex;gap:.75rem;align-items:center;margin-bottom:.75rem;flex-wrap:wrap">
             <label style="font-weight:600">
               Search athlete:
@@ -195,7 +181,6 @@
             <span id="logSearchCount" class="text-muted" style="margin-left:.25rem"></span>
           </div>
 
-          
           <table class="tk-table" id="logTable">
             <thead>
               <tr>
@@ -218,102 +203,6 @@
     </div>
   </div>
 </div>
-
-<!-- <script>
-  window.TK_DEFAULT_ATTEMPT = {{ default_attempt_seconds or 60 }};
-  window.TK_DEFAULT_BREAK   = {{ default_break_seconds or 600 }}; -->
-
-  <!-- /* TEMP MOCK DATA (remove when DB is ready)  */ -->
- <!--  window.TK_MOCK_FLIGHTS = [
-    {
-      id: 1,
-      name: "SG Open 2025 (Mock)",
-      events: [
-        { id: 101, name: "Snatch",
-          flights: [
-            { id: 1001, name: "Flight A", order: 1, is_active: true  },
-            { id: 1002, name: "Flight B", order: 2, is_active: true  },
-            { id: 1003, name: "Flight C", order: 3, is_active: false }
-          ]
-        },
-        { id: 102, name: "Clean & Jerk",
-          flights: [
-            { id: 1101, name: "Flight A", order: 1, is_active: true  },
-            { id: 1102, name: "Flight B", order: 2, is_active: false }
-          ]
-        }
-      ]
-    },
-    {
-      id: 2,
-      name: "Power Meet 2025 (Mock)",
-      events: [
-        { id: 201, name: "Squat",
-          flights: [
-            { id: 2001, name: "Flight A", order: 1, is_active: true },
-            { id: 2002, name: "Flight B", order: 2, is_active: true }
-          ]
-        },
-        { id: 202, name: "Bench Press",
-          flights: [ { id: 2101, name: "Flight A", order: 1, is_active: false } ]
-        },
-        { id: 203, name: "Deadlift",
-          flights: [
-            { id: 2201, name: "Flight A", order: 1, is_active: true },
-            { id: 2202, name: "Flight B", order: 2, is_active: true },
-            { id: 2203, name: "Flight C", order: 3, is_active: true }
-          ]
-        }
-      ]
-    }
-  ];
-</script> -->
-
-<!-- <script>
-/*  TEMP FETCH SHIM for mocks (remove when DB is ready)  */
-(function () {
-  const mocks = window.TK_MOCK_FLIGHTS;
-  if (!Array.isArray(mocks)) return;
-
-  const json = (obj) =>
-    new Response(JSON.stringify(obj), {
-      status: 200,
-      headers: { "Content-Type": "application/json" },
-    });
-
-  const origFetch = window.fetch;
-  window.fetch = function (input, init) {
-    const url = typeof input === "string" ? input : input.url;
-
-    if (url.endsWith("/admin/competitions")) {
-      const comps = mocks.map((c) => ({ id: c.id, name: c.name }));
-      return Promise.resolve(json(comps));
-    }
-
-    const m1 = url.match(/\/admin\/competitions\/(\d+)\/events$/);
-    if (m1) {
-      const compId = Number(m1[1]);
-      const comp = mocks.find((c) => c.id === compId);
-      const events = (comp?.events || []).map((e) => ({ id: e.id, name: e.name, competition_id: compId }));
-      return Promise.resolve(json(events));
-    }
-
-    const m2 = url.match(/\/admin\/events\/(\d+)\/flights$/);
-    if (m2) {
-      const eventId = Number(m2[1]);
-      let flights = [];
-      mocks.forEach((c) =>
-        (c.events || []).forEach((e) => {
-          if (e.id === eventId) flights = e.flights || [];
-        })
-      );
-      return Promise.resolve(json(flights));
-    }
-
-    return origFetch(input, init);
-  };
-})();
-</script> -->
 
 <script src="{{ url_for('static', filename='js/timekeeper.js') }}"></script>
 {% endblock %}

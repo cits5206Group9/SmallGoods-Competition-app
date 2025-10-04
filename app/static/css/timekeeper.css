@@ -227,3 +227,158 @@ h6 { margin: 0 0 .5rem; color: #1b2a4a; }
   white-space: nowrap !important;
   border: 0 !important;
 }
+
+
+
+
+/* Pinned timers — light look aligned with page cards */
+.pinned-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: .75rem;
+}
+
+.pin-card {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;      /* light gray border */
+  border-radius: 12px;
+  padding: .75rem;
+  position: relative;
+  box-shadow: 0 1px 2px rgba(0,0,0,.04);
+}
+
+.pin-title {
+  font-weight: 600;
+  color: #0f172a;                 /* slate-900 */
+  margin: 0 0 .25rem;
+}
+
+.pin-sub {
+  font-size: .9rem;
+  color: #475569;                 /* slate-600 */
+  margin-bottom: .5rem;
+}
+
+.pin-time {
+  font-size: 1.8rem;
+  font-weight: 700;
+  letter-spacing: .03em;
+  padding: .5rem .75rem;
+  border-radius: 10px;
+  background: #f8fafc;            /* very light slate */
+  border: 1px solid #e2e8f0;
+  text-align: center;
+  color: #0f172a;
+}
+
+.pin-setrow {
+  display:flex;
+  gap:.5rem;
+  align-items:center;
+  margin-top:.5rem;
+  flex-wrap:wrap;
+}
+.pin-setlabel {
+  font-size:.9rem;
+  color:#334155;
+}
+.pin-setrow .pin-hms {
+  margin-left:.4rem;
+  padding:.3rem .6rem;
+  border:1px solid #cbd5e1;
+  border-radius: 8px;
+  min-width: 120px;
+}
+
+.pin-actions {
+  display: flex;
+  gap: .5rem;
+  margin-top: .6rem;
+}
+
+.pin-btn {
+  background:#f1f5f9;
+  color:#0f172a;
+  border:1px solid #e2e8f0;
+  padding:.4rem .7rem;
+  border-radius: 8px;
+  cursor:pointer;
+  font-size: .9rem;
+}
+.pin-btn:hover { background:#e2e8f0; }
+
+.pin-close {
+  position: absolute; top: .4rem; right: .4rem;
+  background: transparent; border: none; color: #64748b; font-size: 1.1rem; cursor: pointer;
+}
+.pin-close:hover { color: #0f172a; }
+
+
+/* --- Pinned cards: visual enhancements --- */
+
+/* 1) Title & subtitle a bit larger/bolder */
+.pin-title {
+  font-size: 1.15rem;           /* up from ~1.0 */
+  font-weight: 600;
+  color: #0f172a;
+  margin: 0 2rem .25rem 0;      /* leave space for the close X */
+}
+
+.pin-sub {
+  font-size: 1rem;              /* up from .9rem */
+  color: #334155;               /* slightly darker for contrast */
+  margin-bottom: .6rem;
+}
+
+/* 2) Timer face in “status blue” */
+.pin-time {
+  background: #eef2ff;          /* soft indigo/blue panel */
+  border: 1px solid #c7d2fe;    /* matching border */
+  color: #1e40af;               /* deep blue digits */
+  font-size: 2rem;              /* a touch bigger */
+  font-weight: 600;
+  letter-spacing: .02em;
+}
+
+/* 3) Center the Apply row and action buttons */
+.pin-setrow,
+.pin-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;      /* center align */
+  gap: .6rem;
+  flex-wrap: wrap;
+}
+
+.pin-setlabel {
+  font-size: .95rem;
+  color: #334155;
+}
+
+.pin-setrow .pin-hms {
+  margin-left: .4rem;
+  padding: .4rem .7rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  min-width: 130px;
+}
+
+/* Buttons stay light and consistent */
+.pin-btn {
+  background: #f1f5f9;
+  color: #0f172a;
+  border: 1px solid #e2e8f0;
+  padding: .45rem .9rem;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: .95rem;
+}
+.pin-btn:hover { background: #e2e8f0; }
+
+/* Close button polish */
+.pin-close {
+  position: absolute; top: .5rem; right: .6rem;
+  background: transparent; border: none;
+  color: #64748b; font-size: 1.2rem; cursor: pointer;
+}
+.pin-close:hover { color: #0f172a; }
