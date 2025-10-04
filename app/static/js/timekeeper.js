@@ -1,4 +1,4 @@
-/* timekeeper.js — timer + selector + athlete editor + DB log + model-driven defaults */
+/* timekeeper.js — timer + selector + athlete dropdown + DB log + model-driven defaults */
 (function () {
   // ---------- Utilities ----------
   const pad2 = (n) => (n < 10 ? "0" + n : "" + n);
@@ -20,6 +20,14 @@
     if (s > 0 || parts.length === 0) parts.push(`${s}s`);
     return parts.join(" ");
   };
+
+  // show decimal seconds like the DB
+  const fmtSecExact = (sec) => {
+    if (typeof sec !== 'number' || !isFinite(sec)) return '';
+    // 4 decimals is a good balance; bump to 6 if you want even more precision
+    return `${sec.toFixed(3)} s`;
+  };
+
   const now = () => performance.now();
   const $ = (id) => document.getElementById(id);
 
@@ -60,9 +68,11 @@
     if (flightId != null)                CURRENT_FLIGHT_ID       = Number(flightId);
   };
 
-  // Small helper to read athlete name when logging
+  // Prefer the dropdown for athlete name; fall back to hidden text input (compat)
   function getAthleteName() {
-    const el = $("athleteName");
+    const sel = document.getElementById('athleteSelect');
+    if (sel && sel.value) return sel.options[sel.selectedIndex].text;
+    const el = document.getElementById('athleteName'); // fallback (hidden)
     return el ? el.value.trim() : "";
   }
 
@@ -147,14 +157,16 @@
   }
 
   // ---------- Log table ----------
-  function normalizeLogEntry({ start, stop, action, duration, competition, event, flight, athlete }) {
+  function normalizeLogEntry({ start, stop, action, duration, competition, event, flight, athlete, attempt_no }) {
     competition = competition ?? CURRENT_CTX.competition ?? "";
     event       = event       ?? CURRENT_CTX.event       ?? "";
     flight      = flight      ?? CURRENT_CTX.flight      ?? "";
     athlete     = athlete     ?? getAthleteName()        ?? "";
+    attempt_no  = attempt_no  ?? (document.getElementById('attemptSelect')?.value || "");
     return { start: start || "", stop: stop || "", action: action || "", duration: duration || "",
-            competition, event, flight, athlete };
+            competition, event, flight, athlete, attempt_no };
   }
+
 
   function renderLogTable() {
     const tbody = document.querySelector("#logTable tbody");
@@ -174,6 +186,7 @@
         `<td>${r.event}</td>` +
         `<td>${r.flight}</td>` +
         `<td>${r.athlete}</td>` +
+        `<td>${r.attempt_no || ''}</td>` + 
         `<td>${r.action}</td>` +
         `<td>${r.duration}</td>`;
       tbody.appendChild(tr);
@@ -233,7 +246,8 @@
         start: startTs.toLocaleTimeString(),
         stop:  stopTs.toLocaleTimeString(),
         action: "Attempt",
-        duration: fmtDurationStr(durationSec),
+        duration: fmtSecExact(durationSec),
+        attempt_no: document.getElementById('attemptSelect')?.value || ""
       });
       // Save to DB
       try {
@@ -241,16 +255,21 @@
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            competition_id: null,  // optional; can be filled if you want
-            event_id: null,
-            flight_id: CURRENT_FLIGHT_ID,
-            athlete: getAthleteName(),
-            action: "Attempt",
-            start_iso: startTs.toISOString(),
-            stop_iso: stopTs.toISOString(),
-            duration_sec: durationSec,
-            meta: {}
+            competition_id: getSelectedCompetitionId(),
+            event_id:       getSelectedEventId(),
+            flight_id:      CURRENT_FLIGHT_ID,
+            athlete:        getAthleteName(),
+            action:         "Attempt",
+            start_iso:      startTs.toISOString(),
+            stop_iso:       stopTs.toISOString(),
+            duration_sec:   durationSec,
+            // store extra info in meta (no schema change needed)
+            meta: {
+              attempt_no: document.getElementById('attemptSelect')?.value || null,
+              athlete_id: localStorage.getItem('TK_ATHLETE_ID') || null
+            }
           })
+
         }).catch(()=>{});
       } catch {}
     }
@@ -310,49 +329,69 @@
     };
   }
 
-  // THIS BLOCK HAS BEEN UPDATED FOR BREAK TIMER SYNC OF ATHLETE PAGE
+  // ---- Break timer server sync (local network endpoints)
+  function getSelectedCompetitionId() {
+    const selComp = document.getElementById('selComp');
+    return selComp ? parseInt(selComp.value) : null;
+  }
+
+  function getSelectedEventId() {
+    const selEvent = document.getElementById('selEvent');
+    return selEvent && selEvent.value ? parseInt(selEvent.value) : null;
+  }
+
+  async function startServerBreakTimer(competitionId, duration) {
+    try {
+      const response = await fetch(`/athlete/timer/start-break/${competitionId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ duration: duration })
+      });
+      const result = await response.json();
+      if (!result.success) console.error('Failed to start server break timer:', result.error);
+    } catch (error) {
+      console.error('Error starting server break timer:', error);
+    }
+  }
+
+  async function controlServerTimer(competitionId, timerId, action, data = {}) {
+    try {
+      const response = await fetch(`/athlete/timer/control/${competitionId}/${timerId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: action, ...data })
+      });
+      const result = await response.json();
+      if (!result.success) console.error(`Failed to ${action} server timer:`, result.error);
+    } catch (error) {
+      console.error(`Error ${action} server timer:`, error);
+    }
+  }
+
   bindClick("btnBreakStart",  () => { 
     breakClock.start();  
     addLogRow({ start: nowStr(), action: "Break", duration: "Start"  });
-    
     const compId = getSelectedCompetitionId();
-    if (compId) {
-      startServerBreakTimer(compId, breakClock.baseSeconds);
-    }
+    if (compId) startServerBreakTimer(compId, breakClock.baseSeconds);
   });
   bindClick("btnBreakPause",  () => { 
     breakClock.pause();  
     addLogRow({ start: nowStr(), action: "Break", duration: "Pause"  });
-    
-    // Sync with server timer
     const compId = getSelectedCompetitionId();
-    if (compId) {
-      controlServerTimer(compId, 'break', 'pause');
-    }
+    if (compId) controlServerTimer(compId, 'break', 'pause');
   });
   bindClick("btnBreakResume", () => { 
     breakClock.resume(); 
     addLogRow({ start: nowStr(), action: "Break", duration: "Resume" }); 
-    
-    // Sync with server timer
     const compId = getSelectedCompetitionId();
-    if (compId) {
-      controlServerTimer(compId, 'break', 'resume');
-    }
+    if (compId) controlServerTimer(compId, 'break', 'resume');
   });
   bindClick("btnBreakReset",  () => { 
     breakClock.reset();  
     addLogRow({ start: nowStr(), action: "Break", duration: "Reset"  }); 
-    
-    // Sync with server timer
     const compId = getSelectedCompetitionId();
-    if (compId) {
-      // Use baseSeconds (original duration) when resetting, not currentSeconds (which is 0 after reset)
-      controlServerTimer(compId, 'break', 'reset', { duration: breakClock.baseSeconds });
-    }
+    if (compId) controlServerTimer(compId, 'break', 'reset', { duration: breakClock.baseSeconds });
   });
-  // END OF UPDATED BLOCK
-
 
   // ---- Apply timer defaults from server (based on selected comp/event/flight)
   window.TK_applyTimerDefaultsFromSelection = async function (compId, eventId, flightId) {
@@ -407,47 +446,6 @@
     }
   });
 
-  // THIS BLOCK HAS BEEN ADDED FOR BREAK TIMER SYNC OF ATHLETE PAGE
-  // Helper functions for server timer integration
-  function getSelectedCompetitionId() {
-    const selComp = document.getElementById('selComp');
-    return selComp ? parseInt(selComp.value) : null;
-  }
-
-  async function startServerBreakTimer(competitionId, duration) {
-    try {
-      const response = await fetch(`/athlete/timer/start-break/${competitionId}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ duration: duration })
-      });
-      const result = await response.json();
-      if (!result.success) {
-        console.error('Failed to start server break timer:', result.error);
-      }
-    } catch (error) {
-      console.error('Error starting server break timer:', error);
-    }
-  }
-
-  async function controlServerTimer(competitionId, timerId, action, data = {}) {
-    try {
-      const response = await fetch(`/athlete/timer/control/${competitionId}/${timerId}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: action, ...data })
-      });
-      const result = await response.json();
-      if (!result.success) {
-        console.error(`Failed to ${action} server timer:`, result.error);
-      }
-    } catch (error) {
-      console.error(`Error ${action} server timer:`, error);
-    }
-  }
-  // END OF ADDED BLOCK
-
-
   // Clear log when scoping to a specific flight (URL param present)
   (function bootstrapFlightScope() {
     if (CURRENT_FLIGHT_ID) {
@@ -456,7 +454,7 @@
     }
   })();
 
-  // (Old flights tree renderer: no-op)
+  // (Old flights tree renderer: no-op placeholder to keep previous behavior)
   async function loadFlightsTree() {
     try {
       const j = (u) => fetch(u, { headers: { "X-Requested-With":"fetch" } }).then(r => r.json());
@@ -495,7 +493,7 @@
 })();
 
 
-// ---- Timekeeper: Competition/Event/Flight selector (+ athlete editor) ----
+// ---- Timekeeper: Competition/Event/Flight selector (+ athlete dropdown) ----
 (function TKSelector() {
   const selComp   = document.getElementById('selComp');
   const selEvent  = document.getElementById('selEvent');
@@ -509,10 +507,19 @@
 
   // Athlete editor hooks
   const athleteEditor  = document.getElementById('tk-athlete-editor');
-  const athleteInput   = document.getElementById('athleteName');
+  const athleteInput   = document.getElementById('athleteName');     // hidden compat
   const btnAthlete     = document.getElementById('btnAthleteApply');
   const athleteApplied = document.getElementById('athleteApplied');
   const ATHLETE_KEY    = 'TK_ATHLETE_NAME';
+
+  // NEW: dropdown + reload + id storage
+  const athleteSelect      = document.getElementById('athleteSelect');
+  const btnReloadAthletes  = document.getElementById('btnReloadAthletes');
+  const ATHLETE_ID_KEY     = 'TK_ATHLETE_ID';
+
+  const attemptSelect      = document.getElementById('attemptSelect');
+
+  let lastFlightId = null;
 
   if (!selComp || !selEvent || !selFlight || !btnGo || !card || !body) return;
 
@@ -524,16 +531,84 @@
   async function getEvents(compId)  { return (await fetch(`/admin/competitions/${compId}/events`)).json(); }
   async function getFlights(eventId){ return (await fetch(`/admin/events/${eventId}/flights`)).json(); }
 
+  // --- NEW: API helpers to load athletes for a flight and populate the dropdown
+  async function fetchFlightAthletes(flightId) {
+    try {
+      const res = await fetch(`/admin/flights/${flightId}/athletes`, {
+        headers: { "X-Requested-With": "XMLHttpRequest" }
+      });
+      if (!res.ok) return [];
+      const j = await res.json();
+      const list = j.athletes || [];
+      return list.map(a => ({
+        id: a.id,
+        name: a.full_name || `${a.first_name || ''} ${a.last_name || ''}`.trim()
+      }));
+    } catch (e) {
+      console.warn("Failed to fetch flight athletes:", e);
+      return [];
+    }
+  }
+
+  async function populateAthleteDropdown(flightId) {
+    if (!athleteSelect) return;
+    athleteSelect.innerHTML = '<option value="">Select athlete…</option>';
+    athleteSelect.disabled = true;
+
+    const list = await fetchFlightAthletes(flightId);
+    for (const a of list) {
+      const o = document.createElement('option');
+      o.value = String(a.id);
+      o.textContent = a.name;
+      athleteSelect.appendChild(o);
+    }
+
+    athleteSelect.disabled = false;
+
+    // restore previously applied selection if it exists
+    const savedId = localStorage.getItem(ATHLETE_ID_KEY);
+    const savedName = localStorage.getItem(ATHLETE_KEY);
+    if (savedId && athleteSelect.querySelector(`option[value="${savedId}"]`)) {
+      athleteSelect.value = savedId;
+      if (athleteApplied) athleteApplied.textContent = savedName ? `Applied: ${savedName}` : '';
+    }
+  }
+
   function updateAthleteApplied() {
     if (!athleteApplied) return;
-    const name = athleteInput ? athleteInput.value.trim() : '';
+    let name = '';
+    if (athleteSelect && athleteSelect.value) {
+      name = athleteSelect.options[athleteSelect.selectedIndex].text;
+    } else if (athleteInput) {
+      name = athleteInput.value.trim();
+    }
     athleteApplied.textContent = name ? `Applied: ${name}` : '';
   }
-  if (btnAthlete && athleteInput && athleteApplied) {
+
+  if (btnAthlete) {
     btnAthlete.addEventListener('click', () => {
-      const name = athleteInput.value.trim();
+      let id = '', name = '';
+      if (athleteSelect && athleteSelect.value) {
+        id = athleteSelect.value;
+        name = athleteSelect.options[athleteSelect.selectedIndex].text;
+      } else if (athleteInput) {
+        name = athleteInput.value.trim();
+      }
+      if (id) localStorage.setItem(ATHLETE_ID_KEY, id); else localStorage.removeItem(ATHLETE_ID_KEY);
       localStorage.setItem(ATHLETE_KEY, name);
-      athleteApplied.textContent = name ? `Applied: ${name}` : '';
+      // reflect attempt number in the Applied label
+      if (athleteApplied) {
+        const at = attemptSelect && attemptSelect.value ? ` • Attempt ${attemptSelect.value}` : '';
+        athleteApplied.textContent = name ? `Applied: ${name}${at}` : '';
+      }
+      
+    });
+  }
+
+  if (btnReloadAthletes) {
+    btnReloadAthletes.addEventListener('click', () => {
+      const targetId = lastFlightId || selFlight.value;
+      if (targetId) populateAthleteDropdown(targetId);
     });
   }
 
@@ -550,7 +625,8 @@
       `;
     }
 
-    // keep context for log rows
+    // keep context for log rows and remember current flight id
+    lastFlightId = flight.id;
     window.TK_updateContext({
       competition: comp.name,
       event: evt.name,
@@ -558,14 +634,23 @@
       flightId: flight.id
     });
 
-    // reveal & initialize the athlete editor
+    // Populate athlete dropdown for this flight
     if (athleteEditor) {
+      populateAthleteDropdown(flight.id);
       athleteEditor.style.display = 'block';
-      if (athleteInput && !athleteInput.value) {
-        athleteInput.value = localStorage.getItem(ATHLETE_KEY) || '';
-      }
-      updateAthleteApplied();
     }
+
+    // enable attempt dropdown and default to blank until athlete chosen
+    if (attemptSelect) {
+      attemptSelect.disabled = false;
+      if (!attemptSelect.value) attemptSelect.value = "";
+    }
+
+    // (compat) keep hidden input in sync with saved name if no dropdown selection
+    if (athleteInput && !athleteInput.value) {
+      athleteInput.value = localStorage.getItem(ATHLETE_KEY) || '';
+    }
+    updateAthleteApplied();
   }
 
   async function init() {

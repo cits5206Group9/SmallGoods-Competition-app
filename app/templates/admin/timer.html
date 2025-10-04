@@ -56,17 +56,43 @@
           <!-- NEW: summary target (we will only update this, not the whole body) -->
           <div id="tk-selected-summary" class="selected-wrap" style="display:none"></div>
 
-          <!-- Athlete editor lives here (shown after a flight is selected) -->
           <div id="tk-athlete-editor" style="margin-top:1rem; display:none">
             <div style="display:flex; gap:.75rem; align-items:center; flex-wrap:wrap">
-              <label style="font-weight:600">Athlete:
-                <input id="athleteName" type="text" placeholder="Type name…"
-                       style="margin-left:.5rem; padding:.35rem 1rem; border:1px solid #cfe0ff; border-radius:8px;">
+              <label style="font-weight:600">
+                Athlete:
+                <!-- NEW: dropdown populated from selected flight -->
+                <select id="athleteSelect"
+                        style="margin-left:.5rem; min-width:260px; padding:.35rem 1rem; border:1px solid #cfe0ff; border-radius:8px;"
+                        disabled>
+                  <option value="">Select athlete…</option>
+                </select>
               </label>
-              <button class="btn" id="btnAthleteApply">Apply</button>
+
+              <label style="font-weight:600">
+                Attempt:
+                <select id="attemptSelect"
+                        style="margin-left:.5rem; min-width:120px; padding:.35rem 1rem; border:1px solid #cfe0ff; border-radius:8px;"
+                        disabled>
+                  <option value="">Select…</option>
+                  <option value="1">1</option>
+                  <option value="2">2</option>
+                  <option value="3">3</option>
+                </select>
+              </label>
+
+
+              <!-- Optional: quick refresh in case roster changes -->
+              <button class="btn" id="btnReloadAthletes" type="button">Reload</button>
+
+              <!-- Keep existing Apply UX -->
+              <button class="btn" id="btnAthleteApply" type="button">Apply</button>
               <span id="athleteApplied" class="text-muted" style="margin-left:.5rem"></span>
+
+              <!-- TEMP COMPAT: keep old input, but hidden; we’ll remove after JS is updated -->
+              <input id="athleteName" type="text" value="" style="display:none">
             </div>
           </div>
+
         </div>
       </div>
 
@@ -179,6 +205,7 @@
                 <th>Event</th>
                 <th>Flight</th>
                 <th>Athlete</th>
+                <th>Attempt #</th>
                 <th>Action</th>
                 <th>Duration</th>
               </tr>
