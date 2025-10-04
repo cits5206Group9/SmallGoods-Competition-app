@@ -10,7 +10,17 @@
    git checkout -b [branch_name] [branch_name]
 
 3. Coding /solve issue/bugfix/writing test
-   - if database(models.py) schema changed: under the backend directory
+   - if database(models.py) schema changed: under the backend directoryDescribe the bug
+When we refesh the referee page it refresh the whole timer logic even when a athlete is on break
+
+To Reproduce
+Steps to reproduce the behavior:
+
+start the timer for referee and stop the timer
+start the break
+refresh the page
+Expected behavior
+After refresh it should reset everything but keep the same
    - You need to do database migration operations
    - flask db migrate -m "what have been changed"
    - flask db upgrade

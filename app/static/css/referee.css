@@ -523,6 +523,10 @@
     transform: scale(1.05);
 }
 
+.break-btn.active {
+    box-shadow: 0 0 0 3px rgba(243, 156, 18, 0.4);
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
     .referee-container {

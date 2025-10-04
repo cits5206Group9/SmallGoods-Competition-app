@@ -11,34 +11,62 @@ class RefereePanel {
         this.refereeVotes = {};
         this.currentAttemptData = {};
         this.refereeConfig = null;
+        this.timerMode = 'attempt';
+        this.isBreakActive = false;
+        this.initialTimerSeconds = null;
+        this.timerStartTimestamp = null;
+        this.selectionStorageKey = 'referee_panel.selection';
+        this.timerStorageKey = 'referee_panel.timer';
+        this.isRestoringState = false;
         
         this.init();
     }
 
-    init() {
+    async init() {
         this.bindEvents();
-        this.loadCompetitions();
+        await this.loadCompetitions();
         this.initTimer();
+        await this.restoreSelectionState();
+        this.restoreTimerState();
     }
 
     bindEvents() {
         // Competition selection
-        document.getElementById('competition-select').addEventListener('change', (e) => {
-            this.selectCompetition(e.target.value);
-        });
+        const compSelect = document.getElementById('competition-select');
+        if (compSelect) {
+            compSelect.addEventListener('change', (e) => {
+                this.selectCompetition(e.target.value);
+            });
+        }
 
-        document.getElementById('event-select').addEventListener('change', (e) => {
-            this.selectEvent(e.target.value);
-        });
+        const eventSelect = document.getElementById('event-select');
+        if (eventSelect) {
+            eventSelect.addEventListener('change', (e) => {
+                this.selectEvent(e.target.value);
+            });
+        }
 
         // Timer controls
-        document.getElementById('start-timer').addEventListener('click', () => {
-            this.toggleTimer();
-        });
+        const startBtn = document.getElementById('start-timer');
+        if (startBtn) {
+            startBtn.addEventListener('click', () => {
+                this.toggleTimer();
+            });
+        }
 
-        document.getElementById('reset-timer').addEventListener('click', () => {
-            this.resetTimer();
-        });
+        const resetBtn = document.getElementById('reset-timer');
+        if (resetBtn) {
+            resetBtn.addEventListener('click', () => {
+                this.resetTimer();
+            });
+        }
+
+        const breakBtn = document.getElementById('toggle-break');
+        if (breakBtn) {
+            breakBtn.addEventListener('click', () => {
+                this.toggleBreak();
+            });
+        }
 
         // Result buttons - use event delegation since buttons are dynamic
         document.addEventListener('click', (e) => {
@@ -85,6 +113,86 @@ class RefereePanel {
         });
     }
 
+    getAttemptDefault() {
+        const attempt = Number(this.currentEvent?.timer?.attempt_seconds);
+        return Number.isFinite(attempt) && attempt > 0 ? Math.round(attempt) : 60;
+    }
+
+    getBreakDefault() {
+        const brk = Number(this.currentEvent?.timer?.break_seconds);
+        return Number.isFinite(brk) && brk > 0 ? Math.round(brk) : 120;
+    }
+
+    getDefaultForCurrentMode() {
+        return this.timerMode === 'break' ? this.getBreakDefault() : this.getAttemptDefault();
+    }
+
+    saveSelectionState() {
+        const eventIndex = this.currentCompetition?.events && this.currentEvent
+            ? this.currentCompetition.events.indexOf(this.currentEvent)
+            : null;
+        const payload = {
+            competitionId: this.currentCompetition?.id || null,
+            eventIndex: eventIndex >= 0 ? eventIndex : null
+        };
+        try {
+            localStorage.setItem(this.selectionStorageKey, JSON.stringify(payload));
+        } catch (err) {
+            console.warn('Unable to persist referee selection state:', err);
+        }
+    }
+
+    async restoreSelectionState() {
+        let stored;
+        try {
+            stored = JSON.parse(localStorage.getItem(this.selectionStorageKey) || 'null');
+        } catch (err) {
+            stored = null;
+        }
+
+        if (!stored || !stored.competitionId) {
+            this.updateBreakButtonLabel();
+            return false;
+        }
+
+        const compSelect = document.getElementById('competition-select');
+        if (compSelect) {
+            compSelect.value = String(stored.competitionId);
+        }
+
+        this.isRestoringState = true;
+        await this.selectCompetition(stored.competitionId);
+
+        if (stored.eventIndex != null && this.currentCompetition?.events?.[stored.eventIndex]) {
+            const eventSel = document.getElementById('event-select');
+            if (eventSel) {
+                eventSel.value = String(stored.eventIndex);
+            }
+            this.selectEvent(String(stored.eventIndex));
+        }
+        this.isRestoringState = false;
+
+        this.updateBreakButtonLabel();
+        return true;
+    }
+
+    applyEventTimerDefaults() {
+        if (this.isRestoringState) {
+            this.updateBreakButtonLabel();
+            return;
+        }
+
+        if (!this.timerRunning && !this.isBreakActive) {
+            this.timerMode = 'attempt';
+            this.timerSeconds = this.getAttemptDefault();
+            this.updateTimerDisplay();
+            this.updateTimerButton();
+            this.persistTimerState();
+        }
+
+        this.updateBreakButtonLabel();
+    }
+
     async loadCompetitions() {
         try {
             const response = await fetch('/admin/api/competitions');
@@ -121,7 +229,17 @@ class RefereePanel {
     async selectCompetition(competitionId) {
         if (!competitionId) {
             this.currentCompetition = null;
+            this.currentEvent = null;
             this.clearEventSelect();
+            this.stopTimer();
+            this.isBreakActive = false;
+            this.timerMode = 'attempt';
+            this.timerSeconds = this.getAttemptDefault();
+            this.updateTimerDisplay();
+            this.updateTimerButton();
+            this.updateBreakButtonLabel();
+            this.saveSelectionState();
+            this.persistTimerState();
             return;
         }
 
@@ -136,6 +254,9 @@ class RefereePanel {
             
             document.getElementById('competition-name').textContent = this.currentCompetition.name;
             this.loadEvents();
+            this.currentEvent = null;
+            this.saveSelectionState();
+            this.updateBreakButtonLabel();
             
             // Fetch and apply referee configuration
             await this.loadRefereeConfig(competitionId);
@@ -302,11 +423,23 @@ class RefereePanel {
         if (eventIndex === '') {
             this.currentEvent = null;
             document.getElementById('current-event').textContent = 'No Event Selected';
+            this.stopTimer();
+            this.isBreakActive = false;
+            this.timerMode = 'attempt';
+            this.timerSeconds = this.getAttemptDefault();
+            this.updateTimerDisplay();
+            this.updateTimerButton();
+            this.updateBreakButtonLabel();
+            this.saveSelectionState();
+            this.persistTimerState();
             return;
         }
 
         this.currentEvent = this.currentCompetition.events[eventIndex];
         document.getElementById('current-event').textContent = this.currentEvent.name;
+
+        this.applyEventTimerDefaults();
+        this.saveSelectionState();
         
         // Show athlete and referee panels
         this.showRefereeInterface();
@@ -463,11 +596,19 @@ class RefereePanel {
     }
 
     initTimer() {
+        this.timerMode = 'attempt';
+        this.timerSeconds = this.getAttemptDefault();
         this.updateTimerDisplay();
         this.updateTimerButton();
+        this.updateBreakButtonLabel();
     }
 
     toggleTimer() {
+        if (!this.currentEvent && !this.isBreakActive) {
+            this.showNotification('Please select an event before starting the timer', 'warning');
+            return;
+        }
+
         if (this.timerRunning) {
             this.stopTimer();
         } else {
@@ -476,21 +617,47 @@ class RefereePanel {
     }
 
     startTimer() {
-        if (this.timerInterval) {
-            clearInterval(this.timerInterval);
+        if (this.timerRunning) {
+            return;
+        }
+
+        if (!this.currentEvent && this.timerMode !== 'break') {
+            this.showNotification('Select an event before starting the timer', 'warning');
+            return;
+        }
+
+        if (this.timerSeconds <= 0) {
+            this.timerSeconds = this.getDefaultForCurrentMode();
         }
 
         this.timerRunning = true;
+        this.initialTimerSeconds = this.timerSeconds;
+        this.timerStartTimestamp = Date.now();
+
+        if (this.timerInterval) {
+            clearInterval(this.timerInterval);
+            this.timerInterval = null;
+        }
+
         this.timerInterval = setInterval(() => {
-            this.timerSeconds--;
-            this.updateTimerDisplay();
-            
-            if (this.timerSeconds <= 0) {
-                this.timeExpired();
+            const elapsed = Math.floor((Date.now() - this.timerStartTimestamp) / 1000);
+            const remaining = Math.max(0, this.initialTimerSeconds - elapsed);
+
+            if (remaining !== this.timerSeconds) {
+                this.timerSeconds = remaining;
+                this.updateTimerDisplay();
             }
+
+            if (remaining <= 0) {
+                this.timeExpired();
+                return;
+            }
+
+            this.persistTimerState();
         }, 1000);
-        
+
         this.updateTimerButton();
+        this.persistTimerState();
     }
 
     stopTimer() {
@@ -498,16 +665,30 @@ class RefereePanel {
             clearInterval(this.timerInterval);
             this.timerInterval = null;
         }
-        
+
+        if (this.timerRunning && this.timerStartTimestamp != null) {
+            const elapsed = Math.floor((Date.now() - this.timerStartTimestamp) / 1000);
+            this.timerSeconds = Math.max(0, this.initialTimerSeconds - elapsed);
+        }
+
         this.timerRunning = false;
+        this.timerStartTimestamp = null;
+        this.initialTimerSeconds = null;
+
+        this.updateTimerDisplay();
         this.updateTimerButton();
+        this.persistTimerState();
     }
 
     resetTimer() {
         this.stopTimer();
-        this.timerSeconds = this.currentEvent?.timer?.attempt_seconds || 60;
+        this.isBreakActive = false;
+        this.timerMode = 'attempt';
+        this.timerSeconds = this.getAttemptDefault();
         this.updateTimerDisplay();
         this.updateTimerButton();
+        this.updateBreakButtonLabel();
+        this.persistTimerState();
     }
 
     updateTimerDisplay() {
@@ -516,25 +697,30 @@ class RefereePanel {
             console.error('Timer element not found');
             return;
         }
-        
-        timerElement.textContent = this.timerSeconds;
-        
-        // Change color based on time remaining
-        if (this.timerSeconds <= 10) {
-            timerElement.style.background = '#e74c3c';
-            timerElement.style.color = 'white';
-            timerElement.classList.add('pulse');
-        } else if (this.timerSeconds <= 30) {
+
+        const remaining = Math.max(0, Math.round(this.timerSeconds));
+        timerElement.textContent = remaining;
+
+        if (this.timerMode === 'break') {
             timerElement.style.background = '#f39c12';
             timerElement.style.color = 'white';
             timerElement.classList.remove('pulse');
         } else {
-            timerElement.style.background = '#2c3e50';
-            timerElement.style.color = 'white';
-            timerElement.classList.remove('pulse');
+            if (remaining <= 10) {
+                timerElement.style.background = '#e74c3c';
+                timerElement.style.color = 'white';
+                timerElement.classList.add('pulse');
+            } else if (remaining <= 30) {
+                timerElement.style.background = '#f39c12';
+                timerElement.style.color = 'white';
+                timerElement.classList.remove('pulse');
+            } else {
+                timerElement.style.background = '#2c3e50';
+                timerElement.style.color = 'white';
+                timerElement.classList.remove('pulse');
+            }
         }
-        
-        // Add padding and styling
+
         timerElement.style.padding = '10px 20px';
         timerElement.style.borderRadius = '5px';
         timerElement.style.fontSize = '20px';
@@ -550,23 +736,181 @@ class RefereePanel {
             console.error('Start timer button not found');
             return;
         }
-        
-        if (this.timerRunning) {
-            startButton.textContent = 'Stop Timer';
-            startButton.style.background = '#e74c3c';
+
+        const disable = !this.currentEvent && this.timerMode !== 'break';
+        startButton.disabled = disable;
+        startButton.style.opacity = disable ? '0.6' : '1';
+        startButton.style.cursor = disable ? 'not-allowed' : 'pointer';
+
+        if (this.timerMode === 'break') {
+            startButton.style.background = '#f39c12';
+            startButton.style.color = 'white';
+            if (this.timerRunning) {
+                startButton.textContent = 'Pause Break';
+            } else if (this.isBreakActive) {
+                startButton.textContent = 'Resume Break';
+            } else {
+                startButton.textContent = 'Start Timer';
+                startButton.style.background = '#27ae60';
+            }
         } else {
-            startButton.textContent = 'Start Timer';
-            startButton.style.background = '#27ae60';
+            startButton.textContent = this.timerRunning ? 'Stop Timer' : 'Start Timer';
+            startButton.style.background = this.timerRunning ? '#e74c3c' : '#27ae60';
+            startButton.style.color = 'white';
         }
-        startButton.style.color = 'white';
+
         startButton.style.border = 'none';
         startButton.style.padding = '8px 16px';
         startButton.style.borderRadius = '4px';
-        startButton.style.cursor = 'pointer';
+    }
+
+    updateBreakButtonLabel() {
+        const breakBtn = document.getElementById('toggle-break');
+        if (!breakBtn) {
+            return;
+        }
+
+        if (!this.currentEvent) {
+            breakBtn.textContent = 'Start Break';
+            breakBtn.disabled = true;
+            breakBtn.classList.remove('active');
+            breakBtn.setAttribute('aria-pressed', 'false');
+            return;
+        }
+
+        breakBtn.disabled = false;
+        breakBtn.textContent = this.isBreakActive ? 'End Break' : 'Start Break';
+        breakBtn.classList.toggle('active', this.isBreakActive);
+        breakBtn.setAttribute('aria-pressed', this.isBreakActive ? 'true' : 'false');
+    }
+
+    toggleBreak() {
+        if (!this.currentEvent && !this.isBreakActive) {
+            this.showNotification('Select an event before starting a break', 'warning');
+            return;
+        }
+
+        if (this.isBreakActive) {
+            this.endBreak();
+        } else {
+            this.beginBreak();
+        }
+    }
+
+    beginBreak({ silent = false } = {}) {
+        this.stopTimer();
+        this.timerMode = 'break';
+        this.isBreakActive = true;
+        this.timerSeconds = this.getBreakDefault();
+        this.updateTimerDisplay();
+        this.updateTimerButton();
+        this.updateBreakButtonLabel();
+        this.startTimer();
+        if (!silent) {
+            this.showNotification('Break started', 'info');
+        }
+        this.persistTimerState();
+    }
+
+    endBreak({ resetTimer = true, silent = false } = {}) {
+        if (this.timerRunning) {
+            this.stopTimer();
+        }
+        this.isBreakActive = false;
+        this.timerMode = 'attempt';
+        if (resetTimer) {
+            this.timerSeconds = this.getAttemptDefault();
+        }
+        this.updateTimerDisplay();
+        this.updateTimerButton();
+        this.updateBreakButtonLabel();
+        if (!silent) {
+            this.showNotification('Break ended', 'info');
+        }
+        this.persistTimerState();
+    }
+
+    persistTimerState(extra = {}) {
+        const payload = {
+            timerMode: this.timerMode,
+            isBreakActive: this.isBreakActive,
+            timerSeconds: this.timerSeconds,
+            timerRunning: this.timerRunning,
+            initialTimerSeconds: this.initialTimerSeconds,
+            timerStartTimestamp: this.timerStartTimestamp,
+            updatedAt: Date.now(),
+            ...extra
+        };
+
+        try {
+            localStorage.setItem(this.timerStorageKey, JSON.stringify(payload));
+        } catch (err) {
+            console.warn('Unable to persist referee timer state:', err);
+        }
+    }
+
+    restoreTimerState() {
+        let stored;
+        try {
+            stored = JSON.parse(localStorage.getItem(this.timerStorageKey) || 'null');
+        } catch (err) {
+            stored = null;
+        }
+
+        if (!stored) {
+            this.timerMode = 'attempt';
+            this.isBreakActive = false;
+            this.timerSeconds = this.getAttemptDefault();
+            this.updateTimerDisplay();
+            this.updateTimerButton();
+            this.updateBreakButtonLabel();
+            return;
+        }
+
+        this.timerMode = stored.timerMode || 'attempt';
+        this.isBreakActive = !!stored.isBreakActive;
+
+        let remaining = typeof stored.timerSeconds === 'number'
+            ? stored.timerSeconds
+            : this.getDefaultForCurrentMode();
+
+        if (stored.timerRunning && stored.initialTimerSeconds && stored.timerStartTimestamp) {
+            const elapsed = Math.floor((Date.now() - stored.timerStartTimestamp) / 1000);
+            remaining = Math.max(0, stored.initialTimerSeconds - elapsed);
+        }
+
+        this.timerSeconds = remaining;
+        this.timerRunning = false;
+        this.initialTimerSeconds = null;
+        this.timerStartTimestamp = null;
+
+        this.updateTimerDisplay();
+        this.updateTimerButton();
+        this.updateBreakButtonLabel();
+
+        if (stored.timerRunning && remaining > 0) {
+            this.startTimer();
+        } else if (stored.timerRunning && remaining <= 0) {
+            this.timerSeconds = 0;
+            this.updateTimerDisplay();
+            if (this.timerMode === 'break') {
+                this.endBreak({ silent: true });
+            } else {
+                this.timeExpired();
+            }
+        } else {
+            this.persistTimerState();
+        }
     }
 
     timeExpired() {
         this.stopTimer();
+        if (this.timerMode === 'break') {
+            this.endBreak({ resetTimer: true, silent: true });
+            this.showNotification('Break finished', 'info');
+            return;
+        }
+
         this.showNotification('Time expired! Recording as No Lift', 'warning');
         this.selectResult('no-lift');
         
@@ -574,6 +918,7 @@ class RefereePanel {
         setTimeout(() => {
             this.submitDecision();
         }, 2000);
+        this.persistTimerState();
     }
 
     selectResult(result, label) {
@@ -788,6 +1133,7 @@ class RefereePanel {
         select.innerHTML = '<option value="">Select Event</option>';
         select.disabled = true;
         document.getElementById('current-event').textContent = 'No Event Selected';
+        this.updateBreakButtonLabel();
     }
 
     showNotification(message, type = 'info') {
