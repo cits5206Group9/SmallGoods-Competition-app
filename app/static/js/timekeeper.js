@@ -33,10 +33,16 @@
 
   const CURRENT_CTX = { competition: "", event: "", flight: "" };
   window.TK_updateContext = function ({ competition, event, flight, flightId } = {}) {
+    const prevCompetition = CURRENT_CTX.competition;
     if (typeof competition === "string") CURRENT_CTX.competition = competition;
     if (typeof event === "string") CURRENT_CTX.event = event;
     if (typeof flight === "string") CURRENT_CTX.flight = flight;
     if (flightId != null) CURRENT_FLIGHT_ID = Number(flightId);
+    
+    // Load the log for this competition if it changed
+    if (competition && competition !== prevCompetition) {
+      loadTimerLog();
+    }
   };
 
   // Prefer dropdown for athlete name; fallback to hidden input (compat)
@@ -172,6 +178,7 @@
   function addLogRow(entry) {
     MASTER_LOG.push(normalizeLogEntry(entry));
     renderLogTable();
+    saveTimerLog();
   }
 
   // ---------- Attempt Timer (main) ----------
@@ -232,6 +239,40 @@
 
   // ========== STATE PERSISTENCE ==========
   const STATE_KEY = "TK_TIMER_STATE";
+  const LOG_KEY_PREFIX = "TK_TIMER_LOG_";
+  
+  function getLogKey() {
+    // Create a unique key for each competition
+    const comp = CURRENT_CTX.competition || "unknown";
+    return LOG_KEY_PREFIX + comp.replace(/[^a-zA-Z0-9]/g, "_");
+  }
+  
+  function saveTimerLog() {
+    if (!CURRENT_CTX.competition) return;
+    try {
+      const logKey = getLogKey();
+      localStorage.setItem(logKey, JSON.stringify(MASTER_LOG));
+    } catch (e) {
+      console.warn("Failed to save timer log:", e);
+    }
+  }
+  
+  function loadTimerLog() {
+    if (!CURRENT_CTX.competition) return;
+    try {
+      const logKey = getLogKey();
+      const stored = localStorage.getItem(logKey);
+      if (stored) {
+        const logs = JSON.parse(stored);
+        MASTER_LOG.length = 0;
+        MASTER_LOG.push(...logs);
+        renderLogTable();
+        console.log(`Loaded ${logs.length} log entries for competition: ${CURRENT_CTX.competition}`);
+      }
+    } catch (e) {
+      console.warn("Failed to load timer log:", e);
+    }
+  }
   
   function saveTimerState() {
     const state = {
@@ -584,16 +625,9 @@
     }
   });
 
-  // Clear log when flight scoped via URL param
-    // Restore timer state from localStorage on page load
+  // Restore timer state from localStorage on page load
   restoreTimerState();
-
-  (function bootstrapFlightScope() {
-    if (CURRENT_FLIGHT_ID) {
-      const tbody = document.querySelector("#logTable tbody");
-      if (tbody) tbody.innerHTML = "";
-    }
-  })();
+  loadTimerLog();
 
   // minimal tree preload (selectors render themselves)
   async function loadFlightsTree() {

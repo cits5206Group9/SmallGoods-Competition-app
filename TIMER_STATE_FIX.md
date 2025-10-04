@@ -5,6 +5,7 @@ When refreshing the Timekeeper page (`/admin/timer`), all timer state was lost i
 - Attempt timer state (running/paused, time remaining)
 - Pinned break/rest timers for athletes
 - Selected flight and context information
+- **Timer Log history** for the competition
 
 This caused issues when a referee/timekeeper refreshed the page accidentally during a competition.
 
@@ -26,16 +27,25 @@ Added **localStorage-based state persistence** to `app/static/js/timekeeper.js`:
    - Recreates all pinned break timer cards
    - Restores timer values but **does not auto-resume** running timers (safety feature)
 
-3. **Auto-save Triggers**
-   - Automatic save every 2 seconds
+3. **Timer Log Persistence** (`saveTimerLog()` / `loadTimerLog()`)
+   - **NEW**: Saves timer log entries per competition
+   - Each competition has its own log history stored separately
+   - Log key format: `TK_TIMER_LOG_{competition_name}`
+   - Automatically loads competition-specific log when competition is selected
+   - Log persists across page refreshes and competition switches
+
+4. **Auto-save Triggers**
+   - Automatic save every 2 seconds (timer state)
    - Manual save on all timer actions:
      - Main timer: Start, Pause, Resume, Reset
      - Break timers: Start, Pause, Reset, Apply custom time
      - Pin/Remove break timers
      - Bulk actions (Start All, Pause All, Reset All)
+   - Log saved after every timer action that creates a log entry
 
-4. **Page Load Restoration**
+5. **Page Load Restoration**
    - `restoreTimerState()` is called automatically when the page loads
+   - `loadTimerLog()` is called after state restoration to load competition log
 
 ### Files Modified:
 - `app/static/js/timekeeper.js` - Added state persistence logic
@@ -70,11 +80,26 @@ Added **localStorage-based state persistence** to `app/static/js/timekeeper.js`:
 2. **Refresh the page**
 3. ✅ **Expected**: Page should load clean without any restored timers
 
+### Test Case 5: Timer Log Persistence (NEW)
+1. Select a competition/event/flight
+2. Start and stop several timers to create log entries
+3. **Refresh the page**
+4. ✅ **Expected**: Timer log table should show all previous entries
+5. Select a different competition
+6. ✅ **Expected**: Log should clear (different competition has different log)
+7. Switch back to the first competition
+8. ✅ **Expected**: Original log entries should reappear
+
 ## Technical Details:
 
-### LocalStorage Key:
+### LocalStorage Keys:
 ```javascript
+// Timer state (current timers, pins, context)
 TK_TIMER_STATE
+
+// Timer logs (per competition)
+TK_TIMER_LOG_{competition_name}
+// Example: TK_TIMER_LOG_Spring_Championship_2024
 ```
 
 ### State Structure:
