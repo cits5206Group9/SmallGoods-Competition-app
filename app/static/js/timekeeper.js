@@ -194,13 +194,19 @@
       attemptSessionStartTime = new Date();
       attemptSessionStartRemOrElapsed = attemptClock.currentSeconds();
     }
+    saveTimerState();
   });
-  bindClick("btnPause",  () => { attemptClock.pause();  });
-  bindClick("btnResume", () => { attemptClock.resume(); });
+  bindClick("btnPause",  () => { attemptClock.pause();
+    saveTimerState();
+  });
+  bindClick("btnResume", () => { attemptClock.resume();
+    saveTimerState();
+  });
   bindClick("btnReset", () => {
     attemptClock.reset();
     attemptSessionStartTime = null;
     attemptSessionStartRemOrElapsed = null;
+    saveTimerState();
   });
 
   // ---------- Pinned Timers (per-athlete Rest) ----------
@@ -223,6 +229,102 @@
       if (empty) empty.style.display = "none";
     }
   }
+
+  // ========== STATE PERSISTENCE ==========
+  const STATE_KEY = "TK_TIMER_STATE";
+  
+  function saveTimerState() {
+    const state = {
+      attemptTimer: {
+        mode: attemptClock.mode,
+        baseSeconds: attemptClock.baseSeconds,
+        elapsed: attemptClock.elapsed,
+        remaining: attemptClock.remaining,
+        running: attemptClock.running,
+        sessionStartTime: attemptSessionStartTime ? attemptSessionStartTime.toISOString() : null,
+        sessionStartRemOrElapsed: attemptSessionStartRemOrElapsed
+      },
+      pins: PINS.map(p => ({
+        id: p.id,
+        athlete: p.athlete,
+        attempt: p.attempt,
+        attemptDurationSec: p.attemptDurationSec,
+        restTimerRemaining: p.restTimer ? p.restTimer.remaining : defaultRestSeconds,
+        restTimerRunning: p.restTimer ? p.restTimer.running : false,
+        restTimerBaseSeconds: p.restTimer ? p.restTimer.baseSeconds : defaultRestSeconds
+      })),
+      flightId: CURRENT_FLIGHT_ID,
+      context: CURRENT_CTX,
+      timestamp: Date.now()
+    };
+    try {
+      localStorage.setItem(STATE_KEY, JSON.stringify(state));
+    } catch (e) {
+      console.warn("Failed to save timer state:", e);
+    }
+  }
+
+  function restoreTimerState() {
+    try {
+      const stored = localStorage.getItem(STATE_KEY);
+      if (!stored) return false;
+      
+      const state = JSON.parse(stored);
+      
+      if (Date.now() - state.timestamp > 24 * 60 * 60 * 1000) {
+        localStorage.removeItem(STATE_KEY);
+        return false;
+      }
+
+      if (state.flightId) {
+        CURRENT_FLIGHT_ID = state.flightId;
+        Object.assign(CURRENT_CTX, state.context || {});
+      }
+
+      if (state.attemptTimer) {
+        const at = state.attemptTimer;
+        attemptClock.mode = at.mode;
+        attemptClock.baseSeconds = at.baseSeconds;
+        attemptClock.elapsed = at.elapsed || 0;
+        attemptClock.remaining = at.remaining || at.baseSeconds;
+        attemptClock.render();
+        
+        if (at.sessionStartTime) {
+          attemptSessionStartTime = new Date(at.sessionStartTime);
+          attemptSessionStartRemOrElapsed = at.sessionStartRemOrElapsed;
+        }
+      }
+
+      if (state.pins && state.pins.length > 0) {
+        state.pins.forEach(pinData => {
+          const pin = {
+            id: pinData.id,
+            athlete: pinData.athlete,
+            attempt: pinData.attempt,
+            attemptDurationSec: pinData.attemptDurationSec
+          };
+          PINS.push(pin);
+          renderPin(pin);
+          
+          if (pin.restTimer) {
+            pin.restTimer.baseSeconds = pinData.restTimerBaseSeconds || defaultRestSeconds;
+            pin.restTimer.remaining = pinData.restTimerRemaining || pinData.restTimerBaseSeconds;
+            pin.restTimer.elapsed = 0;
+            pin.restTimer.render();
+          }
+        });
+      }
+
+      console.log("Timer state restored");
+      return true;
+    } catch (e) {
+      console.warn("Failed to restore timer state:", e);
+      localStorage.removeItem(STATE_KEY);
+      return false;
+    }
+  }
+
+  setInterval(saveTimerState, 2000);
 
   function parseHMS(input) {
     // accepts "HH:MM:SS" or "MM:SS" or seconds
@@ -308,14 +410,24 @@
     const inputHMS = card.querySelector(".pin-hms");
     const btnApply = card.querySelector(".pin-apply");
 
-    btnStart.onclick = () => restTimer.start();
-    btnPause.onclick = () => restTimer.pause();
-    btnReset.onclick = () => restTimer.set(defaultRestSeconds);
+    btnStart.onclick = () => {
+      restTimer.start();
+      saveTimerState();
+    };
+    btnPause.onclick = () => {
+      restTimer.pause();
+      saveTimerState();
+    };
+    btnReset.onclick = () => {
+      restTimer.set(defaultRestSeconds);
+      saveTimerState();
+    };
 
     btnApply.onclick = () => {
       const secs = parseHMS(inputHMS.value);
       if (!Number.isNaN(secs) && secs >= 0) {
         restTimer.set(secs);
+        saveTimerState();
       } else {
         btnApply.classList.add("invalid");
         setTimeout(() => btnApply.classList.remove("invalid"), 300);
@@ -336,6 +448,7 @@
     if (pin.elements?.card) pin.elements.card.remove();
     PINS.splice(idx, 1);
     ensurePinsPanelVisibility();
+    saveTimerState();
   }
 
   function pinFinishedAttempt({ athlete, attempt, attemptDurationSec }) {
@@ -448,9 +561,18 @@
   window.TK_applyTimerDefaultsFromSelection = applyTimerDefaultsFromSelection;
 
   // ---------- “Pinned Timers” header bulk actions ----------
-  if (btnPinsStartAll) btnPinsStartAll.onclick = () => PINS.forEach(p => p.restTimer?.start());
-  if (btnPinsPauseAll) btnPinsPauseAll.onclick = () => PINS.forEach(p => p.restTimer?.pause());
-  if (btnPinsResetAll) btnPinsResetAll.onclick = () => PINS.forEach(p => p.restTimer?.set(defaultRestSeconds));
+  if (btnPinsStartAll) btnPinsStartAll.onclick = () => {
+    PINS.forEach(p => p.restTimer?.start());
+    saveTimerState();
+  };
+  if (btnPinsPauseAll) btnPinsPauseAll.onclick = () => {
+    PINS.forEach(p => p.restTimer?.pause());
+    saveTimerState();
+  };
+  if (btnPinsResetAll) btnPinsResetAll.onclick = () => {
+    PINS.forEach(p => p.restTimer?.set(defaultRestSeconds));
+    saveTimerState();
+  };
 
   // ---------- Keyboard Shortcuts ----------
   document.addEventListener("keydown", (e) => {
@@ -463,6 +585,9 @@
   });
 
   // Clear log when flight scoped via URL param
+    // Restore timer state from localStorage on page load
+  restoreTimerState();
+
   (function bootstrapFlightScope() {
     if (CURRENT_FLIGHT_ID) {
       const tbody = document.querySelector("#logTable tbody");
