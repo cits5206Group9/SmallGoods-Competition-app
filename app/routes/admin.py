@@ -2875,11 +2875,15 @@ def update_attempt_weight(attempt_id):
                 'message': 'Cannot modify weight of a finished attempt'
             }), 400
         
-        # Weight progression validation DISABLED - allow any weight values
-        # (Original validation code removed to allow flexible weight adjustments)
-        
         # Update the weight
         attempt.requested_weight = new_weight
+        
+        # If this is attempt 1 (opening weight), also update the AthleteEntry.opening_weights
+        if attempt.attempt_number == 1 and attempt.athlete_entry_id:
+            athlete_entry = AthleteEntry.query.get(attempt.athlete_entry_id)
+            if athlete_entry:
+                athlete_entry.opening_weights = int(new_weight) if new_weight is not None else 0
+        
         db.session.commit()
         
         return jsonify({
