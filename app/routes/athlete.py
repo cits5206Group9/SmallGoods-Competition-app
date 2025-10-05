@@ -126,6 +126,34 @@ def attempt_time_remaining(attempt: Attempt) -> int:
     # No active timer - return None to indicate inactive
     return None
 
+def normalize_movement_name(name):
+    """
+    Normalize movement name for comparison.
+    """
+    if not name:
+        return ""
+    # Convert to lowercase, replace spaces and special chars with underscore
+    normalized = name.lower()
+    normalized = normalized.replace(" & ", "_")
+    normalized = normalized.replace("&", "_")
+    normalized = normalized.replace(" ", "_")
+    normalized = normalized.replace("-", "_")
+    # Remove any duplicate underscores
+    while "__" in normalized:
+        normalized = normalized.replace("__", "_")
+    normalized = normalized.strip("_")
+    
+    # Handle common variations
+    # "bench_press" -> "bench"
+    if normalized == "bench_press":
+        normalized = "bench"
+    # "clean_and_jerk" -> "clean_jerk"
+    if normalized == "clean_and_jerk":
+        normalized = "clean_jerk"
+    
+    return normalized
+
+
 def extract_movements_for_event(event):
     """
     Extract movement definitions for the given event from event.competition.config.
@@ -162,7 +190,8 @@ def extract_movements_for_event(event):
 
 def ensure_athlete_entries_for_event(athlete_id: int, event_id: int, flight_id: int = None, entry_order: int = None):
     """
-    Create one AthleteEntry per movement for (athlete_id, event_id).
+    Create one AthleteEntry per movement for (athlete_id, event_id, flight_id).
+    Only creates entries for movements that match the flight's movement_type.
     """
 
     event = (
@@ -192,6 +221,13 @@ def ensure_athlete_entries_for_event(athlete_id: int, event_id: int, flight_id: 
         flight_id = athlete_flight.flight_id
         entry_order = athlete_flight.order
 
+    # Get the flight's movement_type to filter which movements to create
+    flight = Flight.query.get(flight_id)
+    flight_movement_type = flight.movement_type if flight else None
+    
+    # Normalize flight movement type for comparison
+    normalized_flight_movement = normalize_movement_name(flight_movement_type) if flight_movement_type else None
+    
     movements = extract_movements_for_event(event)
     created = []
 
@@ -207,8 +243,18 @@ def ensure_athlete_entries_for_event(athlete_id: int, event_id: int, flight_id: 
 
     for mv in movements or []:
         mv_name = (mv.get("name") or "").strip()
+        
+        # Skip if already exists
         if not mv_name or mv_name in existing:
             continue
+
+        # Normalize movement name for comparison
+        normalized_mv_name = normalize_movement_name(mv_name)
+        
+        # Only create entry if movement matches flight's movement_type
+        if normalized_flight_movement and normalized_mv_name != normalized_flight_movement:
+            continue
+        
         timer = mv.get("timer") or {}
         attempt_seconds = int(timer.get("attempt_seconds", 60))
         break_seconds = int(timer.get("break_seconds", 120))
@@ -235,14 +281,19 @@ def ensure_athlete_entries_for_event(athlete_id: int, event_id: int, flight_id: 
         
         # Create Attempt records for each AthleteEntry
         for ae in created:
+            # Get the flight's movement_type
+            flight = Flight.query.get(flight_id)
+            movement_type = flight.movement_type if flight else None
+            
             # Determine number of attempts based on reps array length
             num_attempts = len(ae.default_reps) if ae.default_reps else 3  # Default to 3 attempts
             
             for attempt_num in range(1, num_attempts + 1):
-                # Check if attempt already exists for this athlete+flight+attempt_number
+                # Check if attempt already exists for this athlete+flight+movement+attempt_number
                 existing_attempt = Attempt.query.filter_by(
                     athlete_id=athlete_id,
                     flight_id=flight_id,
+                    movement_type=movement_type,
                     attempt_number=attempt_num
                 ).first()
                 
@@ -251,6 +302,7 @@ def ensure_athlete_entries_for_event(athlete_id: int, event_id: int, flight_id: 
                         athlete_id=athlete_id,
                         athlete_entry_id=ae.id,
                         flight_id=flight_id,
+                        movement_type=movement_type,
                         attempt_number=attempt_num,
                         requested_weight=0.0,
                         final_result=None
@@ -746,7 +798,8 @@ def get_next_attempt_timer():
                     display_attempt = na
                 elif break_timer and break_timer.state.value in ['running', 'paused']:
                     timer_type = "break"
-                    # During break timer, show NEXT attempt details
+                    # During break timer, show NEXT attempt details for the same movement
+                    current_movement = na.movement_type
                     next_attempt = (
                         Attempt.query.options(
                             joinedload(Attempt.athlete_entry).joinedload(AthleteEntry.event)
@@ -755,6 +808,7 @@ def get_next_attempt_timer():
                         .filter(
                             AthleteEntry.athlete_id == athlete_id,
                             Attempt.final_result.is_(None),  # not completed yet
+                            Attempt.movement_type == current_movement,  # Same movement
                             Attempt.attempt_number > na.attempt_number  # Next attempt
                         )
                         .order_by(Attempt.attempt_number.asc())

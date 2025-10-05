@@ -50,54 +50,40 @@
         }
     }
 
-    // Backward compatibility
-    function toggleWeightForm(weightValueElement) {
-        toggleForm(weightValueElement);
-    }
+    // Helper function to update timer display
+    function updateTimerDisplay(remaining, timerType, state) {
+        const timerEl = document.querySelector('.countdown-timer');
+        if (!timerEl) return;
 
-    // Timer functions
-    async function updateAttemptInfo(timerEl, infoEl) {
-        try {
-            const response = await fetch('/athlete/next-attempt-timer');
-            const data = await response.json();
-            
-            if (data.error) {
-                timerEl.textContent = '--:--';
-                timerEl.className = 'timer countdown-timer inactive';
-                infoEl.innerHTML = '<p>No upcoming attempts</p>';
-                return null;
-            }
-
-            // Update values in existing elements with correct field names
-            const sportTypeEl = infoEl.querySelector('.sport-type');
-            const liftTypeEl = infoEl.querySelector('.lift-type');
-            const weightEl = infoEl.querySelector('.weight');
-            const attemptOrderEl = infoEl.querySelector('.attempt-order');
-
-            if (sportTypeEl) sportTypeEl.textContent = data.event?.sport_type?.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) || 'N/A';
-            if (liftTypeEl) liftTypeEl.textContent = data.lift_type || 'N/A';
-            if (weightEl) weightEl.textContent = data.weight || 0;
-            if (attemptOrderEl) attemptOrderEl.textContent = data.order || 1;
-
-            // Update timer display based on activity and type
-            if (!data.timer_active || data.time === null) {
-                timerEl.textContent = '--:--';
-                timerEl.className = 'timer countdown-timer inactive';
-                return null;
-            } else {
-                // Remove inactive class and add timer type class
-                timerEl.className = `timer countdown-timer ${data.timer_type}`;
-                return data.time;
-            }
-        } catch (error) {
-            console.error('Error fetching attempt time:', error);
-            timerEl.textContent = '--:--';
-            timerEl.className = 'timer countdown-timer error';
-            infoEl.innerHTML = '<p>Error updating timer</p>';
-            return null;
+        const m = Math.floor(remaining / 60);
+        const s = Math.floor(remaining % 60);
+        timerEl.textContent = `${m}:${s.toString().padStart(2, "0")}`;
+        
+        timerEl.className = `timer countdown-timer ${timerType || ''} ${state || ''}`;
+        timerEl.classList.toggle("warning", remaining <= 120);
+        timerEl.classList.toggle("critical", remaining <= 60);
+        
+        if (state === 'expired' || remaining <= 0) {
+            timerEl.classList.add("expired");
         }
     }
 
+    // Helper function to update timer info display
+    function updateTimerInfoDisplay(infoEl, data) {
+        if (!infoEl) return;
+
+        const sportTypeEl = infoEl.querySelector('.sport-type');
+        const liftTypeEl = infoEl.querySelector('.lift-type');
+        const weightEl = infoEl.querySelector('.weight');
+        const attemptOrderEl = infoEl.querySelector('.attempt-order');
+
+        if (sportTypeEl) sportTypeEl.textContent = data.event?.sport_type?.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) || 'N/A';
+        if (liftTypeEl) liftTypeEl.textContent = data.lift_type || 'N/A';
+        if (weightEl) weightEl.textContent = data.weight || 0;
+        if (attemptOrderEl) attemptOrderEl.textContent = data.order || 1;
+    }
+
+    // Timer countdown function
     function startCountdown(el) {
         const infoEl = el.closest('.timer-card').querySelector('.next-attempt-info');
         let currentDeadline = null;
@@ -150,16 +136,8 @@
                 return;
             }
             
-            // Update timer info
-            const sportTypeEl = infoEl.querySelector('.sport-type');
-            const liftTypeEl = infoEl.querySelector('.lift-type');
-            const weightEl = infoEl.querySelector('.weight');
-            const attemptOrderEl = infoEl.querySelector('.attempt-order');
-
-            if (sportTypeEl) sportTypeEl.textContent = data.event?.sport_type?.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) || 'N/A';
-            if (liftTypeEl) liftTypeEl.textContent = data.lift_type || 'N/A';
-            if (weightEl) weightEl.textContent = data.weight || 0;
-            if (attemptOrderEl) attemptOrderEl.textContent = data.order || 1;
+            // Update timer info display
+            updateTimerInfoDisplay(infoEl, data);
             
             // Active timer - start/update countdown
             isTimerActive = true;
@@ -502,11 +480,6 @@
         });
     }
 
-    // Backward compatibility
-    function initializeWeightForms(container = document) {
-        initializeForms(container);
-    }
-
     // Initialize everything when DOM is ready
     document.addEventListener("DOMContentLoaded", () => {
         // Initialize event switching
@@ -565,26 +538,8 @@
 
         socket.on('timer_update', (data) => {
             // Update timer display when receiving real-time updates
-            const timerEl = document.querySelector('.countdown-timer');
-            const infoEl = document.querySelector('.next-attempt-info');
-            
-            if (timerEl && data.remaining !== undefined) {
-                // Only update if this is relevant to our timer display
-                if (data.type === 'break' || data.timer_id.startsWith('attempt_')) {
-                    const remaining = data.remaining;
-                    const m = Math.floor(remaining / 60);
-                    const s = Math.floor(remaining % 60);
-                    timerEl.textContent = `${m}:${s.toString().padStart(2, "0")}`;
-                    
-                    // Update timer state classes
-                    timerEl.className = `timer countdown-timer ${data.type} ${data.state}`;
-                    timerEl.classList.toggle("warning", remaining <= 120);
-                    timerEl.classList.toggle("critical", remaining <= 60);
-                    
-                    if (data.state === 'expired') {
-                        timerEl.classList.add("expired");
-                    }
-                }
+            if (data.remaining !== undefined && (data.type === 'break' || data.timer_id?.startsWith('attempt_'))) {
+                updateTimerDisplay(data.remaining, data.type, data.state);
             }
         });
 
@@ -622,40 +577,17 @@
                 // Reset failure count on successful connection
                 connectionFailures = 0;
                 
-                const timerEl = document.querySelector('.countdown-timer');
                 const infoEl = document.querySelector('.next-attempt-info');
                 
                 if (!data.error && data.timer_active && data.time !== null) {
-                    if (timerEl) {
-                        const remaining = data.time;
-                        const m = Math.floor(remaining / 60);
-                        const s = Math.floor(remaining % 60);
-                        timerEl.textContent = `${m}:${s.toString().padStart(2, "0")}`;
-                        
-                        // Update timer state classes based on type
-                        timerEl.className = `timer countdown-timer ${data.timer_type}`;
-                        timerEl.classList.toggle("warning", remaining <= 120);
-                        timerEl.classList.toggle("critical", remaining <= 60);
-                        
-                        if (remaining <= 0) {
-                            timerEl.classList.add("expired");
-                        }
-                    }
+                    // Update timer display
+                    updateTimerDisplay(data.time, data.timer_type, '');
                     
                     // Update info display
-                    if (infoEl) {
-                        const sportTypeEl = infoEl.querySelector('.sport-type');
-                        const liftTypeEl = infoEl.querySelector('.lift-type');
-                        const weightEl = infoEl.querySelector('.weight');
-                        const attemptOrderEl = infoEl.querySelector('.attempt-order');
-
-                        if (sportTypeEl) sportTypeEl.textContent = data.event?.sport_type?.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) || 'N/A';
-                        if (liftTypeEl) liftTypeEl.textContent = data.lift_type || 'N/A';
-                        if (weightEl) weightEl.textContent = data.weight || 0;
-                        if (attemptOrderEl) attemptOrderEl.textContent = data.order || 1;
-                    }
+                    updateTimerInfoDisplay(infoEl, data);
                 } else {
                     // No active timer - show inactive state
+                    const timerEl = document.querySelector('.countdown-timer');
                     if (timerEl) {
                         timerEl.textContent = '--:--';
                         timerEl.className = 'timer countdown-timer inactive';
@@ -699,7 +631,6 @@
 
     // Make functions globally available for onclick handlers
     window.showEvent = showEvent;
-    window.toggleWeightForm = toggleWeightForm;
     window.toggleForm = toggleForm;
     window.initializeWebSocket = initializeWebSocket;
 })();
