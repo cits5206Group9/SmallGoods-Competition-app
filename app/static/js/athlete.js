@@ -69,12 +69,12 @@
             }
 
             // Update values in existing elements with correct field names
-            const eventTypeEl = infoEl.querySelector('.event-type');
+            const sportTypeEl = infoEl.querySelector('.sport-type');
             const liftTypeEl = infoEl.querySelector('.lift-type');
             const weightEl = infoEl.querySelector('.weight');
             const attemptOrderEl = infoEl.querySelector('.attempt-order');
 
-            if (eventTypeEl) eventTypeEl.textContent = data.event?.name || 'N/A';
+            if (sportTypeEl) sportTypeEl.textContent = data.event?.sport_type?.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) || 'N/A';
             if (liftTypeEl) liftTypeEl.textContent = data.lift_type || 'N/A';
             if (weightEl) weightEl.textContent = data.weight || 0;
             if (attemptOrderEl) attemptOrderEl.textContent = data.order || 1;
@@ -151,12 +151,12 @@
             }
             
             // Update timer info
-            const eventTypeEl = infoEl.querySelector('.event-type');
+            const sportTypeEl = infoEl.querySelector('.sport-type');
             const liftTypeEl = infoEl.querySelector('.lift-type');
             const weightEl = infoEl.querySelector('.weight');
             const attemptOrderEl = infoEl.querySelector('.attempt-order');
 
-            if (eventTypeEl) eventTypeEl.textContent = data.event?.name || 'N/A';
+            if (sportTypeEl) sportTypeEl.textContent = data.event?.sport_type?.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) || 'N/A';
             if (liftTypeEl) liftTypeEl.textContent = data.lift_type || 'N/A';
             if (weightEl) weightEl.textContent = data.weight || 0;
             if (attemptOrderEl) attemptOrderEl.textContent = data.order || 1;
@@ -174,7 +174,7 @@
 
         function render(remaining) {
             const m = Math.floor(remaining / 60);
-            const s = remaining % 60;
+            const s = Math.floor(remaining % 60);
             el.textContent = `${m}:${s.toString().padStart(2, "0")}`;
             el.classList.toggle("warning", remaining <= 120);
             el.classList.toggle("critical", remaining <= 60);
@@ -573,7 +573,7 @@
                 if (data.type === 'break' || data.timer_id.startsWith('attempt_')) {
                     const remaining = data.remaining;
                     const m = Math.floor(remaining / 60);
-                    const s = remaining % 60;
+                    const s = Math.floor(remaining % 60);
                     timerEl.textContent = `${m}:${s.toString().padStart(2, "0")}`;
                     
                     // Update timer state classes
@@ -629,7 +629,7 @@
                     if (timerEl) {
                         const remaining = data.time;
                         const m = Math.floor(remaining / 60);
-                        const s = remaining % 60;
+                        const s = Math.floor(remaining % 60);
                         timerEl.textContent = `${m}:${s.toString().padStart(2, "0")}`;
                         
                         // Update timer state classes based on type
@@ -644,12 +644,12 @@
                     
                     // Update info display
                     if (infoEl) {
-                        const eventTypeEl = infoEl.querySelector('.event-type');
+                        const sportTypeEl = infoEl.querySelector('.sport-type');
                         const liftTypeEl = infoEl.querySelector('.lift-type');
                         const weightEl = infoEl.querySelector('.weight');
                         const attemptOrderEl = infoEl.querySelector('.attempt-order');
 
-                        if (eventTypeEl) eventTypeEl.textContent = data.event?.name || 'N/A';
+                        if (sportTypeEl) sportTypeEl.textContent = data.event?.sport_type?.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) || 'N/A';
                         if (liftTypeEl) liftTypeEl.textContent = data.lift_type || 'N/A';
                         if (weightEl) weightEl.textContent = data.weight || 0;
                         if (attemptOrderEl) attemptOrderEl.textContent = data.order || 1;

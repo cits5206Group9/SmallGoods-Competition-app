@@ -308,14 +308,97 @@
     const inputHMS = card.querySelector(".pin-hms");
     const btnApply = card.querySelector(".pin-apply");
 
-    btnStart.onclick = () => restTimer.start();
-    btnPause.onclick = () => restTimer.pause();
-    btnReset.onclick = () => restTimer.set(defaultRestSeconds);
+    btnStart.onclick = async () => {
+      restTimer.start();
+      
+      // Also start the backend timer for real-time sync with athlete pages
+      if (pin.athleteId && CURRENT_FLIGHT_ID) {
+        try {
+          const compId = getSelectedCompetitionId();
+          if (compId) {
+            const duration = restTimer.currentSeconds();
+            await fetch(`/athlete/timer/start-break/${compId}`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                athlete_id: pin.athleteId,
+                duration: duration
+              })
+            });
+          }
+        } catch (err) {
+          console.warn("Failed to start backend break timer:", err);
+        }
+      }
+    };
+    btnPause.onclick = async () => {
+      restTimer.pause();
+      
+      // Pause backend timer as well
+      if (pin.athleteId && CURRENT_FLIGHT_ID) {
+        try {
+          const compId = getSelectedCompetitionId();
+          if (compId) {
+            const timerId = `break_athlete_${pin.athleteId}`;
+            await fetch(`/athlete/timer/control/${compId}/${timerId}`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ action: "pause" })
+            });
+          }
+        } catch (err) {
+          console.warn("Failed to pause backend break timer:", err);
+        }
+      }
+    };
+    btnReset.onclick = async () => {
+      restTimer.set(defaultRestSeconds);
+      
+      // Reset backend timer as well
+      if (pin.athleteId && CURRENT_FLIGHT_ID) {
+        try {
+          const compId = getSelectedCompetitionId();
+          if (compId) {
+            const timerId = `break_athlete_${pin.athleteId}`;
+            await fetch(`/athlete/timer/control/${compId}/${timerId}`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ 
+                action: "reset",
+                duration: defaultRestSeconds
+              })
+            });
+          }
+        } catch (err) {
+          console.warn("Failed to reset backend break timer:", err);
+        }
+      }
+    };
 
-    btnApply.onclick = () => {
+    btnApply.onclick = async () => {
       const secs = parseHMS(inputHMS.value);
       if (!Number.isNaN(secs) && secs >= 0) {
         restTimer.set(secs);
+        
+        // Sync with backend timer if running
+        if (pin.athleteId && CURRENT_FLIGHT_ID) {
+          try {
+            const compId = getSelectedCompetitionId();
+            if (compId) {
+              const timerId = `break_athlete_${pin.athleteId}`;
+              await fetch(`/athlete/timer/control/${compId}/${timerId}`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ 
+                  action: "reset",
+                  duration: secs
+                })
+              });
+            }
+          } catch (err) {
+            console.warn("Failed to sync backend break timer:", err);
+          }
+        }
       } else {
         btnApply.classList.add("invalid");
         setTimeout(() => btnApply.classList.remove("invalid"), 300);
@@ -338,9 +421,9 @@
     ensurePinsPanelVisibility();
   }
 
-  function pinFinishedAttempt({ athlete, attempt, attemptDurationSec }) {
+  function pinFinishedAttempt({ athlete, attempt, attemptDurationSec, athleteId }) {
     const id = `pin_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-    const pin = { id, athlete, attempt, attemptDurationSec };
+    const pin = { id, athlete, attempt, attemptDurationSec, athleteId };
     PINS.push(pin);
     renderPin(pin);
   }
@@ -371,7 +454,8 @@
       pinFinishedAttempt({
         athlete: getAthleteName(),
         attempt: attemptNo || "?",
-        attemptDurationSec: durationSec
+        attemptDurationSec: durationSec,
+        athleteId: localStorage.getItem("TK_ATHLETE_ID") || null
       });
 
       // 3) DB POST
