@@ -17,7 +17,10 @@ REFEREE_ALLOWED_ROUTES = [
     'admin.referee_logout',
     'admin.individual_referee_page',
     'admin.referee_login_api',
-    'admin.submit_referee_decision'
+    'admin.submit_referee_decision',
+    'admin.get_current_attempt',
+    'admin.clear_current_attempt',
+    'admin.api_referee_decision'
 ]
 
 @admin_bp.before_request
