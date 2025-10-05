@@ -326,65 +326,6 @@
         </div>
     </div>
 
-    <!-- Athletes Queue -->
-    <div class="athletes-queue">
-        <h3>Athletes Queue</h3>
-        <div class="queue-controls">
-            <button id="load-athletes">Load Competition Athletes</button>
-        </div>
-        
-        <div class="queue-list" id="athletes-queue">
-            <!-- Athletes will be populated here -->
-        </div>
-    </div>
-
-    <!-- Competition Progress -->
-    <div class="competition-progress">
-        <h3>Competition Progress</h3>
-        <div class="progress-stats">
-            <div class="stat">
-                <label>Current Round:</label>
-                <span id="current-round">1</span>
-            </div>
-            <div class="stat">
-                <label>Athletes Remaining:</label>
-                <span id="athletes-remaining">0</span>
-            </div>
-            <div class="stat">
-                <label>Completed Attempts:</label>
-                <span id="completed-attempts">0</span>
-            </div>
-        </div>
-        
-        <div class="event-progress">
-            <h4>Event Progress</h4>
-            <div class="progress-bar">
-                <div class="progress-fill" id="progress-fill" style="width: 0%"></div>
-            </div>
-            <span id="progress-text">0% Complete</span>
-        </div>
-    </div>
-
-    <!-- Results Summary -->
-    <div class="results-summary" id="results-summary" style="display: none;">
-        <h3>Current Results</h3>
-        <div class="results-table">
-            <table id="results-table">
-                <thead>
-                    <tr>
-                        <th>Rank</th>
-                        <th>Athlete</th>
-                        <th>Best Lift</th>
-                        <th>Total</th>
-                        <th>Status</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <!-- Results will be populated here -->
-                </tbody>
-            </table>
-        </div>
-    </div>
 </div>
 <script src="{{ url_for('static', filename='js/referee.js') }}"></script>
 {% endblock %}
