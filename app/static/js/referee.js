@@ -25,7 +25,7 @@ class RefereePanel {
     async init() {
         this.bindEvents();
         await this.loadCompetitions();
-        this.initTimer();
+        this.initSyncedTimer();
         await this.restoreSelectionState();
         this.restoreTimerState();
     }
@@ -46,27 +46,8 @@ class RefereePanel {
             });
         }
 
-        // Timer controls
-        const startBtn = document.getElementById('start-timer');
-        if (startBtn) {
-            startBtn.addEventListener('click', () => {
-                this.toggleTimer();
-            });
-        }
-
-        const resetBtn = document.getElementById('reset-timer');
-        if (resetBtn) {
-            resetBtn.addEventListener('click', () => {
-                this.resetTimer();
-            });
-        }
-
-        const breakBtn = document.getElementById('toggle-break');
-        if (breakBtn) {
-            breakBtn.addEventListener('click', () => {
-                this.toggleBreak();
-            });
-        }
+        // Timer controls removed - now using synchronized timer from timekeeper
+        // No local timer controls needed
 
         // Result buttons - use event delegation since buttons are dynamic
         document.addEventListener('click', (e) => {
@@ -601,6 +582,137 @@ class RefereePanel {
         this.updateTimerDisplay();
         this.updateTimerButton();
         this.updateBreakButtonLabel();
+    }
+
+    initSyncedTimer() {
+        // Initialize the synchronized timer that pulls from timekeeper
+        this.lastSyncedState = null;
+        this.localTimerValue = 60;
+        this.localTimerRunning = false;
+        this.lastSyncTime = null;
+        
+        // Fetch timer state from server every 500ms
+        this.syncTimerInterval = setInterval(() => {
+            this.fetchTimerState();
+        }, 500);
+        
+        // Update display every 100ms for smooth countdown
+        this.displayUpdateInterval = setInterval(() => {
+            this.updateLocalTimerDisplay();
+        }, 100);
+        
+        // Fetch immediately on init
+        this.fetchTimerState();
+    }
+
+    async fetchTimerState() {
+        try {
+            const response = await fetch('/admin/api/timer-state');
+            if (!response.ok) {
+                throw new Error('Failed to fetch timer state');
+            }
+            
+            const state = await response.json();
+            this.updateSyncedTimerDisplay(state);
+        } catch (error) {
+            console.warn('Failed to fetch timer state:', error);
+            this.updateSyncedTimerDisplay(null);
+        }
+    }
+
+    updateLocalTimerDisplay() {
+        // This runs every 100ms to provide smooth timer updates
+        if (!this.localTimerRunning || !this.lastSyncTime || !this.lastSyncedState) return;
+        
+        const timerDisplay = document.getElementById('synced-timer-display');
+        if (!timerDisplay) return;
+        
+        // Calculate elapsed time since the SERVER's timestamp (not local sync time)
+        const now = Date.now();
+        const serverTimestamp = this.lastSyncedState.timestamp || this.lastSyncTime;
+        const elapsedSeconds = (now - serverTimestamp) / 1000;
+        
+        // Update local timer value based on server time
+        let currentValue;
+        if (this.lastSyncedState.timer_mode === 'countdown') {
+            currentValue = Math.max(0, this.lastSyncedState.timer_seconds - elapsedSeconds);
+        } else {
+            currentValue = this.lastSyncedState.timer_seconds + elapsedSeconds;
+        }
+        
+        // Use Math.floor for consistent countdown behavior (no rounding flashing)
+        const displayValue = Math.floor(currentValue);
+        
+        // Only update if the displayed value actually changed
+        const currentDisplayText = timerDisplay.textContent;
+        const minutes = Math.floor(displayValue / 60);
+        const seconds = displayValue % 60;
+        const timeStr = displayValue >= 60 
+            ? `${minutes}:${seconds.toString().padStart(2, '0')}`
+            : displayValue.toString();
+        
+        if (currentDisplayText !== timeStr) {
+            timerDisplay.textContent = timeStr;
+        }
+    }
+
+    updateSyncedTimerDisplay(state) {
+        const timerDisplay = document.getElementById('synced-timer-display');
+        const statusDot = document.getElementById('timer-status-indicator');
+        const statusText = document.getElementById('timer-status-text');
+        const athleteName = document.getElementById('athlete-name');
+        const attemptNumber = document.getElementById('attempt-number');
+        
+        if (!timerDisplay) return;
+        
+        if (!state || !state.athlete_name) {
+            // No active timer
+            this.localTimerRunning = false;
+            this.lastSyncedState = null;
+            this.localTimerValue = 60;
+            timerDisplay.textContent = '60';
+            statusDot.className = 'status-dot waiting';
+            statusText.textContent = 'Waiting for timekeeper...';
+            if (athleteName) athleteName.textContent = 'Athlete Name';
+            if (attemptNumber) attemptNumber.textContent = 'Attempt #1';
+            return;
+        }
+        
+        // Update synced state
+        this.lastSyncedState = state;
+        // Use server timestamp if available, otherwise use current time
+        this.lastSyncTime = state.timestamp || Date.now();
+        this.localTimerRunning = state.timer_running;
+        this.localTimerValue = state.timer_seconds;
+        
+        // If timer is not running, update display immediately (use floor for consistency)
+        if (!state.timer_running) {
+            const displayValue = Math.floor(state.timer_seconds);
+            const minutes = Math.floor(displayValue / 60);
+            const seconds = displayValue % 60;
+            const timeStr = displayValue >= 60 
+                ? `${minutes}:${seconds.toString().padStart(2, '0')}`
+                : displayValue.toString();
+            
+            timerDisplay.textContent = timeStr;
+        }
+        
+        // Update athlete info
+        if (athleteName && state.athlete_name) {
+            athleteName.textContent = state.athlete_name;
+        }
+        if (attemptNumber && state.attempt_number) {
+            attemptNumber.textContent = `Attempt #${state.attempt_number}`;
+        }
+        
+        // Update status indicator
+        if (state.timer_running) {
+            statusDot.className = 'status-dot running';
+            statusText.textContent = `Running (${state.timer_mode})`;
+        } else {
+            statusDot.className = 'status-dot paused';
+            statusText.textContent = `Paused (${state.timer_mode})`;
+        }
     }
 
     toggleTimer() {
