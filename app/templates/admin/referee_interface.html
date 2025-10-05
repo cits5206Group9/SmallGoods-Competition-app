@@ -8,37 +8,45 @@
         .referee-header {
             display: flex;
             justify-content: space-between;
-            align-items: center;
+            align-items: flex-start;
+            margin-bottom: 20px;
             padding: 20px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border-radius: 12px;
-            margin-bottom: 30px;
-            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+            background: #f8f9fa;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
         
-        .referee-info h1 {
-            margin: 0 0 10px 0;
-            font-size: 28px;
+        .header-left {
+            flex: 1;
         }
         
-        .referee-info p {
-            margin: 0;
-            opacity: 0.9;
-            font-size: 14px;
-        }
-        
-        .referee-actions {
+        .header-right {
             display: flex;
-            gap: 10px;
+            align-items: center;
+        }
+        
+        .referee-header h1 {
+            margin: 0 0 10px 0;
+            color: #2c3e50;
+            font-size: 24px;
+        }
+        
+        .competition-info {
+            font-size: 14px;
+            color: #7f8c8d;
+        }
+        
+        .competition-info span {
+            margin-right: 15px;
+            font-weight: 500;
         }
         
         .btn-logout {
             padding: 10px 20px;
-            background: rgba(255, 255, 255, 0.2);
+            background: #e74c3c;
             color: white;
-            border: 2px solid white;
-            border-radius: 8px;
+            border: none;
+            border-radius: 6px;
             cursor: pointer;
             text-decoration: none;
             font-weight: 600;
@@ -46,207 +54,246 @@
         }
         
         .btn-logout:hover {
-            background: rgba(255, 255, 255, 0.3);
-            transform: translateY(-2px);
+            background: #c0392b;
+            transform: translateY(-1px);
         }
         
-        .competition-info {
-            padding: 20px;
-            background: #f8f9fa;
-            border-radius: 12px;
-            margin-bottom: 30px;
-        }
-        
-        .competition-info h3 {
-            margin: 0 0 15px 0;
-            color: #2c3e50;
-        }
-        
-        .info-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-        }
-        
-        .info-item {
-            padding: 15px;
+        /* Current Athlete Card */
+        .current-athlete-card {
             background: white;
             border-radius: 8px;
-            border-left: 4px solid #3498db;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
         
-        .info-item label {
+        .athlete-header h2 {
+            margin: 0 0 10px 0;
+            color: #2c3e50;
+            font-size: 28px;
+        }
+        
+        .athlete-details {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+        }
+        
+        .athlete-details span {
+            padding: 5px 15px;
+            background: #ecf0f1;
+            border-radius: 20px;
+            font-size: 14px;
+            color: #2c3e50;
+            font-weight: 500;
+        }
+        
+        .attempt-info {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 20px;
+            align-items: center;
+        }
+        
+        .attempt-weight {
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            text-align: center;
+        }
+        
+        .attempt-weight label {
             display: block;
-            font-size: 12px;
+            font-size: 14px;
             color: #7f8c8d;
             margin-bottom: 5px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
+            font-weight: 600;
         }
         
-        .info-item .value {
-            font-size: 18px;
-            font-weight: 600;
+        .attempt-weight span {
+            font-size: 36px;
+            font-weight: bold;
             color: #2c3e50;
         }
         
-        .decision-panel {
-            padding: 30px;
-            background: white;
+        /* Synced Timer Display */
+        .synced-timer {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             border-radius: 12px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            text-align: center;
+            color: white;
         }
         
-        .decision-panel h3 {
+        .timer-label {
+            font-size: 14px;
+            margin-bottom: 10px;
+            opacity: 0.9;
+            font-weight: 600;
+        }
+        
+        .synced-timer-value {
+            font-size: 72px;
+            font-weight: 700;
+            font-family: 'Courier New', monospace;
+            display: block;
+            line-height: 1;
+            margin: 10px 0;
+        }
+        
+        .timer-status {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            margin-top: 10px;
+            font-size: 14px;
+        }
+        
+        /* Referee Decision Panel */
+        .referee-decisions {
+            background: white;
+            border-radius: 8px;
+            padding: 30px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .referee-decisions h3 {
             margin: 0 0 20px 0;
             color: #2c3e50;
             font-size: 24px;
         }
         
-        .current-attempt {
-            padding: 20px;
-            background: #f8f9fa;
-            border-radius: 12px;
-            margin-bottom: 30px;
-            border: 2px solid #3498db;
-        }
-        
-        .current-attempt h4 {
+        .lift-result h4 {
             margin: 0 0 15px 0;
             color: #2c3e50;
+            font-size: 18px;
         }
         
-        .attempt-details {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 10px;
-        }
-        
-        .attempt-detail {
-            padding: 10px;
-            background: white;
-            border-radius: 8px;
-        }
-        
-        .attempt-detail label {
-            display: block;
-            font-size: 12px;
-            color: #7f8c8d;
-            margin-bottom: 5px;
-        }
-        
-        .attempt-detail .value {
-            font-size: 16px;
-            font-weight: 600;
-            color: #2c3e50;
-        }
-        
-        .decision-buttons {
+        .result-buttons {
             display: flex;
             gap: 20px;
             justify-content: center;
-            margin: 30px 0;
+            margin-bottom: 30px;
         }
         
-        .decision-btn {
+        .result-btn {
             flex: 1;
-            max-width: 200px;
-            padding: 20px;
-            border: none;
+            max-width: 250px;
+            padding: 20px 30px;
+            border: 3px solid transparent;
             border-radius: 12px;
-            font-size: 18px;
+            font-size: 20px;
             font-weight: 700;
             cursor: pointer;
             transition: all 0.3s ease;
-            text-transform: uppercase;
-            letter-spacing: 1px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
         }
         
-        .decision-btn.good-lift {
+        .result-btn.good-lift {
             background: #2ecc71;
             color: white;
         }
         
-        .decision-btn.good-lift:hover {
+        .result-btn.good-lift:hover {
             background: #27ae60;
             transform: translateY(-3px);
             box-shadow: 0 6px 20px rgba(46, 204, 113, 0.4);
         }
         
-        .decision-btn.no-lift {
+        .result-btn.no-lift {
             background: #e74c3c;
             color: white;
         }
         
-        .decision-btn.no-lift:hover {
+        .result-btn.no-lift:hover {
             background: #c0392b;
             transform: translateY(-3px);
             box-shadow: 0 6px 20px rgba(231, 76, 60, 0.4);
         }
         
-        .decision-btn.selected {
+        .result-btn.selected {
+            border-color: #2c3e50;
             transform: scale(1.05);
             box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
         }
         
-        .submit-section {
+        .result-btn i {
+            font-size: 24px;
+        }
+        
+        .action-buttons {
             text-align: center;
             margin-top: 30px;
         }
         
-        .btn-submit {
+        .btn-primary {
             padding: 15px 40px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: #3498db;
             color: white;
             border: none;
-            border-radius: 12px;
+            border-radius: 8px;
             font-size: 18px;
             font-weight: 600;
             cursor: pointer;
             transition: all 0.3s ease;
         }
         
-        .btn-submit:hover:not(:disabled) {
+        .btn-primary:hover:not(:disabled) {
+            background: #2980b9;
             transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+            box-shadow: 0 4px 12px rgba(52, 152, 219, 0.4);
         }
         
-        .btn-submit:disabled {
+        .btn-primary:disabled {
             opacity: 0.5;
             cursor: not-allowed;
+            background: #95a5a6;
         }
         
-        .timer-display {
-            text-align: center;
-            padding: 30px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            border-radius: 12px;
-            color: white;
-            margin-bottom: 30px;
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
         }
         
-        .timer-display h4 {
-            margin: 0 0 10px 0;
-            font-size: 14px;
-            opacity: 0.9;
+        .status-dot.waiting {
+            background-color: #95a5a6;
+            animation: pulse-gray 2s ease-in-out infinite;
         }
         
-        .timer-value {
-            font-size: 72px;
-            font-weight: 700;
-            font-family: 'Courier New', monospace;
+        .status-dot.running {
+            background-color: #2ecc71;
+            animation: pulse-green 1.5s ease-in-out infinite;
         }
         
-        .no-attempt {
-            text-align: center;
-            padding: 60px;
-            color: #7f8c8d;
+        .status-dot.paused {
+            background-color: #f39c12;
         }
         
-        .no-attempt i {
-            font-size: 64px;
-            margin-bottom: 20px;
-            display: block;
+        @keyframes pulse-green {
+            0%, 100% { 
+                opacity: 1;
+                transform: scale(1);
+            }
+            50% { 
+                opacity: 0.6;
+                transform: scale(1.1);
+            }
+        }
+        
+        @keyframes pulse-gray {
+            0%, 100% { 
+                opacity: 0.5;
+            }
+            50% { 
+                opacity: 1;
+            }
         }
     </style>
 {% endblock %}
@@ -255,201 +302,333 @@
 <div class="referee-container">
     <!-- Referee Header -->
     <div class="referee-header">
-        <div class="referee-info">
-            <h1>{{ referee.position or 'Referee' }}</h1>
-            <p>{{ referee.name }} ({{ referee.username }})</p>
+        <div class="header-left">
+            <h1>{{ referee.name }} ({{ referee.position or 'Referee' }})</h1>
+            <div class="competition-info">
+                <span><strong>Username:</strong> {{ referee.username }}</span>
+                {% if competition %}
+                <span><strong>Competition:</strong> {{ competition.name }}</span>
+                {% endif %}
+            </div>
         </div>
-        <div class="referee-actions">
+        <div class="header-right">
             <a href="{{ url_for('admin.referee_logout') }}" class="btn-logout">Logout</a>
         </div>
     </div>
 
-    <!-- Competition Information -->
-    {% if competition %}
-    <div class="competition-info">
-        <h3>Competition Information</h3>
-        <div class="info-grid">
-            <div class="info-item">
-                <label>Competition</label>
-                <div class="value">{{ competition.name }}</div>
-            </div>
-            <div class="info-item">
-                <label>Start Date</label>
-                <div class="value">{{ competition.start_date.strftime('%B %d, %Y') if competition.start_date else 'N/A' }}</div>
-            </div>
-            <div class="info-item">
-                <label>Location</label>
-                <div class="value">{{ competition.location or 'N/A' }}</div>
-            </div>
-            <div class="info-item">
-                <label>Status</label>
-                <div class="value">{{ 'Active' if competition.is_active else 'Inactive' }}</div>
+    <!-- Current Athlete Display -->
+    <div class="current-athlete-card" id="current-athlete">
+        <div class="athlete-header">
+            <h2 id="athlete-name">Athlete Name</h2>
+            <div class="athlete-details">
+                <span id="athlete-weight-class">Weight Class</span>
+                <span id="athlete-team">Team</span>
+                <span id="current-lift">Current Lift</span>
+                <span id="attempt-number">Attempt #1</span>
             </div>
         </div>
-    </div>
-    {% endif %}
-
-    <!-- Timer Display -->
-    <div class="timer-display">
-        <h4>Attempt Timer</h4>
-        <div class="timer-value" id="timer-display">00:00</div>
-    </div>
-
-    <!-- Decision Panel -->
-    <div class="decision-panel">
-        <h3>Make Your Decision</h3>
         
-        <div id="current-attempt-section" style="display: none;">
-            <div class="current-attempt">
-                <h4>Current Attempt</h4>
-                <div class="attempt-details">
-                    <div class="attempt-detail">
-                        <label>Athlete</label>
-                        <div class="value" id="athlete-name">-</div>
-                    </div>
-                    <div class="attempt-detail">
-                        <label>Weight</label>
-                        <div class="value" id="attempt-weight">-</div>
-                    </div>
-                    <div class="attempt-detail">
-                        <label>Attempt Number</label>
-                        <div class="value" id="attempt-number">-</div>
-                    </div>
-                    <div class="attempt-detail">
-                        <label>Lift Type</label>
-                        <div class="value" id="lift-type">-</div>
-                    </div>
+        <div class="attempt-info">
+            <div class="attempt-weight">
+                <label>Attempt Weight:</label>
+                <span id="attempt-weight">0kg</span>
+            </div>
+            <div class="timer-display synced-timer">
+                <div class="timer-label">Live Timer from Timekeeper</div>
+                <span id="synced-timer-display" class="synced-timer-value">60</span>
+                <div class="timer-status">
+                    <span id="timer-status-indicator" class="status-dot waiting"></span>
+                    <span id="timer-status-text">Waiting for timekeeper...</span>
                 </div>
             </div>
+        </div>
+    </div>
 
-            <div class="decision-buttons">
-                <button class="decision-btn good-lift" onclick="selectDecision('good-lift')">
-                    ✓ Good Lift
+    <!-- Referee Decision Panel -->
+    <div class="referee-decisions" id="referee-panel">
+        <h3>Cast Your Decision</h3>
+        
+        <div class="lift-result">
+            <h4>Lift Result</h4>
+            <div class="result-buttons">
+                <button class="result-btn good-lift" data-result="good-lift" data-label="Good Lift">
+                    <i class="icon-check">✓</i>
+                    Good Lift
                 </button>
-                <button class="decision-btn no-lift" onclick="selectDecision('no-lift')">
-                    ✗ No Lift
-                </button>
-            </div>
-
-            <div class="submit-section">
-                <button class="btn-submit" id="submit-btn" onclick="submitDecision()" disabled>
-                    Submit Decision
+                <button class="result-btn no-lift" data-result="no-lift" data-label="No Lift">
+                    <i class="icon-x">✗</i>
+                    No Lift
                 </button>
             </div>
         </div>
 
-        <div id="no-attempt-section" class="no-attempt">
-            <i>⏳</i>
-            <h3>Waiting for Current Attempt</h3>
-            <p>The attempt information will appear here when the timekeeper starts an attempt.</p>
+        <div class="action-buttons">
+            <button class="btn-primary" id="submit-decision" disabled>Submit Decision</button>
         </div>
     </div>
 </div>
 
 <script>
-let currentDecision = null;
-
-function selectDecision(decision) {
-    currentDecision = decision;
-    
-    // Update button states
-    document.querySelectorAll('.decision-btn').forEach(btn => {
-        btn.classList.remove('selected');
-    });
-    
-    if (decision === 'good-lift') {
-        document.querySelector('.decision-btn.good-lift').classList.add('selected');
-    } else {
-        document.querySelector('.decision-btn.no-lift').classList.add('selected');
+// Referee Interface with Synchronized Timer
+class RefereeInterface {
+    constructor() {
+        this.currentDecision = null;
+        this.lastSyncedState = null;
+        this.localTimerValue = 60;
+        this.localTimerRunning = false;
+        this.lastSyncTime = null;
+        this.localTimerStartValue = null;
+        
+        this.init();
     }
     
-    // Enable submit button
-    document.getElementById('submit-btn').disabled = false;
-}
-
-async function submitDecision() {
-    if (!currentDecision) {
-        alert('Please select a decision first');
-        return;
+    init() {
+        this.bindEvents();
+        this.initSyncedTimer();
     }
     
-    const submitBtn = document.getElementById('submit-btn');
-    submitBtn.disabled = true;
-    submitBtn.textContent = 'Submitting...';
-    
-    try {
-        const response = await fetch('/admin/api/referee/decision', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                referee_id: {{ referee.id }},
-                decision: currentDecision,
-                timestamp: new Date().toISOString()
-            })
+    bindEvents() {
+        // Decision buttons - use event delegation
+        document.addEventListener('click', (e) => {
+            if (e.target.classList.contains('result-btn') && e.target.dataset.result) {
+                this.selectDecision(e.target.dataset.result, e.target.dataset.label);
+            }
         });
         
-        const data = await response.json();
+        // Submit button
+        const submitBtn = document.getElementById('submit-decision');
+        if (submitBtn) {
+            submitBtn.addEventListener('click', () => this.submitDecision());
+        }
+    }
+    
+    selectDecision(result, label) {
+        this.currentDecision = result;
+        this.currentDecisionLabel = label;
         
-        if (data.success) {
-            alert('Decision submitted successfully!');
-            // Reset decision
-            currentDecision = null;
-            document.querySelectorAll('.decision-btn').forEach(btn => {
-                btn.classList.remove('selected');
+        // Update button states
+        document.querySelectorAll('.result-btn').forEach(btn => {
+            btn.classList.remove('selected');
+        });
+        
+        // Select current result
+        const selectedBtn = document.querySelector(`[data-result="${result}"]`);
+        if (selectedBtn) {
+            selectedBtn.classList.add('selected');
+        }
+        
+        // Enable submit button
+        const submitBtn = document.getElementById('submit-decision');
+        if (submitBtn) {
+            submitBtn.disabled = false;
+        }
+    }
+    
+    async submitDecision() {
+        if (!this.currentDecision) {
+            alert('Please select a decision first');
+            return;
+        }
+        
+        const submitBtn = document.getElementById('submit-btn');
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Submitting...';
+        
+        try {
+            const response = await fetch('/admin/api/referee/decision', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    referee_id: {{ referee.id }},
+                    decision: this.currentDecision,
+                    timestamp: new Date().toISOString()
+                })
             });
-            submitBtn.textContent = 'Submit Decision';
-        } else {
-            alert('Error submitting decision: ' + data.message);
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                alert('Decision submitted successfully!');
+                // Reset decision
+                this.currentDecision = null;
+                document.querySelectorAll('.decision-btn').forEach(btn => {
+                    btn.classList.remove('selected');
+                });
+                submitBtn.textContent = 'Submit Decision';
+            } else {
+                alert('Error submitting decision: ' + data.message);
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Submit Decision';
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            alert('Network error. Please try again.');
             submitBtn.disabled = false;
             submitBtn.textContent = 'Submit Decision';
         }
-    } catch (error) {
-        console.error('Error:', error);
-        alert('Network error. Please try again.');
-        submitBtn.disabled = false;
-        submitBtn.textContent = 'Submit Decision';
     }
-}
-
-// Poll for current attempt data
-async function fetchCurrentAttempt() {
-    try {
-        const response = await fetch('/admin/api/current-attempt');
-        const data = await response.json();
+    
+    initSyncedTimer() {
+        // Initialize the synchronized timer that pulls from timekeeper
+        this.lastSyncedState = null;
+        this.localTimerValue = 60;
+        this.localTimerRunning = false;
+        this.lastSyncTime = null;
+        this.localTimerStartValue = null;
         
-        if (data && data.athleteName) {
-            // Show attempt section
-            document.getElementById('current-attempt-section').style.display = 'block';
-            document.getElementById('no-attempt-section').style.display = 'none';
-            
-            // Update attempt details
-            document.getElementById('athlete-name').textContent = data.athleteName;
-            document.getElementById('attempt-weight').textContent = data.weight + 'kg';
-            document.getElementById('attempt-number').textContent = data.attemptNumber;
-            document.getElementById('lift-type').textContent = data.liftType;
-            
-            // Update timer
-            if (data.timerSeconds !== undefined) {
-                const minutes = Math.floor(data.timerSeconds / 60);
-                const seconds = data.timerSeconds % 60;
-                document.getElementById('timer-display').textContent = 
-                    `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        // Fetch timer state from server every 500ms
+        this.syncTimerInterval = setInterval(() => {
+            this.fetchTimerState();
+        }, 500);
+        
+        // Update display every 100ms for smooth countdown between syncs
+        this.displayUpdateInterval = setInterval(() => {
+            this.updateLocalTimerDisplay();
+        }, 100);
+        
+        // Fetch immediately on init
+        this.fetchTimerState();
+    }
+    
+    async fetchTimerState() {
+        try {
+            const response = await fetch('/admin/api/timer-state');
+            if (!response.ok) {
+                throw new Error('Failed to fetch timer state');
             }
-        } else {
-            // No active attempt
-            document.getElementById('current-attempt-section').style.display = 'none';
-            document.getElementById('no-attempt-section').style.display = 'block';
-            document.getElementById('timer-display').textContent = '00:00';
+            
+            const state = await response.json();
+            this.updateSyncedTimerDisplay(state);
+        } catch (error) {
+            console.warn('Failed to fetch timer state:', error);
+            this.updateSyncedTimerDisplay(null);
         }
-    } catch (error) {
-        console.error('Error fetching attempt:', error);
+    }
+    
+    updateLocalTimerDisplay() {
+        // This runs every 100ms to provide smooth timer updates between server syncs
+        if (!this.localTimerRunning || !this.lastSyncTime || this.localTimerStartValue === null) return;
+        
+        const timerDisplay = document.getElementById('synced-timer-display');
+        if (!timerDisplay) return;
+        
+        // Calculate elapsed time since WE received the last sync (local interpolation only)
+        const now = Date.now();
+        const elapsedSeconds = (now - this.lastSyncTime) / 1000;
+        
+        // Interpolate from the value we received from timekeeper
+        let currentValue;
+        if (this.lastSyncedState.timer_mode === 'countdown') {
+            currentValue = Math.max(0, this.localTimerStartValue - elapsedSeconds);
+        } else {
+            currentValue = this.localTimerStartValue + elapsedSeconds;
+        }
+        
+        // Use Math.floor for consistent countdown behavior (no rounding flashing)
+        const displayValue = Math.floor(currentValue);
+        
+        // Only update if the displayed value actually changed
+        const currentDisplayText = timerDisplay.textContent;
+        const minutes = Math.floor(displayValue / 60);
+        const seconds = displayValue % 60;
+        const timeStr = displayValue >= 60 
+            ? `${minutes}:${seconds.toString().padStart(2, '0')}`
+            : displayValue.toString();
+        
+        if (currentDisplayText !== timeStr) {
+            timerDisplay.textContent = timeStr;
+        }
+    }
+    
+    updateSyncedTimerDisplay(state) {
+        const timerDisplay = document.getElementById('synced-timer-display');
+        const statusDot = document.getElementById('timer-status-indicator');
+        const statusText = document.getElementById('timer-status-text');
+        const athleteName = document.getElementById('athlete-name');
+        const attemptWeight = document.getElementById('attempt-weight');
+        const attemptNumber = document.getElementById('attempt-number');
+        const currentLift = document.getElementById('current-lift');
+        const athleteWeightClass = document.getElementById('athlete-weight-class');
+        const athleteTeam = document.getElementById('athlete-team');
+        
+        if (!timerDisplay) return;
+        
+        if (!state || !state.athlete_name) {
+            // No active timer
+            this.localTimerRunning = false;
+            this.lastSyncedState = null;
+            this.localTimerValue = 60;
+            timerDisplay.textContent = '60';
+            
+            if (statusDot) statusDot.className = 'status-dot waiting';
+            if (statusText) statusText.textContent = 'Waiting for timekeeper...';
+            
+            // Reset athlete display to defaults
+            if (athleteName) athleteName.textContent = 'Athlete Name';
+            if (attemptWeight) attemptWeight.textContent = '0kg';
+            if (attemptNumber) attemptNumber.textContent = 'Attempt #1';
+            if (currentLift) currentLift.textContent = 'Current Lift';
+            if (athleteWeightClass) athleteWeightClass.textContent = 'Weight Class';
+            if (athleteTeam) athleteTeam.textContent = 'Team';
+            
+            return;
+        }
+        
+        // Update synced state - capture the exact value from timekeeper
+        this.lastSyncedState = state;
+        this.lastSyncTime = Date.now(); // When WE received this data
+        this.localTimerRunning = state.timer_running;
+        this.localTimerValue = state.timer_seconds;
+        this.localTimerStartValue = state.timer_seconds; // Start value for interpolation
+        
+        // Always update display immediately with the value from timekeeper
+        const displayValue = Math.floor(state.timer_seconds);
+        const minutes = Math.floor(displayValue / 60);
+        const seconds = displayValue % 60;
+        const timeStr = displayValue >= 60 
+            ? `${minutes}:${seconds.toString().padStart(2, '0')}`
+            : displayValue.toString();
+        
+        timerDisplay.textContent = timeStr;
+        
+        // Update athlete info
+        if (athleteName && state.athlete_name) {
+            athleteName.textContent = state.athlete_name;
+        }
+        if (attemptWeight && state.attempt_weight) {
+            attemptWeight.textContent = state.attempt_weight + 'kg';
+        }
+        if (attemptNumber && state.attempt_number) {
+            attemptNumber.textContent = `Attempt #${state.attempt_number}`;
+        }
+        if (currentLift && state.current_lift) {
+            currentLift.textContent = state.current_lift;
+        }
+        if (athleteWeightClass && state.weight_class) {
+            athleteWeightClass.textContent = state.weight_class;
+        }
+        if (athleteTeam && state.team) {
+            athleteTeam.textContent = state.team;
+        }
+        
+        // Update status indicator
+        if (statusDot && statusText) {
+            if (state.timer_running) {
+                statusDot.className = 'status-dot running';
+                statusText.textContent = `Running (${state.timer_mode})`;
+            } else {
+                statusDot.className = 'status-dot paused';
+                statusText.textContent = `Paused (${state.timer_mode})`;
+            }
+        }
     }
 }
 
-// Start polling
-setInterval(fetchCurrentAttempt, 1000);
-fetchCurrentAttempt();
+// Initialize the referee interface when DOM is loaded
+document.addEventListener('DOMContentLoaded', () => {
+    window.refereeInterface = new RefereeInterface();
+});
 </script>
 {% endblock %}
