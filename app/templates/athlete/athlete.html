@@ -49,7 +49,7 @@
                 </div>
                 <div class="next-attempt-info" data-template="next-attempt-info">
                     {% if next_attempt %}
-                    <p><strong>Event:</strong> <span class="event-type">{{ next_attempt.event_name }}</span></p>
+                    <p><strong>Type:</strong> <span class="sport-type">{{ next_attempt.sport_type|replace('_', ' ')|title if next_attempt.sport_type else 'N/A' }}</span></p>
                     <p><strong>Lift:</strong> <span class="lift-type">{{ next_attempt.lift_type }}</span></p>
                     <p><strong>Weight:</strong> <span class="weight">{{ next_attempt.requested_weight }}</span>kg</p>
                     <p><strong>Attempt:</strong> <span class="attempt-order">{{ next_attempt.attempt_number }}</span></p>

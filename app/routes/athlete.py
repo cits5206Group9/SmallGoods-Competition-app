@@ -102,15 +102,16 @@ def attempt_time_remaining(attempt: Attempt) -> int:
     """
     # Check if there's an active timer in TimerManager for this attempt
     competition_id = attempt.athlete_entry.event.competition_id
+    athlete_id = attempt.athlete_entry.athlete_id
     attempt_timer_id = f"attempt_{attempt.id}"
-    break_timer_id = "break"
+    break_timer_id = f"break_athlete_{athlete_id}"
     
     # First check for active attempt timer
     timer_data = timer_manager.get_timer_data(competition_id, attempt_timer_id)
     if timer_data and timer_data.state.value in ['running', 'paused']:
         return timer_data.remaining
     
-    # Check for active break timer (this links break timer to athlete display)
+    # Check for active athlete-specific break timer
     break_timer_data = timer_manager.get_timer_data(competition_id, break_timer_id)
     if break_timer_data and break_timer_data.state.value in ['running', 'paused']:
         return break_timer_data.remaining
@@ -405,6 +406,7 @@ def athlete_dashboard():
         my_flights = get_my_flights(athlete_row.id, competition_id)
 
     # Next attempt preview
+    # Next attempt preview
     next_attempt = next_pending_attempt(athlete_row.id) if athlete_row else None
     next_attempt_view = None
     if next_attempt:
@@ -415,6 +417,7 @@ def athlete_dashboard():
             "attempt_number": next_attempt.attempt_number,
             "requested_weight": next_attempt.requested_weight,
             "event_name": event.name,
+            "sport_type": event.sport_type.value if event.sport_type else None,
             "event_category": event.weight_category,
             "event_gender": event.gender,
             "lift_type": entry.lift_type,
@@ -683,7 +686,6 @@ def update_attempt_weight():
             'actual_weight': attempt.actual_weight,
             'result': attempt.final_result.value if attempt.final_result else None,
             'lifting_order': attempt.lifting_order,
-            # 'time_remaining': attempt_time_remaining(attempt), #CHANGE THIS: REFER FROM TIMEKEEPER
             'entry': {
                 'id': attempt.athlete_entry.id
             }
@@ -702,6 +704,8 @@ def get_next_attempt_timer():
     """
     Return the timer information for the athlete's next pending attempt.
     Integrates with TimerManager for real-time timer synchronization.
+    
+    Shows timer for current attempt with break timer, but displays details for the NEXT attempt.
     """
     try:
         athlete = resolve_current_athlete()
@@ -726,32 +730,57 @@ def get_next_attempt_timer():
         # Determine timer status and type
         timer_active = time_remaining is not None
         timer_type = "inactive"
+        display_attempt = na  # Default to showing current attempt details
         
         if timer_active:
             competition_id = event.competition_id if event else None
+            athlete_id = athlete.id
             if competition_id:
                 # Check which timer is active
                 attempt_timer = timer_manager.get_timer_data(competition_id, f"attempt_{na.id}")
-                break_timer = timer_manager.get_timer_data(competition_id, "break")
+                break_timer = timer_manager.get_timer_data(competition_id, f"break_athlete_{athlete_id}")
                 
                 if attempt_timer and attempt_timer.state.value in ['running', 'paused']:
                     timer_type = "attempt"
+                    # During attempt timer, show current attempt details
+                    display_attempt = na
                 elif break_timer and break_timer.state.value in ['running', 'paused']:
                     timer_type = "break"
+                    # During break timer, show NEXT attempt details
+                    next_attempt = (
+                        Attempt.query.options(
+                            joinedload(Attempt.athlete_entry).joinedload(AthleteEntry.event)
+                        )
+                        .join(AthleteEntry, Attempt.athlete_entry_id == AthleteEntry.id)
+                        .filter(
+                            AthleteEntry.athlete_id == athlete_id,
+                            Attempt.final_result.is_(None),  # not completed yet
+                            Attempt.attempt_number > na.attempt_number  # Next attempt
+                        )
+                        .order_by(Attempt.attempt_number.asc())
+                        .first()
+                    )
+                    
+                    if next_attempt:
+                        display_attempt = next_attempt
+                        # Update movement name for next attempt
+                        movement_name = next_attempt.athlete_entry.movement_name
 
+        # Use display_attempt for details shown to athlete
         return jsonify({
-            "attempt_id": na.id,
+            "attempt_id": display_attempt.id,
             "time": time_remaining,
             "timer_active": timer_active,
             "timer_type": timer_type,
             "event": {
                 "name": event.name,
+                "sport_type": event.sport_type.value if event.sport_type else None,
                 "category": event.weight_category,
                 "gender": event.gender
             } if event else None,
             "lift_type": movement_name,
-            "order": na.attempt_number,
-            "weight": na.requested_weight,
+            "order": display_attempt.attempt_number,
+            "weight": display_attempt.requested_weight,
         })
     except Exception as e:
         return jsonify({"error": "Error fetching timer data", "detail": str(e)}), 500
@@ -800,13 +829,17 @@ def start_attempt_timer(attempt_id):
 @athlete_bp.route("/timer/start-break/<int:competition_id>", methods=["POST"])
 def start_break_timer(competition_id):
     """
-    Start a break timer (called by timekeeper)
+    Start a break timer for a specific athlete (called by timekeeper)
     """
     try:
         data = request.get_json() or {}
         duration = data.get('duration', 120)  # default 2 minutes
+        athlete_id = data.get('athlete_id')  # athlete ID for athlete-specific timer
         
-        timer_id = "break"
+        if not athlete_id:
+            return jsonify({"error": "athlete_id is required"}), 400
+        
+        timer_id = f"break_athlete_{athlete_id}"
         
         def timer_callback(timer_data):
             from ..real_time.websocket import competition_realtime
@@ -814,7 +847,8 @@ def start_break_timer(competition_id):
                 'timer_id': timer_data.timer_id,
                 'remaining': timer_data.remaining,
                 'state': timer_data.state.value,
-                'type': timer_data.type
+                'type': timer_data.type,
+                'athlete_id': athlete_id
             })
         
         timer_manager.create_timer(
@@ -822,7 +856,7 @@ def start_break_timer(competition_id):
         )
         timer_manager.start_timer(competition_id, timer_id)
         
-        return jsonify({"success": True, "timer_id": timer_id, "duration": duration})
+        return jsonify({"success": True, "timer_id": timer_id, "duration": duration, "athlete_id": athlete_id})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
