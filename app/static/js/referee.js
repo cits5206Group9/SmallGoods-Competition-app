@@ -590,13 +590,14 @@ class RefereePanel {
         this.localTimerValue = 60;
         this.localTimerRunning = false;
         this.lastSyncTime = null;
+        this.localTimerStartValue = null; // Value when we received last sync
         
         // Fetch timer state from server every 500ms
         this.syncTimerInterval = setInterval(() => {
             this.fetchTimerState();
         }, 500);
         
-        // Update display every 100ms for smooth countdown
+        // Update display every 100ms for smooth countdown between syncs
         this.displayUpdateInterval = setInterval(() => {
             this.updateLocalTimerDisplay();
         }, 100);
@@ -621,23 +622,22 @@ class RefereePanel {
     }
 
     updateLocalTimerDisplay() {
-        // This runs every 100ms to provide smooth timer updates
-        if (!this.localTimerRunning || !this.lastSyncTime || !this.lastSyncedState) return;
+        // This runs every 100ms to provide smooth timer updates between server syncs
+        if (!this.localTimerRunning || !this.lastSyncTime || this.localTimerStartValue === null) return;
         
         const timerDisplay = document.getElementById('synced-timer-display');
         if (!timerDisplay) return;
         
-        // Calculate elapsed time since the SERVER's timestamp (not local sync time)
+        // Calculate elapsed time since WE received the last sync (local interpolation only)
         const now = Date.now();
-        const serverTimestamp = this.lastSyncedState.timestamp || this.lastSyncTime;
-        const elapsedSeconds = (now - serverTimestamp) / 1000;
+        const elapsedSeconds = (now - this.lastSyncTime) / 1000;
         
-        // Update local timer value based on server time
+        // Interpolate from the value we received from timekeeper
         let currentValue;
         if (this.lastSyncedState.timer_mode === 'countdown') {
-            currentValue = Math.max(0, this.lastSyncedState.timer_seconds - elapsedSeconds);
+            currentValue = Math.max(0, this.localTimerStartValue - elapsedSeconds);
         } else {
-            currentValue = this.lastSyncedState.timer_seconds + elapsedSeconds;
+            currentValue = this.localTimerStartValue + elapsedSeconds;
         }
         
         // Use Math.floor for consistent countdown behavior (no rounding flashing)
@@ -678,24 +678,22 @@ class RefereePanel {
             return;
         }
         
-        // Update synced state
+        // Update synced state - capture the exact value from timekeeper
         this.lastSyncedState = state;
-        // Use server timestamp if available, otherwise use current time
-        this.lastSyncTime = state.timestamp || Date.now();
+        this.lastSyncTime = Date.now(); // When WE received this data
         this.localTimerRunning = state.timer_running;
         this.localTimerValue = state.timer_seconds;
+        this.localTimerStartValue = state.timer_seconds; // Start value for interpolation
         
-        // If timer is not running, update display immediately (use floor for consistency)
-        if (!state.timer_running) {
-            const displayValue = Math.floor(state.timer_seconds);
-            const minutes = Math.floor(displayValue / 60);
-            const seconds = displayValue % 60;
-            const timeStr = displayValue >= 60 
-                ? `${minutes}:${seconds.toString().padStart(2, '0')}`
-                : displayValue.toString();
-            
-            timerDisplay.textContent = timeStr;
-        }
+        // Always update display immediately with the value from timekeeper
+        const displayValue = Math.floor(state.timer_seconds);
+        const minutes = Math.floor(displayValue / 60);
+        const seconds = displayValue % 60;
+        const timeStr = displayValue >= 60 
+            ? `${minutes}:${seconds.toString().padStart(2, '0')}`
+            : displayValue.toString();
+        
+        timerDisplay.textContent = timeStr;
         
         // Update athlete info
         if (athleteName && state.athlete_name) {
