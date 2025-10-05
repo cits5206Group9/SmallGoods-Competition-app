@@ -274,6 +274,34 @@
     }
   }
   
+  function broadcastTimerState() {
+    // Send current timer state to server for referee page synchronization
+    const athleteSelect = document.getElementById("athleteSelect");
+    const attemptSelect = document.getElementById("attemptSelect");
+    
+    // Get precise current timer value
+    const currentSeconds = attemptClock.currentSeconds();
+    
+    const state = {
+      athlete_name: getAthleteName() || '',
+      attempt_number: attemptSelect?.value || '',
+      timer_seconds: currentSeconds, // Use precise value, not rounded
+      timer_running: attemptClock.running,
+      timer_mode: attemptClock.mode,
+      competition: CURRENT_CTX.competition || '',
+      event: CURRENT_CTX.event || '',
+      flight: CURRENT_CTX.flight || '',
+      base_seconds: attemptClock.baseSeconds,
+      timestamp: Date.now()
+    };
+    
+    fetch('/admin/api/timer-state', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(state)
+    }).catch(err => console.warn('Failed to broadcast timer state:', err));
+  }
+  
   function saveTimerState() {
     const state = {
       attemptTimer: {
@@ -365,7 +393,11 @@
     }
   }
 
+  // Save timer state to localStorage every 2 seconds
   setInterval(saveTimerState, 2000);
+  
+  // Broadcast timer state to server every 500ms for real-time sync with referee page
+  setInterval(broadcastTimerState, 500);
 
   function parseHMS(input) {
     // accepts "HH:MM:SS" or "MM:SS" or seconds
