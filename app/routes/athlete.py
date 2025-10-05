@@ -366,7 +366,6 @@ def athlete_dashboard():
                 'phone': athlete_row.phone
             },
             'competition_state': {
-                # 'current_attempt_number': athlete_row.current_attempt_number,   # NEED TO CHANGE: GET FROM ATTEMPT TABLE
                 'is_active': athlete_row.is_active
             },
             'entries': []
@@ -459,7 +458,6 @@ def athlete_dashboard():
     if competition_id and athlete_row:
         my_flights = get_my_flights(athlete_row.id, competition_id)
 
-    # Next attempt preview
     # Next attempt preview
     next_attempt = next_pending_attempt(athlete_row.id) if athlete_row else None
     next_attempt_view = None
@@ -558,7 +556,7 @@ def update_opening_weight():
             'attempts': [
                 {
                     'id': attempt.id,
-                    'number': attempt.attempt_number,
+                    'attempt_number': attempt.attempt_number,
                     'requested_weight': attempt.requested_weight,
                     'actual_weight': attempt.actual_weight,
                     'result': attempt.final_result.value if attempt.final_result else None,
@@ -735,7 +733,7 @@ def update_attempt_weight():
         # Return updated attempt configuration
         attempt_config = {
             'id': attempt.id,
-            'number': attempt.attempt_number,
+            'attempt_number': attempt.attempt_number,
             'requested_weight': attempt.requested_weight,
             'actual_weight': attempt.actual_weight,
             'result': attempt.final_result.value if attempt.final_result else None,

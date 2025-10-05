@@ -1,4 +1,179 @@
 (() => {
+    // Notification System (works without internet)
+    let notificationPermission = 'default';
+    let notifiedAt5Min = false;
+    let notifiedAt3Min = false;
+    let notifiedAt1Min = false;
+    
+    // Update notification button visibility and status
+    function updateNotificationButton() {
+        const btn = document.getElementById('enable-notifications');
+        if (!btn) return;
+        
+        if (notificationPermission === 'granted') {
+            btn.style.display = 'none';
+        } else if (notificationPermission === 'denied') {
+            btn.textContent = '🔕 Notifications Blocked';
+            btn.style.background = '#f44336';
+            btn.style.cursor = 'not-allowed';
+            btn.disabled = true;
+            btn.style.display = 'block';
+        } else {
+            btn.textContent = '🔔 Enable Notifications';
+            btn.style.background = '#4CAF50';
+            btn.style.cursor = 'pointer';
+            btn.disabled = false;
+            btn.style.display = 'block';
+        }
+    }
+    
+    // Request notification permission on page load
+    async function requestNotificationPermission() {
+        if ('Notification' in window) {
+            try {
+                // Check current permission first
+                notificationPermission = Notification.permission;
+                
+                // Update button based on permission status
+                updateNotificationButton();
+            } catch (error) {
+                console.warn('Notification initialization error:', error);
+            }
+        }
+    }
+    
+    // Manually request permission when button clicked
+    async function enableNotifications() {
+        if ('Notification' in window) {
+            try {
+                const permission = await Notification.requestPermission();
+                notificationPermission = permission;
+                updateNotificationButton();
+                
+                // Show test notification
+                if (permission === 'granted') {
+                    showNotification('🎉 Notifications Enabled!', 'You will receive alerts at 5min, 3min, and 1min before your attempts', 'test-notification');
+                }
+            } catch (error) {
+                console.warn('Could not enable notifications:', error);
+            }
+        }
+    }
+    
+    // Show notification (works locally without internet)
+    function showNotification(title, body, tag) {
+        // Always show visual notification on page
+        showVisualNotification(title, body);
+        
+        // Try to show browser notification if permission granted
+        if (notificationPermission === 'granted') {
+            try {
+                const notification = new Notification(title, {
+                    body: body,
+                    tag: tag,
+                    requireInteraction: false,
+                    silent: false
+                });
+                
+                // Auto-close after 10 seconds
+                setTimeout(() => notification.close(), 10000);
+                
+                // Focus window when notification clicked
+                notification.onclick = function() {
+                    window.focus();
+                    this.close();
+                };
+            } catch (error) {
+                console.warn('Could not show browser notification:', error);
+            }
+        }
+    }
+    
+    // Show visual notification on the page (always works, no permission needed)
+    function showVisualNotification(title, body) {
+        const visualNotif = document.getElementById('visual-notification');
+        const titleEl = document.getElementById('notification-title');
+        const bodyEl = document.getElementById('notification-body');
+        
+        if (!visualNotif || !titleEl || !bodyEl) return;
+        
+        titleEl.textContent = title;
+        bodyEl.textContent = body;
+        visualNotif.style.display = 'block';
+        
+        // Play a beep sound
+        try {
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            oscillator.frequency.value = 800;
+            oscillator.type = 'sine';
+            
+            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+            
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.5);
+        } catch (error) {
+            // Silently fail if audio doesn't work
+        }
+        
+        // Auto-hide after 10 seconds
+        setTimeout(() => {
+            visualNotif.style.display = 'none';
+        }, 10000);
+    }
+    
+    // Check timer and send notifications at specific intervals
+    function checkAndNotify(remainingSeconds, timerType, attemptInfo) {
+        // Only notify during break timers (not during attempt)
+        if (timerType !== 'break') {
+            // Reset flags when not in break
+            notifiedAt5Min = false;
+            notifiedAt3Min = false;
+            notifiedAt1Min = false;
+            return;
+        }
+        
+        // 5 minutes remaining (300 seconds, trigger between 300-295)
+        if (remainingSeconds <= 300 && remainingSeconds >= 295 && !notifiedAt5Min) {
+            notifiedAt5Min = true;
+            const message = attemptInfo 
+                ? `${attemptInfo.lift_type} - Attempt ${attemptInfo.order} (${attemptInfo.weight}kg) in 5 minutes`
+                : 'Your next attempt is in 5 minutes';
+            showNotification('⏰ 5 Minutes Until Your Attempt', message, 'timer-5min');
+        }
+        
+        // 3 minutes remaining (180 seconds, trigger between 180-175)
+        if (remainingSeconds <= 180 && remainingSeconds >= 175 && !notifiedAt3Min) {
+            notifiedAt3Min = true;
+            const message = attemptInfo 
+                ? `${attemptInfo.lift_type} - Attempt ${attemptInfo.order} (${attemptInfo.weight}kg) in 3 minutes`
+                : 'Your next attempt is in 3 minutes';
+            showNotification('⏰ 3 Minutes Until Your Attempt', message, 'timer-3min');
+        }
+        
+        // 1 minute remaining (60 seconds, trigger between 60-55)
+        if (remainingSeconds <= 60 && remainingSeconds >= 55 && !notifiedAt1Min) {
+            notifiedAt1Min = true;
+            const message = attemptInfo 
+                ? `${attemptInfo.lift_type} - Attempt ${attemptInfo.order} (${attemptInfo.weight}kg) in 1 minute!`
+                : 'Your next attempt is in 1 minute!';
+            showNotification('🔔 1 Minute Until Your Attempt!', message, 'timer-1min');
+        }
+    }
+    
+    // Request permission when page loads
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', requestNotificationPermission);
+    } else {
+        requestNotificationPermission();
+    }
+    
     // Utility functions
     function bySelAll(sel, root = document) {
         return Array.from(root.querySelectorAll(sel));
@@ -55,13 +230,17 @@
         const timerEl = document.querySelector('.countdown-timer');
         if (!timerEl) return;
 
-        const m = Math.floor(remaining / 60);
-        const s = Math.floor(remaining % 60);
-        timerEl.textContent = `${m}:${s.toString().padStart(2, "0")}`;
+        if (remaining <= 0 || state === 'inactive' || state === 'disconnected' || state === 'error') {
+            timerEl.textContent = '--:--';
+        } else {
+            const m = Math.floor(remaining / 60);
+            const s = Math.floor(remaining % 60);
+            timerEl.textContent = `${m}:${s.toString().padStart(2, "0")}`;
+        }
         
         timerEl.className = `timer countdown-timer ${timerType || ''} ${state || ''}`;
-        timerEl.classList.toggle("warning", remaining <= 120);
-        timerEl.classList.toggle("critical", remaining <= 60);
+        timerEl.classList.toggle("warning", remaining <= 120 && remaining > 0);
+        timerEl.classList.toggle("critical", remaining <= 60 && remaining > 0);
         
         if (state === 'expired' || remaining <= 0) {
             timerEl.classList.add("expired");
@@ -89,109 +268,10 @@
         if (attemptOrderEl) attemptOrderEl.textContent = data.order || 1;
     }
 
-    // Timer countdown function
+    // Timer initialization - polling system handles all timer updates
     function startCountdown(el) {
-        const infoEl = el.closest('.timer-card').querySelector('.next-attempt-info');
-        let currentDeadline = null;
-        let isTimerActive = false;
-        let lastTimerState = null;
-        let updateIntervalId = null;
-        let connectionFailures = 0;
-        const maxFailures = 3;
-        
-        async function updateTimer() {
-            try {
-                const response = await fetch('/athlete/next-attempt-timer');
-                
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}`);
-                }
-                
-                const data = await response.json();
-                
-                // Reset failure count on successful connection
-                connectionFailures = 0;
-                
-                // Handle "no attempts left" case
-                if (data.no_attempts) {
-                    isTimerActive = false;
-                    currentDeadline = null;
-                    el.textContent = '--:--';
-                    el.className = 'timer countdown-timer inactive';
-                    if (infoEl) infoEl.innerHTML = '<p>' + (data.message || 'No attempt left') + '</p>';
-                    return;
-                }
-                
-                if (data.error || !data.timer_active || data.time === null) {
-                    // No active timer - stop countdown
-                    isTimerActive = false;
-                    currentDeadline = null;
-                    el.textContent = '--:--';
-                    el.className = 'timer countdown-timer inactive';
-                    if (infoEl) infoEl.innerHTML = '<p>No active timer</p>';
-                    return;
-                }
-            } catch (error) {
-                connectionFailures++;
-                console.warn(`Timer update failed (${connectionFailures}/${maxFailures}):`, error.message);
-                
-                if (connectionFailures >= maxFailures) {
-                    console.log('Max connection failures reached. Stopping timer updates.');
-                    if (updateIntervalId) {
-                        clearInterval(updateIntervalId);
-                        updateIntervalId = null;
-                    }
-                    
-                    // Show disconnected state
-                    isTimerActive = false;
-                    currentDeadline = null;
-                    el.textContent = '--:--';
-                    el.className = 'timer countdown-timer disconnected';
-                    if (infoEl) infoEl.innerHTML = '<p>Server disconnected</p>';
-                }
-                return;
-            }
-            
-            // Update timer info display
-            updateTimerInfoDisplay(infoEl, data);
-            
-            // Active timer - start/update countdown
-            isTimerActive = true;
-            lastTimerState = data.timer_type;
-            currentDeadline = Date.now() + data.time * 1000;
-            el.className = `timer countdown-timer ${data.timer_type}`;
-            
-            if (!isTimerActive) {
-                tick(); // Start ticking if not already active
-            }
-        }
-
-        function render(remaining) {
-            const m = Math.floor(remaining / 60);
-            const s = Math.floor(remaining % 60);
-            el.textContent = `${m}:${s.toString().padStart(2, "0")}`;
-            el.classList.toggle("warning", remaining <= 120);
-            el.classList.toggle("critical", remaining <= 60);
-        }
-
-        function tick() {
-            if (!isTimerActive || !currentDeadline) return;
-
-            const remaining = Math.max(0, Math.ceil((currentDeadline - Date.now()) / 1000));
-            render(remaining);
-
-            if (remaining > 0) {
-                requestAnimationFrame(tick);
-            } else {
-                el.classList.add("expired");
-                isTimerActive = false;
-                el.dispatchEvent(new CustomEvent("countdown:finished", { bubbles: true }));
-            }
-        }
-
-        // Update every 2 seconds to catch server timer state changes
-        updateTimer();
-        updateIntervalId = setInterval(updateTimer, 2000);
+        // No-op: Timer updates are handled by initializePollingTimerUpdates
+        // This function is kept for compatibility
     }
 
     // Enhanced reps form handling with AJAX
@@ -223,7 +303,7 @@
                 // Hide the form
                 toggleForm(repsValue);
                 
-                console.log('Reps updated successfully');
+
             } else {
                 alert('Error updating reps: ' + (data.error || 'Unknown error'));
             }
@@ -276,7 +356,7 @@
                     updateAttempt1Display(form, newWeight);
                 }
                 
-                console.log('Weight updated successfully');
+
                 
                 // Update next attempt info if this affects the current attempt
                 if (data.attempt) {
@@ -501,6 +581,12 @@
 
     // Initialize everything when DOM is ready
     document.addEventListener("DOMContentLoaded", () => {
+        // Initialize notification button
+        const notificationBtn = document.getElementById('enable-notifications');
+        if (notificationBtn) {
+            notificationBtn.addEventListener('click', enableNotifications);
+        }
+        
         // Initialize event switching
         const buttons = bySelAll(".event-button");
         
@@ -519,16 +605,13 @@
             firstButton.classList.add('active');
         }
 
-        // Initialize timer functionality
-        bySelAll(".countdown-timer").forEach(startCountdown);
+        // Timer functionality is handled by polling system
         
         // Initialize forms (weight and reps)
         initializeForms();
         
         // Initialize WebSocket connection
-        if (typeof initializeWebSocket === 'function') {
-            initializeWebSocket();
-        }
+        initializeWebSocket();
     });
 
     // WebSocket connection for real-time timer updates
@@ -581,6 +664,7 @@
         let connectionFailures = 0;
         const maxFailures = 3;
         let pollingIntervalId = null;
+        let currentAttemptInfo = null; // Store attempt info for notifications
         
         // Poll every 1 second for more responsive timer updates
         pollingIntervalId = setInterval(async () => {
@@ -598,32 +682,33 @@
                 
                 const infoEl = document.querySelector('.next-attempt-info');
                 
-                // Handle "no attempts left" case
+                // Store attempt info for notifications
+                if (data.event && data.lift_type) {
+                    currentAttemptInfo = {
+                        lift_type: data.lift_type,
+                        order: data.order,
+                        weight: data.weight
+                    };
+                }
+                
+                // Handle different timer states
                 if (data.no_attempts) {
-                    const timerEl = document.querySelector('.countdown-timer');
-                    if (timerEl) {
-                        timerEl.textContent = '--:--';
-                        timerEl.className = 'timer countdown-timer inactive';
-                    }
-                    if (infoEl) {
-                        infoEl.innerHTML = '<p>' + (data.message || 'No attempt left') + '</p>';
-                    }
+                    currentAttemptInfo = null;
+                    updateTimerDisplay(0, 'inactive', 'inactive');
+                    if (infoEl) infoEl.innerHTML = '<p>' + (data.message || 'No attempt left') + '</p>';
                 } else if (!data.error && data.timer_active && data.time !== null) {
+                    // Check and send notifications based on remaining time
+                    checkAndNotify(data.time, data.timer_type, currentAttemptInfo);
+                    
                     // Update timer display
                     updateTimerDisplay(data.time, data.timer_type, '');
                     
                     // Update info display
                     updateTimerInfoDisplay(infoEl, data);
                 } else {
-                    // No active timer - show inactive state
-                    const timerEl = document.querySelector('.countdown-timer');
-                    if (timerEl) {
-                        timerEl.textContent = '--:--';
-                        timerEl.className = 'timer countdown-timer inactive';
-                    }
-                    if (infoEl && data.error) {
-                        infoEl.innerHTML = '<p>No upcoming attempts</p>';
-                    }
+                    currentAttemptInfo = null;
+                    updateTimerDisplay(0, 'inactive', 'inactive');
+                    if (infoEl) infoEl.innerHTML = '<p>No upcoming attempts</p>';
                 }
             } catch (error) {
                 connectionFailures++;
@@ -637,22 +722,12 @@
                     }
                     
                     // Show disconnected state
-                    const timerEl = document.querySelector('.countdown-timer');
+                    updateTimerDisplay(0, 'disconnected', 'disconnected');
                     const infoEl = document.querySelector('.next-attempt-info');
-                    if (timerEl) {
-                        timerEl.textContent = '--:--';
-                        timerEl.className = 'timer countdown-timer disconnected';
-                    }
-                    if (infoEl) {
-                        infoEl.innerHTML = '<p>Server disconnected</p>';
-                    }
+                    if (infoEl) infoEl.innerHTML = '<p>Server disconnected</p>';
                 } else {
                     // Show error state but keep trying
-                    const timerEl = document.querySelector('.countdown-timer');
-                    if (timerEl) {
-                        timerEl.textContent = '--:--';
-                        timerEl.className = 'timer countdown-timer error';
-                    }
+                    updateTimerDisplay(0, 'error', 'error');
                 }
             }
         }, 1000); // Update every 1 second for more responsive updates
@@ -661,5 +736,4 @@
     // Make functions globally available for onclick handlers
     window.showEvent = showEvent;
     window.toggleForm = toggleForm;
-    window.initializeWebSocket = initializeWebSocket;
 })();
