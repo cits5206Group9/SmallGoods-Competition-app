@@ -38,6 +38,20 @@
             <!-- Timer Card -->
             <div class="timer-card">
                 <h2>Next Attempt</h2>
+                <button id="enable-notifications" class="notification-btn" style="display: none; margin-bottom: 10px; padding: 8px 12px; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                    🔔 Enable Notifications
+                </button>
+                <!-- Visual notification alert -->
+                <div id="visual-notification" style="display: none; margin-bottom: 10px; padding: 12px; background: #ff9800; color: white; border-radius: 4px; font-weight: bold; animation: pulse 1s infinite;">
+                    <div id="notification-title"></div>
+                    <div id="notification-body" style="font-size: 0.9em; margin-top: 4px;"></div>
+                </div>
+                <style>
+                    @keyframes pulse {
+                        0%, 100% { transform: scale(1); }
+                        50% { transform: scale(1.02); }
+                    }
+                </style>
                 <div class="timer countdown-timer" id="main-timer" data-time="{{ next_attempt.time if next_attempt and next_attempt.time else 0 }}">
                     {% if next_attempt and next_attempt.time %}
                         {% set minutes = (next_attempt.time // 60)|int %}
