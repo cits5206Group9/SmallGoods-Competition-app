@@ -72,6 +72,12 @@
     function updateTimerInfoDisplay(infoEl, data) {
         if (!infoEl) return;
 
+        // Handle "no attempts left" case
+        if (data.no_attempts) {
+            infoEl.innerHTML = '<p>' + (data.message || 'No attempt left') + '</p>';
+            return;
+        }
+
         const sportTypeEl = infoEl.querySelector('.sport-type');
         const liftTypeEl = infoEl.querySelector('.lift-type');
         const weightEl = infoEl.querySelector('.weight');
@@ -105,6 +111,16 @@
                 
                 // Reset failure count on successful connection
                 connectionFailures = 0;
+                
+                // Handle "no attempts left" case
+                if (data.no_attempts) {
+                    isTimerActive = false;
+                    currentDeadline = null;
+                    el.textContent = '--:--';
+                    el.className = 'timer countdown-timer inactive';
+                    if (infoEl) infoEl.innerHTML = '<p>' + (data.message || 'No attempt left') + '</p>';
+                    return;
+                }
                 
                 if (data.error || !data.timer_active || data.time === null) {
                     // No active timer - stop countdown
@@ -342,15 +358,18 @@
             const weightMatch = attemptText.match(/(\d+(?:\.\d+)?)kg/);
             const weight = weightMatch ? parseFloat(weightMatch[1]) : 0;
             
-            const status = attemptEl.querySelector('.status')?.textContent || 'Pending';
-            const result = attemptEl.querySelector('.result')?.textContent || null;
+            // Extract status and result from the DOM elements
+            const statusEl = attemptEl.querySelector('.status');
+            const resultEl = attemptEl.querySelector('.result');
+            const status = statusEl ? statusEl.textContent.trim().toLowerCase() : 'waiting';
+            const result = resultEl ? resultEl.textContent.trim().toLowerCase().replace(/\s+/g, '_') : null;
             
             attempts.push({
                 number: attemptNum,
                 weight: weight,
                 status: status,
                 result: result,
-                isCompleted: status === 'Completed',
+                isCompleted: status === 'finished',
                 isSuccessful: result === 'good_lift'
             });
         });
@@ -579,7 +598,17 @@
                 
                 const infoEl = document.querySelector('.next-attempt-info');
                 
-                if (!data.error && data.timer_active && data.time !== null) {
+                // Handle "no attempts left" case
+                if (data.no_attempts) {
+                    const timerEl = document.querySelector('.countdown-timer');
+                    if (timerEl) {
+                        timerEl.textContent = '--:--';
+                        timerEl.className = 'timer countdown-timer inactive';
+                    }
+                    if (infoEl) {
+                        infoEl.innerHTML = '<p>' + (data.message || 'No attempt left') + '</p>';
+                    }
+                } else if (!data.error && data.timer_active && data.time !== null) {
                     // Update timer display
                     updateTimerDisplay(data.time, data.timer_type, '');
                     
