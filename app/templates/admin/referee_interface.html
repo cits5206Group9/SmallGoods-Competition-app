@@ -1,0 +1,455 @@
+{% extends "base.html" %}
+
+{% block title %}Referee Interface - {{ referee.name }}{% endblock %}
+
+{% block head %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/referee.css') }}">
+    <style>
+        .referee-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 12px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+        
+        .referee-info h1 {
+            margin: 0 0 10px 0;
+            font-size: 28px;
+        }
+        
+        .referee-info p {
+            margin: 0;
+            opacity: 0.9;
+            font-size: 14px;
+        }
+        
+        .referee-actions {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .btn-logout {
+            padding: 10px 20px;
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: 2px solid white;
+            border-radius: 8px;
+            cursor: pointer;
+            text-decoration: none;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-logout:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-2px);
+        }
+        
+        .competition-info {
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 12px;
+            margin-bottom: 30px;
+        }
+        
+        .competition-info h3 {
+            margin: 0 0 15px 0;
+            color: #2c3e50;
+        }
+        
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+        
+        .info-item {
+            padding: 15px;
+            background: white;
+            border-radius: 8px;
+            border-left: 4px solid #3498db;
+        }
+        
+        .info-item label {
+            display: block;
+            font-size: 12px;
+            color: #7f8c8d;
+            margin-bottom: 5px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .info-item .value {
+            font-size: 18px;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        
+        .decision-panel {
+            padding: 30px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+        
+        .decision-panel h3 {
+            margin: 0 0 20px 0;
+            color: #2c3e50;
+            font-size: 24px;
+        }
+        
+        .current-attempt {
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 12px;
+            margin-bottom: 30px;
+            border: 2px solid #3498db;
+        }
+        
+        .current-attempt h4 {
+            margin: 0 0 15px 0;
+            color: #2c3e50;
+        }
+        
+        .attempt-details {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 10px;
+        }
+        
+        .attempt-detail {
+            padding: 10px;
+            background: white;
+            border-radius: 8px;
+        }
+        
+        .attempt-detail label {
+            display: block;
+            font-size: 12px;
+            color: #7f8c8d;
+            margin-bottom: 5px;
+        }
+        
+        .attempt-detail .value {
+            font-size: 16px;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        
+        .decision-buttons {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            margin: 30px 0;
+        }
+        
+        .decision-btn {
+            flex: 1;
+            max-width: 200px;
+            padding: 20px;
+            border: none;
+            border-radius: 12px;
+            font-size: 18px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .decision-btn.good-lift {
+            background: #2ecc71;
+            color: white;
+        }
+        
+        .decision-btn.good-lift:hover {
+            background: #27ae60;
+            transform: translateY(-3px);
+            box-shadow: 0 6px 20px rgba(46, 204, 113, 0.4);
+        }
+        
+        .decision-btn.no-lift {
+            background: #e74c3c;
+            color: white;
+        }
+        
+        .decision-btn.no-lift:hover {
+            background: #c0392b;
+            transform: translateY(-3px);
+            box-shadow: 0 6px 20px rgba(231, 76, 60, 0.4);
+        }
+        
+        .decision-btn.selected {
+            transform: scale(1.05);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+        }
+        
+        .submit-section {
+            text-align: center;
+            margin-top: 30px;
+        }
+        
+        .btn-submit {
+            padding: 15px 40px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-submit:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn-submit:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .timer-display {
+            text-align: center;
+            padding: 30px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 12px;
+            color: white;
+            margin-bottom: 30px;
+        }
+        
+        .timer-display h4 {
+            margin: 0 0 10px 0;
+            font-size: 14px;
+            opacity: 0.9;
+        }
+        
+        .timer-value {
+            font-size: 72px;
+            font-weight: 700;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .no-attempt {
+            text-align: center;
+            padding: 60px;
+            color: #7f8c8d;
+        }
+        
+        .no-attempt i {
+            font-size: 64px;
+            margin-bottom: 20px;
+            display: block;
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+<div class="referee-container">
+    <!-- Referee Header -->
+    <div class="referee-header">
+        <div class="referee-info">
+            <h1>{{ referee.position or 'Referee' }}</h1>
+            <p>{{ referee.name }} ({{ referee.username }})</p>
+        </div>
+        <div class="referee-actions">
+            <a href="{{ url_for('admin.referee_logout') }}" class="btn-logout">Logout</a>
+        </div>
+    </div>
+
+    <!-- Competition Information -->
+    {% if competition %}
+    <div class="competition-info">
+        <h3>Competition Information</h3>
+        <div class="info-grid">
+            <div class="info-item">
+                <label>Competition</label>
+                <div class="value">{{ competition.name }}</div>
+            </div>
+            <div class="info-item">
+                <label>Start Date</label>
+                <div class="value">{{ competition.start_date.strftime('%B %d, %Y') if competition.start_date else 'N/A' }}</div>
+            </div>
+            <div class="info-item">
+                <label>Location</label>
+                <div class="value">{{ competition.location or 'N/A' }}</div>
+            </div>
+            <div class="info-item">
+                <label>Status</label>
+                <div class="value">{{ 'Active' if competition.is_active else 'Inactive' }}</div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Timer Display -->
+    <div class="timer-display">
+        <h4>Attempt Timer</h4>
+        <div class="timer-value" id="timer-display">00:00</div>
+    </div>
+
+    <!-- Decision Panel -->
+    <div class="decision-panel">
+        <h3>Make Your Decision</h3>
+        
+        <div id="current-attempt-section" style="display: none;">
+            <div class="current-attempt">
+                <h4>Current Attempt</h4>
+                <div class="attempt-details">
+                    <div class="attempt-detail">
+                        <label>Athlete</label>
+                        <div class="value" id="athlete-name">-</div>
+                    </div>
+                    <div class="attempt-detail">
+                        <label>Weight</label>
+                        <div class="value" id="attempt-weight">-</div>
+                    </div>
+                    <div class="attempt-detail">
+                        <label>Attempt Number</label>
+                        <div class="value" id="attempt-number">-</div>
+                    </div>
+                    <div class="attempt-detail">
+                        <label>Lift Type</label>
+                        <div class="value" id="lift-type">-</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="decision-buttons">
+                <button class="decision-btn good-lift" onclick="selectDecision('good-lift')">
+                    ✓ Good Lift
+                </button>
+                <button class="decision-btn no-lift" onclick="selectDecision('no-lift')">
+                    ✗ No Lift
+                </button>
+            </div>
+
+            <div class="submit-section">
+                <button class="btn-submit" id="submit-btn" onclick="submitDecision()" disabled>
+                    Submit Decision
+                </button>
+            </div>
+        </div>
+
+        <div id="no-attempt-section" class="no-attempt">
+            <i>⏳</i>
+            <h3>Waiting for Current Attempt</h3>
+            <p>The attempt information will appear here when the timekeeper starts an attempt.</p>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentDecision = null;
+
+function selectDecision(decision) {
+    currentDecision = decision;
+    
+    // Update button states
+    document.querySelectorAll('.decision-btn').forEach(btn => {
+        btn.classList.remove('selected');
+    });
+    
+    if (decision === 'good-lift') {
+        document.querySelector('.decision-btn.good-lift').classList.add('selected');
+    } else {
+        document.querySelector('.decision-btn.no-lift').classList.add('selected');
+    }
+    
+    // Enable submit button
+    document.getElementById('submit-btn').disabled = false;
+}
+
+async function submitDecision() {
+    if (!currentDecision) {
+        alert('Please select a decision first');
+        return;
+    }
+    
+    const submitBtn = document.getElementById('submit-btn');
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Submitting...';
+    
+    try {
+        const response = await fetch('/admin/api/referee/decision', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                referee_id: {{ referee.id }},
+                decision: currentDecision,
+                timestamp: new Date().toISOString()
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            alert('Decision submitted successfully!');
+            // Reset decision
+            currentDecision = null;
+            document.querySelectorAll('.decision-btn').forEach(btn => {
+                btn.classList.remove('selected');
+            });
+            submitBtn.textContent = 'Submit Decision';
+        } else {
+            alert('Error submitting decision: ' + data.message);
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Submit Decision';
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Network error. Please try again.');
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Submit Decision';
+    }
+}
+
+// Poll for current attempt data
+async function fetchCurrentAttempt() {
+    try {
+        const response = await fetch('/admin/api/current-attempt');
+        const data = await response.json();
+        
+        if (data && data.athleteName) {
+            // Show attempt section
+            document.getElementById('current-attempt-section').style.display = 'block';
+            document.getElementById('no-attempt-section').style.display = 'none';
+            
+            // Update attempt details
+            document.getElementById('athlete-name').textContent = data.athleteName;
+            document.getElementById('attempt-weight').textContent = data.weight + 'kg';
+            document.getElementById('attempt-number').textContent = data.attemptNumber;
+            document.getElementById('lift-type').textContent = data.liftType;
+            
+            // Update timer
+            if (data.timerSeconds !== undefined) {
+                const minutes = Math.floor(data.timerSeconds / 60);
+                const seconds = data.timerSeconds % 60;
+                document.getElementById('timer-display').textContent = 
+                    `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            }
+        } else {
+            // No active attempt
+            document.getElementById('current-attempt-section').style.display = 'none';
+            document.getElementById('no-attempt-section').style.display = 'block';
+            document.getElementById('timer-display').textContent = '00:00';
+        }
+    } catch (error) {
+        console.error('Error fetching attempt:', error);
+    }
+}
+
+// Start polling
+setInterval(fetchCurrentAttempt, 1000);
+fetchCurrentAttempt();
+</script>
+{% endblock %}

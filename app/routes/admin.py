@@ -61,8 +61,6 @@ def data():
 def referee():
     return render_template('admin/referee.html')
 
-
-
 @admin_bp.route('/results')
 def results_dashboard():
     return render_template('admin/results_dashboard.html')

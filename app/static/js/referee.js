@@ -76,11 +76,6 @@ class RefereePanel {
             this.nextAthlete();
         });
 
-        // Queue controls
-        document.getElementById('load-athletes').addEventListener('click', () => {
-            this.loadAthletes();
-        });
-
         // Referees Setting button
         document.getElementById('referees-setting-btn').addEventListener('click', () => {
             this.openRefereesSettings();
@@ -453,8 +448,8 @@ class RefereePanel {
                 currentAttempt: 1
             }));
             
-            this.renderAthletsQueue();
-            this.updateProgress();
+            // this.renderAthletsQueue(); // UI removed
+            // this.updateProgress(); // UI removed
             
             if (this.athletesQueue.length > 0) {
                 this.loadCurrentAthlete();
@@ -500,8 +495,8 @@ class RefereePanel {
             }
         ];
         
-        this.renderAthletsQueue();
-        this.updateProgress();
+        // this.renderAthletsQueue(); // UI removed
+        // this.updateProgress(); // UI removed
         this.loadCurrentAthlete();
     }
 
@@ -532,7 +527,7 @@ class RefereePanel {
         this.clearDecisions();
         
         // Highlight current athlete in queue
-        this.highlightCurrentAthlete();
+        // this.highlightCurrentAthlete(); // UI removed
         
         // Send current attempt to individual referee interfaces
         this.broadcastCurrentAttempt();
@@ -1162,8 +1157,8 @@ class RefereePanel {
             }
             
             this.showNotification('Decision submitted successfully', 'success');
-            this.updateProgress();
-            this.renderAthletsQueue();
+            // this.updateProgress(); // UI removed
+            // this.renderAthletsQueue(); // UI removed
             
             // Enable next athlete button
             document.getElementById('next-athlete').disabled = false;
