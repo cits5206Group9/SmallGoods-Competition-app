@@ -10,8 +10,42 @@ from werkzeug.security import generate_password_hash
 
 admin_bp = Blueprint('admin', __name__, url_prefix='/admin')
 
+# Referee-accessible routes (whitelist)
+REFEREE_ALLOWED_ROUTES = [
+    'admin.referee_login',
+    'admin.referee_interface', 
+    'admin.referee_logout',
+    'admin.individual_referee_page',
+    'admin.referee_login_api',
+    'admin.submit_referee_decision'
+]
+
+@admin_bp.before_request
+def check_access():
+    """Check access permissions before each request"""
+    # Allow referee-accessible routes
+    if request.endpoint in REFEREE_ALLOWED_ROUTES:
+        return None
+    
+    # Block referees from accessing other admin pages
+    if session.get('is_referee'):
+        flash('Access denied. Referees can only access their individual interface.', 'error')
+        return redirect(url_for('admin.referee_interface'))
+    
+    # For all other routes, require admin authentication
+    if not session.get('is_admin') or not session.get('user_id'):
+        return redirect(url_for('login.login'))
+    
+    return None
+
 def require_admin_auth():
-    """Check if user is authenticated as admin"""
+    """Check if user is authenticated as admin (not referee)"""
+    # Block referees from accessing admin pages
+    if session.get('is_referee'):
+        flash('Referees cannot access admin pages', 'error')
+        return redirect(url_for('admin.referee_interface'))
+    
+    # Check admin authentication
     if not session.get('is_admin') or not session.get('user_id'):
         return redirect(url_for('login.login'))
     return None
