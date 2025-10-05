@@ -253,7 +253,7 @@
                 weightValue.textContent = newWeight + 'kg';
                 
                 // Hide the form
-                toggleWeightForm(weightValue);
+                toggleForm(weightValue);
                 
                 // If this is an opening weight form, update attempt 1 displays in the same movement section
                 if (form.closest('.opening-weights-section')) {
