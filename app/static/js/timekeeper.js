@@ -723,9 +723,63 @@
   }
 
   if (athleteSelect && attemptSelect) {
-    athleteSelect.addEventListener("change", () => {
+    athleteSelect.addEventListener("change", async () => {
       attemptSelect.disabled = !athleteSelect.value;
-      if (athleteSelect.value && !attemptSelect.value) attemptSelect.value = "1";
+      
+      // Clear existing attempt options
+      attemptSelect.innerHTML = '<option value="">Select…</option>';
+      
+      if (athleteSelect.value) {
+        try {
+          // Fetch athlete's attempts to populate dropdown dynamically
+          const response = await fetch(`/admin/athletes/${athleteSelect.value}/attempts`);
+          if (response.ok) {
+            const data = await response.json();
+            
+            // Populate attempt options based on athlete's actual attempts
+            if (data.attempt_numbers && data.attempt_numbers.length > 0) {
+              data.attempt_numbers.forEach(attemptNum => {
+                const option = document.createElement('option');
+                option.value = attemptNum;
+                option.textContent = attemptNum;
+                attemptSelect.appendChild(option);
+              });
+              
+              // Set default to first attempt if none selected
+              if (!attemptSelect.value) attemptSelect.value = data.attempt_numbers[0];
+            } else {
+              // Fallback to default attempts if no data found
+              for (let i = 1; i <= 3; i++) {
+                const option = document.createElement('option');
+                option.value = i;
+                option.textContent = i;
+                attemptSelect.appendChild(option);
+              }
+              attemptSelect.value = "1";
+            }
+          } else {
+            // Fallback to default attempts if API fails
+            for (let i = 1; i <= 3; i++) {
+              const option = document.createElement('option');
+              option.value = i;
+              option.textContent = i;
+              attemptSelect.appendChild(option);
+            }
+            attemptSelect.value = "1";
+          }
+        } catch (error) {
+          console.error('Error fetching athlete attempts:', error);
+          // Fallback to default attempts if error occurs
+          for (let i = 1; i <= 3; i++) {
+            const option = document.createElement('option');
+            option.value = i;
+            option.textContent = i;
+            attemptSelect.appendChild(option);
+          }
+          attemptSelect.value = "1";
+        }
+      }
+      
       updateAthleteApplied();
     });
     attemptSelect.addEventListener("change", updateAthleteApplied);
