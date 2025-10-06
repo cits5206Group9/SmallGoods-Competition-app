@@ -15,16 +15,11 @@
         </div>
 
         <div class="admin-card">
-            <h2>Live Event Control</h2>
-            <p>Manage ongoing competitions</p>
-            <a href="{{ url_for('admin.live_event') }}" class="admin-link">Control</a>
-        </div>
-
-        <div class="admin-card">
             <h2>Athletes Management</h2>
             <p>Manage athletes, creation, editing, deletion</p>
             <a href="{{ url_for('admin.atheletes_management') }}" class="admin-link">Manage Data</a>
         </div>
+        
         <div class="admin-card">
             <h2>Flights Management</h2>
             <p>Manage Flights, Groups</p>
@@ -44,9 +39,9 @@
         </div>
 
         <div class="admin-card">
-            <h2>Display & Scoreboard</h2>
-            <p>Control public displays and scoreboards</p>
-            <a href="{{ url_for('admin.display') }}" class="admin-link">Display Control</a>
+            <h2>Scoreboard History</h2>
+            <p>View and manage competition scores and rankings</p>
+            <a href="{{ url_for('admin.scoreboard_history') }}" class="admin-link">View Scores</a>
         </div>
     </div>
 </div>

@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+
+{% block title %}Scoreboard History - Admin{% endblock %}
+
+{% block css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/scoreboard_history.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="scoreboard-container">
+    <div class="page-header">
+        <h1>Scoreboard History</h1>
+        <a href="{{ url_for('admin.admin_dashboard') }}" class="filter-btn">← Back to Dashboard</a>
+    </div>
+
+    <div class="filters-section">
+        <div class="filters-row">
+            <div class="filter-group">
+                <label for="competition-filter">Competition</label>
+                <select id="competition-filter">
+                    <option value="">All Competitions</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label for="event-filter">Event</label>
+                <select id="event-filter">
+                    <option value="">All Events</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label for="flight-filter">Flight</label>
+                <select id="flight-filter">
+                    <option value="">All Flights</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label for="status-filter">Status</label>
+                <select id="status-filter">
+                    <option value="">All Statuses</option>
+                    <option value="final">Final Only</option>
+                    <option value="provisional">Provisional Only</option>
+                </select>
+            </div>
+            <button class="filter-btn" onclick="applyFilters()">Apply Filters</button>
+        </div>
+    </div>
+
+    <div class="scores-table-container">
+        <div class="table-header">
+            <h2>Competition Scores</h2>
+            <button class="export-btn" onclick="exportScores()">📥 Export CSV</button>
+        </div>
+        
+        <div id="loading" class="loading">Loading scores...</div>
+        
+        <table class="scores-table" id="scores-table" style="display: none;">
+            <thead>
+                <tr>
+                    <th>Rank</th>
+                    <th>Athlete</th>
+                    <th>Event</th>
+                    <th>Flight</th>
+                    <th>Lift Type</th>
+                    <th>Best Weight (kg)</th>
+                    <th>Total Score</th>
+                    <th>Status</th>
+                    <th>Calculated At</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="scores-tbody">
+            </tbody>
+        </table>
+
+        <div id="no-data" class="no-data" style="display: none;">
+            No scores found. Scores will appear here after referee decisions are submitted.
+        </div>
+    </div>
+</div>
+
+<!-- Edit Modal -->
+<div id="edit-modal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Edit Score</h2>
+            <button class="close-btn" onclick="closeEditModal()">&times;</button>
+        </div>
+        <form id="edit-form">
+            <input type="hidden" id="edit-score-id">
+            
+            <div class="form-group">
+                <label>Athlete</label>
+                <input type="text" id="edit-athlete-name" disabled>
+            </div>
+            
+            <div class="form-group">
+                <label for="edit-best-weight">Best Weight (kg)</label>
+                <input type="number" id="edit-best-weight" step="0.1" min="0">
+            </div>
+            
+            <div class="form-group">
+                <label for="edit-total-score">Total Score</label>
+                <input type="number" id="edit-total-score" step="0.1" min="0">
+            </div>
+            
+            <div class="form-group">
+                <label for="edit-rank">Rank</label>
+                <input type="number" id="edit-rank" min="1">
+            </div>
+            
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" id="edit-is-final">
+                    Mark as Final
+                </label>
+            </div>
+            
+            <div class="form-actions">
+                <button type="button" class="btn-cancel" onclick="closeEditModal()">Cancel</button>
+                <button type="submit" class="btn-save">Save Changes</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/scoreboard_history.js') }}"></script>
+{% endblock %}
