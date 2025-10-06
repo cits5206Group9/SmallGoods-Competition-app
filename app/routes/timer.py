@@ -46,27 +46,41 @@ def timer_state():
             attempt_number = state_data.get('attempt_number')
             flight_id = state_data.get('flight_id')
             
-            if athlete_id and attempt_number and flight_id:
+            # Try to find attempt even if flight_id is missing
+            if athlete_id and attempt_number:
                 from app.models import Athlete, Attempt, Flight
                 try:
                     athlete = Athlete.query.get(int(athlete_id))
                     if athlete:
-                        # Add athlete details
-                        state_data['weight_class'] = athlete.weight_class or ''
+                        # Add athlete details (only fields that exist in the model)
                         state_data['team'] = athlete.team or ''
                         
                         # Find the specific attempt
-                        attempt = Attempt.query.filter_by(
-                            athlete_id=int(athlete_id),
-                            attempt_number=int(attempt_number),
-                            flight_id=int(flight_id)
-                        ).first()
+                        # If flight_id is provided and valid, use it; otherwise search without it
+                        if flight_id and flight_id != '':
+                            attempt = Attempt.query.filter_by(
+                                athlete_id=int(athlete_id),
+                                attempt_number=int(attempt_number),
+                                flight_id=int(flight_id)
+                            ).first()
+                        else:
+                            # No flight_id, search by athlete and attempt number only
+                            attempt = Attempt.query.filter_by(
+                                athlete_id=int(athlete_id),
+                                attempt_number=int(attempt_number)
+                            ).order_by(Attempt.id.desc()).first()  # Get most recent
                         
                         if attempt:
-                            state_data['attempt_weight'] = attempt.declared_weight or 0
-                            state_data['current_lift'] = attempt.lift_type or ''
+                            state_data['attempt_id'] = attempt.id  # Store attempt_id
+                            state_data['attempt_weight'] = attempt.requested_weight or 0
+                            state_data['current_lift'] = attempt.athlete_entry.lift_type if attempt.athlete_entry else ''
+                            state_data['flight_id'] = attempt.flight_id  # Add the correct flight_id
+                        else:
+                            state_data['attempt_id'] = None
                 except Exception as e:
-                    print(f"Warning: Could not fetch athlete data: {e}")
+                    state_data['attempt_id'] = None
+            else:
+                state_data['attempt_id'] = None
             
             state_file.parent.mkdir(parents=True, exist_ok=True)
             with open(state_file, 'w') as f:
