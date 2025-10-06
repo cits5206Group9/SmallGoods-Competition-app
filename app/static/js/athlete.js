@@ -666,6 +666,7 @@
         let pollingIntervalId = null;
         let currentAttemptInfo = null; // Store attempt info for notifications
         let activeEventId = null; // Track active event context
+        let isInitialized = false; // Flag to prevent showing info before context is ready
         
         // Get active event context first
         async function getActiveEvent() {
@@ -680,13 +681,22 @@
             } catch (error) {
                 // Silently ignore - will use fallback logic
             }
+            // Mark as initialized once we've attempted to get active event
+            isInitialized = true;
         }
         
-        // Get active event on initialization
-        getActiveEvent();
+        // Get active event on initialization, then start polling
+        getActiveEvent().then(() => {
+            // Start polling after active event is loaded
+            startPolling();
+        }).catch(() => {
+            // Start polling even if getting active event fails
+            startPolling();
+        });
         
-        // Poll every 1 second for more responsive timer updates
-        pollingIntervalId = setInterval(async () => {
+        function startPolling() {
+            // Poll every 1 second for more responsive timer updates
+            pollingIntervalId = setInterval(async () => {
             try {
                 // Include active event context in request if available
                 let url = '/athlete/next-attempt-timer';
@@ -711,6 +721,14 @@
                 }
                 
                 const infoEl = document.querySelector('.next-attempt-info');
+                
+                // Don't display attempt info until we have proper initialization
+                if (!isInitialized) {
+                    // Show loading state while waiting for proper context
+                    updateTimerDisplay(0, 'inactive', 'inactive');
+                    if (infoEl) infoEl.innerHTML = '<p>Loading...</p>';
+                    return;
+                }
                 
                 // Store attempt info for notifications
                 if (data.event && data.lift_type) {
@@ -761,6 +779,7 @@
                 }
             }
         }, 1000); // Update every 1 second for more responsive updates
+        }
     }
 
     // Make functions globally available for onclick handlers
