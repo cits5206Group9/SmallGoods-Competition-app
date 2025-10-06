@@ -2207,6 +2207,54 @@ def get_flight_athletes(flight_id):
             'message': 'Failed to retrieve flight athletes: ' + str(e)
         }), 500
 
+@admin_bp.route('/athletes/<int:athlete_id>/attempts', methods=['GET'])
+def get_athlete_attempts(athlete_id):
+    """Get all attempts for a specific athlete (for timekeeper attempt dropdown)"""
+    try:
+        athlete = Athlete.query.get(athlete_id)
+        if not athlete:
+            return jsonify({
+                'status': 'error',
+                'message': 'Athlete not found'
+            }), 404
+        
+        # Get all athlete entries with their attempts
+        entries = AthleteEntry.query.options(
+            joinedload(AthleteEntry.attempts),
+            joinedload(AthleteEntry.event)
+        ).filter_by(athlete_id=athlete_id).all()
+        
+        attempts_data = []
+        for entry in entries:
+            for attempt in sorted(entry.attempts, key=lambda x: x.attempt_number):
+                attempts_data.append({
+                    'id': attempt.id,
+                    'attempt_number': attempt.attempt_number,
+                    'movement_type': attempt.movement_type,
+                    'lift_type': entry.lift_type,
+                    'movement_name': entry.movement_name,
+                    'requested_weight': attempt.requested_weight,
+                    'status': attempt.status or 'waiting',
+                    'event_name': entry.event.name if entry.event else None,
+                    'sport_type': entry.event.sport_type.value if entry.event and entry.event.sport_type else None
+                })
+        
+        # Get unique attempt numbers for dropdown
+        attempt_numbers = sorted(set(attempt['attempt_number'] for attempt in attempts_data))
+        
+        return jsonify({
+            'athlete_id': athlete_id,
+            'athlete_name': f"{athlete.first_name} {athlete.last_name}",
+            'attempt_numbers': attempt_numbers,
+            'attempts': attempts_data
+        }), 200
+        
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': 'Failed to retrieve athlete attempts: ' + str(e)
+        }), 500
+
 @admin_bp.route('/flights/<int:flight_id>/athletes/<int:athlete_id>', methods=['POST'])
 def add_athlete_to_flight(flight_id, athlete_id):
     """Add an athlete to a flight"""
