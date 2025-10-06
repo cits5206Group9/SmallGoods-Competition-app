@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Timer State Persistence Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-section {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+        }
+        h2 {
+            color: #666;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 10px;
+        }
+        .test-item {
+            margin: 15px 0;
+            padding: 10px;
+            background: #f8f9fa;
+            border-left: 4px solid #3498db;
+        }
+        .status {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 4px;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+        .status.pass {
+            background: #27ae60;
+            color: white;
+        }
+        .status.pending {
+            background: #f39c12;
+            color: white;
+        }
+        .status.fail {
+            background: #e74c3c;
+            color: white;
+        }
+        button {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+        }
+        button:hover {
+            background: #2980b9;
+        }
+        .info-box {
+            background: #e8f4f8;
+            padding: 15px;
+            border-radius: 5px;
+            border-left: 4px solid #3498db;
+            margin: 15px 0;
+        }
+        code {
+            background: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+        .warning {
+            background: #fff3cd;
+            border-left-color: #f39c12;
+            color: #856404;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 Timer State Persistence - Test Plan</h1>
+    
+    <div class="test-section">
+        <h2>📋 Pre-Test Setup</h2>
+        <div class="test-item">
+            <strong>1. Start the Flask Application</strong>
+            <pre><code>python run.py</code></pre>
+        </div>
+        <div class="test-item">
+            <strong>2. Navigate to Timekeeper Page</strong>
+            <p>Open: <code>http://127.0.0.1:8000/admin/timer</code></p>
+        </div>
+        <div class="test-item">
+            <strong>3. Select Competition/Event/Flight</strong>
+            <p>Use the dropdowns to select an active competition</p>
+        </div>
+        <div class="info-box warning">
+            ⚠️ <strong>Note:</strong> Make sure you have created a competition with events and flights using the Competition Model page first.
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>🧪 Test Case 1: Attempt Timer Persistence</h2>
+        <div class="test-item">
+            <strong>Step 1:</strong> Click "Start" on the main attempt timer
+            <span class="status pending">MANUAL</span>
+        </div>
+        <div class="test-item">
+            <strong>Step 2:</strong> Wait for 10-15 seconds
+            <span class="status pending">MANUAL</span>
+        </div>
+        <div class="test-item">
+            <strong>Step 3:</strong> Click "Pause"
+            <span class="status pending">MANUAL</span>
+        </div>
+        <div class="test-item">
+            <strong>Step 4:</strong> Note the current time (e.g., "00:00:12")
+            <span class="status pending">MANUAL</span>
+        </div>
+        <div class="test-item">
+            <strong>Step 5:</strong> Refresh the page (F5 or Cmd+R)
+            <span class="status pending">MANUAL</span>
+        </div>
+        <div class="test-item">
+            <strong>Expected Result:</strong> Timer should display the same time as before refresh
+            <span class="status pending">VERIFY</span>
+        </div>
+        <div class="info-box">
+            ✅ <strong>Success Criteria:</strong> The attempt timer shows approximately the same time (±2 seconds due to auto-save interval)
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>🧪 Test Case 2: Break Timer Persistence</h2>
+        <div class="test-item">
+            <strong>Step 1:</strong> Select an athlete from the dropdown
+            <span class="status pending">MANUAL</span>
+        </div>
+        <div class="test-item">
+            <strong>Step 2:</strong> Start the attempt timer and let it run for a few seconds
+            <span class="status pending">MANUAL</span>
+        </div>
+        <div class="test-item">
+            <strong>Step 3:</strong> Click "Stop" (■ button) to end the attempt
+            <span class="status pending">MANUAL</span>
+        </div>
+        <div class="test-item">
+            <strong>Step 4:</strong> A "Rest/Break Timer" card should appear for the athlete
+            <span class="status pending">VERIFY</span>
+        </div>
+        <div class="test-item">
+            <strong>Step 5:</strong> Click "Start Rest" on the break timer card
+            <span class="status pending">MANUAL</span>
+        </div>
+        <div class="test-item">
+            <strong>Step 6:</strong> Wait a few seconds, then click "Pause"
+            <span class="status pending">MANUAL</span>
+        </div>
+        <div class="test-item">
+            <strong>Step 7:</strong> Refresh the page (F5 or Cmd+R)
+            <span class="status pending">MANUAL</span>
+        </div>
+        <div class="test-item">
+            <strong>Expected Result:</strong> The break timer card should reappear with the athlete name and current time
+            <span class="status pending">VERIFY</span>
+        </div>
+        <div class="info-box">
+            ✅ <strong>Success Criteria:</strong> Break timer card is visible with correct athlete name and time value
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>🧪 Test Case 3: Multiple Break Timers</h2>
+        <div class="test-item">
+            <strong>Step 1:</strong> Create 3 different break timers by completing 3 attempts
+            <span class="status pending">MANUAL</span>
+        </div>
+        <div class="test-item">
+            <strong>Step 2:</strong> Start timer 1, pause timer 2, leave timer 3 reset
+            <span class="status pending">MANUAL</span>
+        </div>
+        <div class="test-item">
+            <strong>Step 3:</strong> Refresh the page
+            <span class="status pending">MANUAL</span>
+        </div>
+        <div class="test-item">
+            <strong>Expected Result:</strong> All 3 break timer cards should reappear
+            <span class="status pending">VERIFY</span>
+        </div>
+        <div class="info-box">
+            ✅ <strong>Success Criteria:</strong> All break timers are visible with their respective states preserved
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>🧪 Test Case 4: Custom Break Time Persistence</h2>
+        <div class="test-item">
+            <strong>Step 1:</strong> Create a break timer card
+            <span class="status pending">MANUAL</span>
+        </div>
+        <div class="test-item">
+            <strong>Step 2:</strong> In "Set Time" input, enter "00:03:00" (3 minutes)
+            <span class="status pending">MANUAL</span>
+        </div>
+        <div class="test-item">
+            <strong>Step 3:</strong> Click "Apply"
+            <span class="status pending">MANUAL</span>
+        </div>
+        <div class="test-item">
+            <strong>Step 4:</strong> Note the new time shown (should be 00:03:00)
+            <span class="status pending">MANUAL</span>
+        </div>
+        <div class="test-item">
+            <strong>Step 5:</strong> Refresh the page
+            <span class="status pending">MANUAL</span>
+        </div>
+        <div class="test-item">
+            <strong>Expected Result:</strong> Break timer should show 00:03:00
+            <span class="status pending">VERIFY</span>
+        </div>
+        <div class="info-box">
+            ✅ <strong>Success Criteria:</strong> Custom break time is preserved after refresh
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>🧪 Test Case 5: State Cleanup</h2>
+        <div class="test-item">
+            <strong>Step 1:</strong> Create multiple break timers
+            <span class="status pending">MANUAL</span>
+        </div>
+        <div class="test-item">
+            <strong>Step 2:</strong> Remove all break timers by clicking the ✕ button on each card
+            <span class="status pending">MANUAL</span>
+        </div>
+        <div class="test-item">
+            <strong>Step 3:</strong> Reset the attempt timer
+            <span class="status pending">MANUAL</span>
+        </div>
+        <div class="test-item">
+            <strong>Step 4:</strong> Refresh the page
+            <span class="status pending">MANUAL</span>
+        </div>
+        <div class="test-item">
+            <strong>Expected Result:</strong> Page should load clean with no break timers
+            <span class="status pending">VERIFY</span>
+        </div>
+        <div class="info-box">
+            ✅ <strong>Success Criteria:</strong> No break timer cards appear after refresh
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>🔍 Advanced Testing</h2>
+        <div class="info-box">
+            <strong>Check LocalStorage State:</strong>
+            <ol>
+                <li>Open Browser DevTools (F12)</li>
+                <li>Go to Application/Storage tab</li>
+                <li>Click "Local Storage" → "http://127.0.0.1:8000"</li>
+                <li>Look for key: <code>TK_TIMER_STATE</code></li>
+                <li>Verify the value is a JSON object with timer data</li>
+            </ol>
+        </div>
+        <div class="info-box">
+            <strong>Check Console Logs:</strong>
+            <ol>
+                <li>Open Browser DevTools (F12)</li>
+                <li>Go to Console tab</li>
+                <li>After refresh, you should see: <code>"Timer state restored"</code></li>
+                <li>If timers were running, you'll see messages about pausing them</li>
+            </ol>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>📊 Test Summary</h2>
+        <div class="info-box">
+            <strong>✅ What Was Fixed:</strong>
+            <ul>
+                <li>Timer state now persists across page refreshes</li>
+                <li>Break/rest timer cards are preserved</li>
+                <li>Flight context and athlete selection is restored</li>
+                <li>State auto-saves every 2 seconds</li>
+                <li>State expires after 24 hours</li>
+            </ul>
+        </div>
+        <div class="info-box warning">
+            <strong>⚠️ Safety Features:</strong>
+            <ul>
+                <li>Running timers are NOT auto-resumed (prevents accidental timing errors)</li>
+                <li>You must manually restart timers after refresh</li>
+                <li>Invalid/corrupt state is automatically cleared</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>🐛 Troubleshooting</h2>
+        <div class="test-item">
+            <strong>Issue:</strong> State not persisting
+            <br><strong>Solution:</strong> Check if localStorage is enabled in your browser and not in private/incognito mode
+        </div>
+        <div class="test-item">
+            <strong>Issue:</strong> Old state keeps appearing
+            <br><strong>Solution:</strong> Clear localStorage manually in DevTools or wait 24 hours for auto-expiry
+        </div>
+        <div class="test-item">
+            <strong>Issue:</strong> Timers not showing correct time
+            <br><strong>Solution:</strong> State saves every 2 seconds, so up to 2 seconds of time may be lost on refresh
+        </div>
+    </div>
+
+    <script>
+        console.log("%c🧪 Timer State Persistence Test Plan Loaded", "color: #3498db; font-size: 16px; font-weight: bold;");
+        console.log("%cFollow the test cases above to verify the fix", "color: #666; font-size: 14px;");
+        console.log("%cExpected localStorage key: TK_TIMER_STATE", "color: #27ae60; font-size: 14px;");
+    </script>
+</body>
+</html>
