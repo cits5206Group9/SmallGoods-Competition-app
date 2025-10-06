@@ -499,16 +499,107 @@
       restTimer.start();
       saveTimerState();
     };
-    btnPause.onclick = () => {
-      restTimer.pause();
+
+
+    
+    btnStart.onclick = async () => {
+      restTimer.start();
+      
+      // Also start the backend timer for real-time sync with athlete pages
+      if (pin.athleteId && CURRENT_FLIGHT_ID) {
+        try {
+          const compId = getSelectedCompetitionId();
+          if (compId) {
+            const duration = restTimer.currentSeconds();
+            const response = await fetch(`/athlete/timer/start-break/${compId}`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                athlete_id: pin.athleteId,
+                duration: duration
+              })
+            });
+            
+            if (!response.ok) {
+              console.warn(`Backend break timer start failed: ${response.status}`);
+            } else {
+              const result = await response.json();
+              if (!result.success) {
+                console.warn(`Backend break timer start failed: ${result.error || 'Unknown error'}`);
+              }
+            }
+          }
+        } catch (err) {
+          console.warn("Failed to start backend break timer:", err);
+        }
+      }
       saveTimerState();
     };
-    btnReset.onclick = () => {
+    btnPause.onclick = async () => {
+      restTimer.pause();
+      
+      // Pause backend timer as well
+      if (pin.athleteId && CURRENT_FLIGHT_ID) {
+        try {
+          const compId = getSelectedCompetitionId();
+          if (compId) {
+            const timerId = `break_athlete_${pin.athleteId}`;
+            const response = await fetch(`/athlete/timer/control/${compId}/${timerId}`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ action: "pause" })
+            });
+            
+            if (!response.ok) {
+              console.warn(`Backend break timer pause failed: ${response.status}`);
+            } else {
+              const result = await response.json();
+              if (!result.success) {
+                console.warn(`Backend break timer pause failed: ${result.error || 'Timer not found'}`);
+              }
+            }
+          }
+        } catch (err) {
+          console.warn("Failed to pause backend break timer:", err);
+        }
+      }
+      saveTimerState();
+    };
+    btnReset.onclick = async () => {
       restTimer.set(defaultRestSeconds);
+      
+      // Reset backend timer as well
+      if (pin.athleteId && CURRENT_FLIGHT_ID) {
+        try {
+          const compId = getSelectedCompetitionId();
+          if (compId) {
+            const timerId = `break_athlete_${pin.athleteId}`;
+            const response = await fetch(`/athlete/timer/control/${compId}/${timerId}`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ 
+                action: "reset",
+                duration: defaultRestSeconds
+              })
+            });
+            
+            if (!response.ok) {
+              console.warn(`Backend break timer reset failed: ${response.status}`);
+            } else {
+              const result = await response.json();
+              if (!result.success) {
+                console.warn(`Backend break timer reset failed: ${result.error || 'Timer not found'}`);
+              }
+            }
+          }
+        } catch (err) {
+          console.warn("Failed to reset backend break timer:", err);
+        }
+      }
       saveTimerState();
     };
 
-    btnApply.onclick = () => {
+    btnApply.onclick = async () => {
       const secs = parseHMS(inputHMS.value);
       if (!Number.isNaN(secs) && secs >= 0) {
         restTimer.set(secs);
@@ -547,9 +638,9 @@
     ensurePinsPanelVisibility();
   }
 
-  function pinFinishedAttempt({ athlete, attempt, attemptDurationSec }) {
+  function pinFinishedAttempt({ athlete, attempt, attemptDurationSec, athleteId }) {
     const id = `pin_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-    const pin = { id, athlete, attempt, attemptDurationSec };
+    const pin = { id, athlete, attempt, attemptDurationSec, athleteId };
     PINS.push(pin);
     renderPin(pin);
   }
@@ -580,7 +671,8 @@
       pinFinishedAttempt({
         athlete: getAthleteName(),
         attempt: attemptNo || "?",
-        attemptDurationSec: durationSec
+        attemptDurationSec: durationSec,
+        athleteId: localStorage.getItem("TK_ATHLETE_ID") || null
       });
 
       // 3) DB POST
@@ -702,6 +794,7 @@
       // not used here
     } catch {}
   }
+  
   loadFlightsTree();
 
   // ---- Log search wiring
@@ -801,20 +894,23 @@
 
     athleteSelect.disabled = false;
 
+    // Initialize attempt dropdown
+    if (attemptSelect) {
+      attemptSelect.innerHTML = '<option value="">Select athlete first…</option>';
+      attemptSelect.disabled = true;
+    }
+
     // restore previous selection if still present
     const savedId = localStorage.getItem(ATHLETE_ID_KEY);
     const savedName = localStorage.getItem(ATHLETE_KEY);
     if (savedId && athleteSelect.querySelector(`option[value="${savedId}"]`)) {
       athleteSelect.value = savedId;
+      // Trigger dynamic attempt population for restored athlete selection
+      populateAttemptDropdown(savedId);
       if (athleteApplied) {
         const at = (attemptSelect && attemptSelect.value) ? ` • Attempt ${attemptSelect.value}` : "";
         athleteApplied.textContent = savedName ? `Applied: ${savedName}${at}` : "";
       }
-    }
-
-    if (athleteSelect && attemptSelect) {
-      attemptSelect.disabled = !athleteSelect.value;
-      if (athleteSelect.value && !attemptSelect.value) attemptSelect.value = "1";
     }
   }
 
@@ -852,10 +948,67 @@
     });
   }
 
+  async function populateAttemptDropdown(athleteId) {
+    if (!attemptSelect || !athleteId) {
+      if (attemptSelect) {
+        attemptSelect.innerHTML = '<option value="">Select…</option>';
+        attemptSelect.disabled = true;
+      }
+      return;
+    }
+
+    // Clear existing attempt options
+    attemptSelect.innerHTML = '<option value="">Select…</option>';
+    attemptSelect.disabled = true;
+    
+    try {
+      // Fetch athlete's attempts to populate dropdown dynamically
+      // Include flight context to get flight-specific attempts
+      let url = `/admin/athletes/${athleteId}/attempts`;
+      if (lastFlightId) {
+        url += `?flight_id=${lastFlightId}`;
+      }
+      
+      const response = await fetch(url);
+      if (response.ok) {
+        const data = await response.json();
+        
+        // Always use real-time data, no fallback to hardcoded attempts
+        if (data.attempt_numbers && data.attempt_numbers.length > 0) {
+          // Clear the placeholder option first
+          attemptSelect.innerHTML = '';
+          
+          data.attempt_numbers.forEach(attemptNum => {
+            const option = document.createElement('option');
+            option.value = attemptNum;
+            option.textContent = attemptNum;
+            attemptSelect.appendChild(option);
+          });
+          
+          // Set default to first attempt if none selected
+          if (!attemptSelect.value) attemptSelect.value = data.attempt_numbers[0];
+          attemptSelect.disabled = false;
+        } else {
+          // If no attempts found, leave dropdown empty but enabled
+          attemptSelect.innerHTML = '<option value="">No attempts available</option>';
+          attemptSelect.disabled = true;
+        }
+      } else {
+        console.error('Failed to fetch athlete attempts:', response.status);
+        attemptSelect.innerHTML = '<option value="">Failed to load attempts</option>';
+        attemptSelect.disabled = true;
+      }
+    } catch (error) {
+      console.error('Error fetching athlete attempts:', error);
+      attemptSelect.innerHTML = '<option value="">Error loading attempts</option>';
+      attemptSelect.disabled = true;
+    }
+  }
+
   if (athleteSelect && attemptSelect) {
-    athleteSelect.addEventListener("change", () => {
-      attemptSelect.disabled = !athleteSelect.value;
-      if (athleteSelect.value && !attemptSelect.value) attemptSelect.value = "1";
+    athleteSelect.addEventListener("change", async () => {
+      const athleteId = athleteSelect.value;
+      await populateAttemptDropdown(athleteId);
       updateAthleteApplied();
     });
     attemptSelect.addEventListener("change", updateAthleteApplied);
@@ -893,6 +1046,16 @@
     if (athleteEditor) {
       populateAthleteDropdown(flight.id);
       athleteEditor.style.display = "block";
+    }
+
+    // Update attempt dropdown when flight changes (different flights may have different attempt configs)
+    if (athleteSelect && athleteSelect.value) {
+      // If an athlete is already selected, repopulate attempts for the new flight context
+      populateAttemptDropdown(athleteSelect.value);
+    } else if (attemptSelect) {
+      // If no athlete selected, clear attempt dropdown
+      attemptSelect.innerHTML = '<option value="">Select athlete first…</option>';
+      attemptSelect.disabled = true;
     }
 
     if (athleteInput && !athleteInput.value) {
@@ -937,6 +1100,13 @@
     selFlight.append(opt("", "Select flight…"));
     disable(btnGo, true);
     if (!eventId) { disable(selFlight, true); return; }
+
+    // Set this event as active for athlete context
+    try {
+      await fetch(`/athlete/set-active-event/${eventId}`, { method: 'POST' });
+    } catch (error) {
+      // Silently ignore errors - not critical for timekeeper operation
+    }
 
     const flights = await getFlights(eventId);
     flights.forEach((f) =>

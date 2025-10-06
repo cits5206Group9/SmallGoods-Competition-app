@@ -9,4 +9,6 @@ app = create_app()
 if __name__ == '__main__':
     # Use socketio.run instead of app.run for WebSocket support
     logger.info(f"Log level set to {LOG_LEVEL}")
-    socketio.run(app, debug=DEBUG_MODE_ON, port=5000, host='127.0.0.1', allow_unsafe_werkzeug=True)
+    # Use 0.0.0.0 to bind to all network interfaces (accessible on local network)
+    # Use 127.0.0.1 to bind only to localhost (same machine only)
+    socketio.run(app, debug=DEBUG_MODE_ON, port=5000, host='0.0.0.0', allow_unsafe_werkzeug=True)
