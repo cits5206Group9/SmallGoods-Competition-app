@@ -2244,7 +2244,7 @@ def get_flight_athletes(flight_id):
 
 @admin_bp.route('/athletes/<int:athlete_id>/attempts', methods=['GET'])
 def get_athlete_attempts(athlete_id):
-    """Get all attempts for a specific athlete (for timekeeper attempt dropdown)"""
+    """Get attempts for a specific athlete, optionally filtered by flight (for timekeeper attempt dropdown)"""
     try:
         athlete = Athlete.query.get(athlete_id)
         if not athlete:
@@ -2253,11 +2253,20 @@ def get_athlete_attempts(athlete_id):
                 'message': 'Athlete not found'
             }), 404
         
-        # Get all athlete entries with their attempts
-        entries = AthleteEntry.query.options(
+        # Check if flight_id is provided as query parameter for filtering
+        flight_id = request.args.get('flight_id', type=int)
+        
+        # Get athlete entries with their attempts, optionally filtered by flight
+        entries_query = AthleteEntry.query.options(
             joinedload(AthleteEntry.attempts),
             joinedload(AthleteEntry.event)
-        ).filter_by(athlete_id=athlete_id).all()
+        ).filter_by(athlete_id=athlete_id)
+        
+        if flight_id:
+            # Filter by specific flight if provided
+            entries_query = entries_query.filter_by(flight_id=flight_id)
+        
+        entries = entries_query.all()
         
         attempts_data = []
         for entry in entries:
