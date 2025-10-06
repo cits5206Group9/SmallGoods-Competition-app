@@ -39,7 +39,7 @@ cat ops/router/pair-server.sh | ssh root@192.168.8.1 'cat > /root/pair-server.sh
 ssh root@192.168.8.1 'sh /root/pair-server.sh sg.lan'
 
 # 3. Start the application server
-gunicorn 'run:app' --bind 0.0.0.0:5000 --workers 4
+./run.sh
 ```
 ⚠️ Only needed when:
 - Using a new computer to host
@@ -52,7 +52,7 @@ gunicorn 'run:app' --bind 0.0.0.0:5000 --workers 4
 source .venv/bin/activate
 
 # 2. Start the application server
-gunicorn 'run:app' --bind 0.0.0.0:5000 --workers 4
+./run.sh
 ```
 
 ## C. Accessing the Application
@@ -76,9 +76,8 @@ gunicorn 'run:app' --bind 0.0.0.0:5000 --workers 4
    - Check WiFi symbol is showing (not cellular data)
 
 2. Server Issues:
-   - Check if gunicorn is running on host
    - Allow port 5000 in host's firewall
-   - Try restarting gunicorn
+   - Try re-running Flask
 
 ### Database Issues
 ```bash

@@ -2242,6 +2242,63 @@ def get_flight_athletes(flight_id):
             'message': 'Failed to retrieve flight athletes: ' + str(e)
         }), 500
 
+@admin_bp.route('/athletes/<int:athlete_id>/attempts', methods=['GET'])
+def get_athlete_attempts(athlete_id):
+    """Get attempts for a specific athlete, optionally filtered by flight (for timekeeper attempt dropdown)"""
+    try:
+        athlete = Athlete.query.get(athlete_id)
+        if not athlete:
+            return jsonify({
+                'status': 'error',
+                'message': 'Athlete not found'
+            }), 404
+        
+        # Check if flight_id is provided as query parameter for filtering
+        flight_id = request.args.get('flight_id', type=int)
+        
+        # Get athlete entries with their attempts, optionally filtered by flight
+        entries_query = AthleteEntry.query.options(
+            joinedload(AthleteEntry.attempts),
+            joinedload(AthleteEntry.event)
+        ).filter_by(athlete_id=athlete_id)
+        
+        if flight_id:
+            # Filter by specific flight if provided
+            entries_query = entries_query.filter_by(flight_id=flight_id)
+        
+        entries = entries_query.all()
+        
+        attempts_data = []
+        for entry in entries:
+            for attempt in sorted(entry.attempts, key=lambda x: x.attempt_number):
+                attempts_data.append({
+                    'id': attempt.id,
+                    'attempt_number': attempt.attempt_number,
+                    'movement_type': attempt.movement_type,
+                    'lift_type': entry.lift_type,
+                    'movement_name': entry.movement_name,
+                    'requested_weight': attempt.requested_weight,
+                    'status': attempt.status or 'waiting',
+                    'event_name': entry.event.name if entry.event else None,
+                    'sport_type': entry.event.sport_type.value if entry.event and entry.event.sport_type else None
+                })
+        
+        # Get unique attempt numbers for dropdown
+        attempt_numbers = sorted(set(attempt['attempt_number'] for attempt in attempts_data))
+        
+        return jsonify({
+            'athlete_id': athlete_id,
+            'athlete_name': f"{athlete.first_name} {athlete.last_name}",
+            'attempt_numbers': attempt_numbers,
+            'attempts': attempts_data
+        }), 200
+        
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': 'Failed to retrieve athlete attempts: ' + str(e)
+        }), 500
+
 @admin_bp.route('/flights/<int:flight_id>/athletes/<int:athlete_id>', methods=['POST'])
 def add_athlete_to_flight(flight_id, athlete_id):
     """Add an athlete to a flight"""
@@ -2910,11 +2967,15 @@ def update_attempt_weight(attempt_id):
                 'message': 'Cannot modify weight of a finished attempt'
             }), 400
         
-        # Weight progression validation DISABLED - allow any weight values
-        # (Original validation code removed to allow flexible weight adjustments)
-        
         # Update the weight
         attempt.requested_weight = new_weight
+        
+        # If this is attempt 1 (opening weight), also update the AthleteEntry.opening_weights
+        if attempt.attempt_number == 1 and attempt.athlete_entry_id:
+            athlete_entry = AthleteEntry.query.get(attempt.athlete_entry_id)
+            if athlete_entry:
+                athlete_entry.opening_weights = int(new_weight) if new_weight is not None else 0
+        
         db.session.commit()
         
         return jsonify({
