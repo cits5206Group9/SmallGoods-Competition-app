@@ -1,137 +1,446 @@
 {% extends "base.html" %}
 
-{% block title %}{{ referee.name }} - Small Goods Competition{% endblock %}
+{% block title %}        .referee-header h1 {
+            margin: 0 0 10px 0;
+            color: #2c3e50;
+            font-size: 24px;
+            font-weight: 700;
+        }e }} - Small Goods Competition{% endblock %}
 
-{% block head %}
+{% block css %}
     <style>
-        .individual-referee {
-            max-width: 800px;
+        /* Hide the site header for referee view */
+        .site-header {
+            display: block !important;
+        }
+        
+        /* Reset container styles */
+        .container.page-main {
+            max-width: 100% !important;
+            padding: 0 !important;
+            margin: 0 !important;
+        }
+        
+        .referee-container {
+            max-width: 1200px;
             margin: 0 auto;
-            padding: 20px;
-        }
-        
-        .logout-btn {
-            display: inline-block;
-            margin-bottom: 20px;
-            padding: 8px 16px;
-            background: #6c757d;
-            color: white;
-            text-decoration: none;
-            border-radius: 4px;
-            font-size: 14px;
-        }
-        
-        .logout-btn:hover {
-            background: #5a6268;
-            color: white;
-            text-decoration: none;
+            padding: 30px 20px;
         }
         
         .referee-header {
-            background: rgba(255,255,255,0.1);
-            padding: 20px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            text-align: center;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+            padding: 25px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .header-left {
+            flex: 1;
+        }
+        
+        .header-right {
+            display: flex;
+            align-items: center;
         }
         
         .referee-header h1 {
             margin: 0 0 15px 0;
-            color: #fff;
+            color: #2c3e50;
+            font-size: 32px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
         
-        .referee-details {
-            background: rgba(255,255,255,0.05);
-            padding: 15px;
-            border-radius: 8px;
-            margin: 15px 0;
+        .referee-header h1::before {
+            content: "🎯";
+            font-size: 36px;
         }
         
-        .referee-details p {
-            margin: 5px 0;
+        .competition-info {
             font-size: 14px;
+            color: #7f8c8d;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        
+        .competition-info span {
+            padding: 6px 12px;
+            background: #f0f3f8;
+            border-radius: 20px;
+            font-weight: 500;
+            display: inline-flex;
+            align-items: center;
+        }
+        
+        .competition-info strong {
+            color: #2c3e50;
+            margin-right: 5px;
+        }
+        
+        .btn-logout {
+            padding: 12px 30px;
+            background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+            color: white;
+            border: none;
+            border-radius: 30px;
+            cursor: pointer;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(231, 76, 60, 0.3);
+        }
+        
+        .btn-logout:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(231, 76, 60, 0.4);
+            color: white;
+            text-decoration: none;
+        }
+        
+        /* Current Athlete Card */
+        .current-athlete-card {
+            background: white;
+            border-radius: 8px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .athlete-header h2 {
+            margin: 0 0 15px 0;
+            color: #2c3e50;
+            font-size: 28px;
+            font-weight: 700;
+        }
+        
+        .athlete-details {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-bottom: 25px;
+        }
+        
+        .athlete-details span {
+            padding: 8px 18px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 25px;
+            font-size: 14px;
+            color: white;
+            font-weight: 600;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+            transition: all 0.3s ease;
+        }
+        
+        .athlete-details span:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+        
+        .attempt-info {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 25px;
+            align-items: stretch;
+        }
+        
+        .attempt-weight {
+            padding: 25px;
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            border-radius: 16px;
+            text-align: center;
+            color: white;
+            box-shadow: 0 8px 25px rgba(240, 147, 251, 0.4);
+        }
+        
+        .attempt-weight label {
+            display: block;
+            font-size: 14px;
+            margin-bottom: 10px;
+            font-weight: 600;
+            opacity: 0.9;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .attempt-weight span {
+            font-size: 48px;
+            font-weight: 800;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+        
+        /* Synced Timer Display */
+        .synced-timer {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 20px;
+            padding: 40px;
+            text-align: center;
+            color: white;
+            box-shadow: 0 12px 40px rgba(102, 126, 234, 0.5);
+            border: 3px solid rgba(255, 255, 255, 0.2);
+            transition: all 0.3s ease;
+        }
+        
+        .synced-timer:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 16px 50px rgba(102, 126, 234, 0.6);
+        }
+        
+        .timer-label {
+            font-size: 16px;
+            margin-bottom: 15px;
+            opacity: 0.95;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+        
+        .synced-timer-value {
+            font-size: 96px;
+            font-weight: 900;
+            font-family: 'Courier New', monospace;
+            display: block;
+            line-height: 1;
+            margin: 20px 0;
+            letter-spacing: 8px;
+            text-shadow: 4px 4px 8px rgba(0,0,0,0.3);
+        }
+        
+        .timer-status {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            margin-top: 10px;
+            font-size: 14px;
+        }
+        
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        
+        .status-dot.waiting {
+            background-color: #95a5a6;
+            animation: pulse-gray 2s ease-in-out infinite;
+            box-shadow: 0 0 10px rgba(149, 165, 166, 0.5);
+        }
+        
+        .status-dot.running {
+            background-color: #2ecc71;
+            animation: pulse-green 1.5s ease-in-out infinite;
+            box-shadow: 0 0 15px rgba(46, 204, 113, 0.8);
+        }
+        
+        .status-dot.paused {
+            background-color: #f39c12;
+            box-shadow: 0 0 12px rgba(243, 156, 18, 0.6);
+        }
+        
+        @keyframes pulse-green {
+            0%, 100% { 
+                opacity: 1;
+                transform: scale(1);
+                box-shadow: 0 0 15px rgba(46, 204, 113, 0.8);
+            }
+            50% { 
+                opacity: 0.7;
+                transform: scale(1.15);
+                box-shadow: 0 0 25px rgba(46, 204, 113, 1);
+            }
+        }
+        
+        @keyframes pulse-gray {
+            0%, 100% { 
+                opacity: 0.5;
+                box-shadow: 0 0 10px rgba(149, 165, 166, 0.5);
+            }
+            50% { 
+                opacity: 1;
+                box-shadow: 0 0 15px rgba(149, 165, 166, 0.7);
+            }
+        }
+        
+        /* Referee Decision Panel */
+        .referee-decisions {
+            background: white;
+            border-radius: 16px;
+            padding: 35px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+        }
+        
+        .referee-decisions h3 {
+            margin: 0 0 25px 0;
+            color: #2c3e50;
+            font-size: 28px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .referee-decisions h3::before {
+            content: "⚖️";
+            font-size: 32px;
         }
         
         .decision-buttons {
             display: flex;
-            gap: 15px;
+            gap: 20px;
             justify-content: center;
             flex-wrap: wrap;
-            margin: 20px 0;
+            margin: 30px 0;
         }
         
         .decision-btn {
-            padding: 15px 25px;
-            border: none;
-            border-radius: 8px;
-            font-size: 16px;
-            font-weight: bold;
+            flex: 1;
+            min-width: 100px;
+            max-width: 150px;
+            padding: 20px 25px;
+            border: none !important;
+            border-radius: 12px;
+            font-size: 18px;
+            font-weight: 700;
             cursor: pointer;
-            min-width: 120px;
-            transition: all 0.3s ease;
-            color: white;
-            text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+            transition: all 0.2s ease;
+            color: white !important;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .decision-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: rgba(255,255,255,0.2);
+            transition: left 0.3s ease;
+        }
+        
+        .decision-btn:hover::before {
+            left: 100%;
         }
         
         .decision-btn:hover {
-            transform: scale(1.05);
-            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+            transform: translateY(-3px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+        }
+        
+        .decision-btn:active {
+            transform: translateY(-1px);
         }
         
         .decision-btn:disabled {
-            opacity: 0.6;
+            opacity: 0.5;
             cursor: not-allowed;
-            transform: none;
+            transform: none !important;
         }
         
         .decision-btn.selected {
-            box-shadow: 0 0 0 3px #fff, 0 0 0 6px #007bff;
+            transform: scale(1.05);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4);
+            outline: 3px solid rgba(255,255,255,0.8);
+            outline-offset: 2px;
         }
         
-        .decision-btn.grey { background-color: #6c757d; }
-        .decision-btn.green { background-color: #28a745; }
-        .decision-btn.red { background-color: #dc3545; }
-        .decision-btn.yellow { background-color: #ffc107; color: #000; }
-        .decision-btn.blue { background-color: #007bff; }
-        .decision-btn.orange { background-color: #fd7e14; }
-        .decision-btn.purple { background-color: #6f42c1; }
-        .decision-btn.pink { background-color: #e83e8c; }
+        /* Color classes for decision buttons */
+        .decision-btn.grey { background-color: #6c757d !important; }
+        .decision-btn.gray { background-color: #6c757d !important; }
+        .decision-btn.green { background-color: #28a745 !important; }
+        .decision-btn.red { background-color: #dc3545 !important; }
+        .decision-btn.yellow { background-color: #ffc107 !important; color: #000 !important; text-shadow: none !important; }
+        .decision-btn.blue { background-color: #007bff !important; }
+        .decision-btn.orange { background-color: #fd7e14 !important; }
+        .decision-btn.purple { background-color: #6f42c1 !important; }
+        .decision-btn.pink { background-color: #e83e8c !important; }
+        .decision-btn.white { background-color: #f8f9fa !important; color: #000 !important; text-shadow: none !important; }
+        .decision-btn.black { background-color: #343a40 !important; }
+        
+        #vote-status {
+            text-align: center;
+            margin-top: 20px;
+            padding: 15px;
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            border-radius: 8px;
+            color: #155724;
+            font-weight: 600;
+        }
     </style>
 {% endblock %}
 
 {% block content %}
-<div class="individual-referee">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-        <a href="{{ url_for('admin.general_referee_login') }}" class="logout-btn">← Back to Login</a>
-        <button id="logout-btn" class="logout-btn" style="background: #dc3545; border: none; cursor: pointer;">
-            Logout →
-        </button>
-    </div>    <div class="referee-header">
-        <h1>🎯 {{ referee.name }} ({{ referee.position or 'Referee' }})</h1>
-        <div class="referee-details">
-            <p><strong>Username:</strong> {{ referee.username }}</p>
-            <p><strong>Position:</strong> {{ referee.position or 'Not specified' }}</p>
-            <p><strong>Email:</strong> {{ referee.email or 'Not provided' }}</p>
-            <p><strong>Phone:</strong> {{ referee.phone or 'Not provided' }}</p>
-            <p><strong>Competition:</strong> <span id="competition-name">{{ referee.competition.name if referee.competition else 'Loading...' }}</span></p>
+<div class="referee-container">
+    <!-- Referee Header -->
+    <div class="referee-header">
+        <div class="header-left">
+            <h1>{{ referee.name }} ({{ referee.position or 'Referee' }})</h1>
+            <div class="competition-info">
+                <span><strong>Username:</strong> {{ referee.username }}</span>
+                <span><strong>Position:</strong> {{ referee.position or 'Referee' }}</span>
+                {% if referee.email %}<span><strong>Email:</strong> {{ referee.email }}</span>{% endif %}
+                {% if referee.phone %}<span><strong>Phone:</strong> {{ referee.phone }}</span>{% endif %}
+                <span><strong>Competition:</strong> <span id="competition-name">{{ referee.competition.name if referee.competition else 'N/A' }}</span></span>
+            </div>
+        </div>
+        <div class="header-right">
+            <button id="logout-btn" class="btn-logout">Logout →</button>
         </div>
     </div>
-    
-    <div class="current-attempt" id="current-attempt-display" style="display: none;">
+
+    <!-- Current Athlete Display -->
+    <div class="current-athlete-card" id="current-athlete">
+        <div class="athlete-header">
+            <h2 id="athlete-name">Athlete Name</h2>
+            <div class="athlete-details">
+                <span id="athlete-weight-class">Weight Class</span>
+                <span id="athlete-team">Team</span>
+                <span id="current-lift">Current Lift</span>
+                <span id="attempt-number">Attempt #1</span>
+            </div>
+        </div>
+        
+        <div class="attempt-info">
+            <div class="attempt-weight">
+                <label>Attempt Weight:</label>
+                <span id="attempt-weight">0kg</span>
+            </div>
+            <div class="timer-display synced-timer">
+                <div class="timer-label">Live Timer from Timekeeper</div>
+                <span id="synced-timer-display" class="synced-timer-value">60</span>
+                <div class="timer-status">
+                    <span id="timer-status-indicator" class="status-dot waiting"></span>
+                    <span id="timer-status-text">Waiting for timekeeper...</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Referee Decision Panel -->
+    <div class="referee-decisions" id="referee-panel">
         <h3>Cast Your Decision</h3>
+        
         <div class="decision-buttons" id="decision-buttons">
             <!-- Dynamic decision buttons will be populated here -->
         </div>
         
         <div id="vote-status" style="display: none;">
             <span id="vote-message">Decision submitted successfully!</span>
-        </div>
-    </div>
-    
-    <div id="waiting-display">
-        <div style="text-align: center; padding: 50px;">
-            <h3>⏳ Waiting for competition to start...</h3>
-            <p>Stand by for decisions</p>
         </div>
     </div>
 </div>
@@ -143,12 +452,173 @@ class IndividualReferee {
         this.competitionId = competitionId;
         this.hasVoted = false;
         this.decisionOptions = [];
+        this.lastSyncedState = null;
+        this.localTimerValue = 60;
+        this.localTimerRunning = false;
+        this.lastSyncTime = null;
+        this.localTimerStartValue = null;
         this.init();
     }
     
     async init() {
         await this.loadDecisionOptions();
         this.loadCompetitionInfo();
+        this.initSyncedTimer();
+    }
+    
+    initSyncedTimer() {
+        // Initialize the synchronized timer that pulls from timekeeper
+        this.lastSyncedState = null;
+        this.localTimerValue = 60;
+        this.localTimerRunning = false;
+        this.lastSyncTime = null;
+        this.localTimerStartValue = null;
+        
+        // Fetch timer state from server every 500ms
+        this.syncTimerInterval = setInterval(() => {
+            this.fetchTimerState();
+        }, 500);
+        
+        // Update display every 100ms for smooth countdown between syncs
+        this.displayUpdateInterval = setInterval(() => {
+            this.updateLocalTimerDisplay();
+        }, 100);
+        
+        // Fetch immediately on init
+        this.fetchTimerState();
+    }
+    
+    async fetchTimerState() {
+        try {
+            const response = await fetch('/admin/api/timer-state');
+            if (!response.ok) {
+                throw new Error('Failed to fetch timer state');
+            }
+            
+            const state = await response.json();
+            this.updateSyncedTimerDisplay(state);
+        } catch (error) {
+            console.warn('Failed to fetch timer state:', error);
+            this.updateSyncedTimerDisplay(null);
+        }
+    }
+    
+    updateLocalTimerDisplay() {
+        // This runs every 100ms to provide smooth timer updates between server syncs
+        if (!this.localTimerRunning || !this.lastSyncTime || this.localTimerStartValue === null) return;
+        
+        const timerDisplay = document.getElementById('synced-timer-display');
+        if (!timerDisplay) return;
+        
+        // Calculate elapsed time since WE received the last sync (local interpolation only)
+        const now = Date.now();
+        const elapsedSeconds = (now - this.lastSyncTime) / 1000;
+        
+        // Interpolate from the value we received from timekeeper
+        let currentValue;
+        if (this.lastSyncedState.timer_mode === 'countdown') {
+            currentValue = Math.max(0, this.localTimerStartValue - elapsedSeconds);
+        } else {
+            currentValue = this.localTimerStartValue + elapsedSeconds;
+        }
+        
+        // Use Math.floor for consistent countdown behavior (no rounding flashing)
+        const displayValue = Math.floor(currentValue);
+        
+        // Only update if the displayed value actually changed
+        const currentDisplayText = timerDisplay.textContent;
+        const minutes = Math.floor(displayValue / 60);
+        const seconds = displayValue % 60;
+        const timeStr = displayValue >= 60 
+            ? `${minutes}:${seconds.toString().padStart(2, '0')}`
+            : displayValue.toString();
+        
+        if (currentDisplayText !== timeStr) {
+            timerDisplay.textContent = timeStr;
+        }
+    }
+    
+    updateSyncedTimerDisplay(state) {
+        const timerDisplay = document.getElementById('synced-timer-display');
+        const statusDot = document.getElementById('timer-status-indicator');
+        const statusText = document.getElementById('timer-status-text');
+        const athleteName = document.getElementById('athlete-name');
+        const attemptWeight = document.getElementById('attempt-weight');
+        const attemptNumber = document.getElementById('attempt-number');
+        const currentLift = document.getElementById('current-lift');
+        const athleteWeightClass = document.getElementById('athlete-weight-class');
+        const athleteTeam = document.getElementById('athlete-team');
+        
+        if (!timerDisplay) return;
+        
+        if (!state || !state.athlete_name) {
+            // No active timer
+            this.localTimerRunning = false;
+            this.lastSyncedState = null;
+            this.localTimerValue = 60;
+            timerDisplay.textContent = '60';
+            
+            if (statusDot) statusDot.className = 'status-dot waiting';
+            if (statusText) statusText.textContent = 'Waiting for timekeeper...';
+            
+            // Reset athlete display to defaults
+            if (athleteName) athleteName.textContent = 'Athlete Name';
+            if (attemptWeight) attemptWeight.textContent = '0kg';
+            if (attemptNumber) attemptNumber.textContent = 'Attempt #1';
+            if (currentLift) currentLift.textContent = 'Current Lift';
+            if (athleteWeightClass) athleteWeightClass.textContent = 'Weight Class';
+            if (athleteTeam) athleteTeam.textContent = 'Team';
+            
+            return;
+        }
+        
+        // Update synced state - capture the exact value from timekeeper
+        this.lastSyncedState = state;
+        this.lastSyncTime = Date.now(); // When WE received this data
+        this.localTimerRunning = state.timer_running;
+        this.localTimerValue = state.timer_seconds;
+        this.localTimerStartValue = state.timer_seconds; // Start value for interpolation
+        
+        // Always update display immediately with the value from timekeeper
+        const displayValue = Math.floor(state.timer_seconds);
+        const minutes = Math.floor(displayValue / 60);
+        const seconds = displayValue % 60;
+        const timeStr = displayValue >= 60 
+            ? `${minutes}:${seconds.toString().padStart(2, '0')}`
+            : displayValue.toString();
+        
+        timerDisplay.textContent = timeStr;
+        
+        // Update athlete info
+        if (athleteName) {
+            athleteName.textContent = state.athlete_name || 'Athlete Name';
+        }
+        if (attemptWeight) {
+            attemptWeight.textContent = state.attempt_weight ? `${state.attempt_weight}kg` : '0kg';
+        }
+        if (attemptNumber) {
+            attemptNumber.textContent = state.attempt_number ? `Attempt #${state.attempt_number}` : 'Attempt #1';
+        }
+        if (currentLift) {
+            currentLift.textContent = state.current_lift || state.event || 'Current Lift';
+        }
+        if (athleteWeightClass) {
+            athleteWeightClass.textContent = state.weight_class || 'Weight Class';
+        }
+        if (athleteTeam) {
+            athleteTeam.textContent = state.team || state.flight || 'Team';
+        }
+        
+        // Update status indicator
+        if (statusDot && statusText) {
+            if (state.timer_running) {
+                statusDot.className = 'status-dot running';
+                statusText.textContent = `Running (${state.timer_mode})`;
+            } else {
+                statusDot.className = 'status-dot paused';
+                statusText.textContent = `Paused (${state.timer_mode})`;
+            }
+        }
     }
     
     async loadDecisionOptions() {
@@ -184,10 +654,6 @@ class IndividualReferee {
             
             container.appendChild(button);
         });
-        
-        // Show the decision section
-        document.getElementById('waiting-display').style.display = 'none';
-        document.getElementById('current-attempt-display').style.display = 'block';
     }
     
     async loadCompetitionInfo() {

@@ -1,4 +1,4 @@
-from flask import render_template, request
+from flask import render_template, request, jsonify
 from .admin import admin_bp  # reuse the existing /admin blueprint
 
 @admin_bp.route("/timer", endpoint="timer")
@@ -22,6 +22,84 @@ def timer_page():
         context=ctx,
         flight_id=flight_id,
     )
+
+@admin_bp.route("/api/timer-state", endpoint="timer_state", methods=['GET', 'POST'])
+def timer_state():
+    """
+    API endpoint to get/set the current timer state from the timekeeper page.
+    GET: Returns the current timer state
+    POST: Updates the timer state (called by timekeeper)
+    """
+    import json
+    from pathlib import Path
+    
+    # Use a temporary file to share state between timekeeper and referee pages
+    state_file = Path(__file__).parent.parent.parent / 'instance' / 'timer_state.json'
+    
+    if request.method == 'POST':
+        try:
+            # Save the timer state from timekeeper
+            state_data = request.get_json()
+            
+            # Enrich with athlete attempt data if available
+            athlete_id = state_data.get('athlete_id')
+            attempt_number = state_data.get('attempt_number')
+            flight_id = state_data.get('flight_id')
+            
+            if athlete_id and attempt_number and flight_id:
+                from app.models import Athlete, Attempt, Flight
+                try:
+                    athlete = Athlete.query.get(int(athlete_id))
+                    if athlete:
+                        # Add athlete details
+                        state_data['weight_class'] = athlete.weight_class or ''
+                        state_data['team'] = athlete.team or ''
+                        
+                        # Find the specific attempt
+                        attempt = Attempt.query.filter_by(
+                            athlete_id=int(athlete_id),
+                            attempt_number=int(attempt_number),
+                            flight_id=int(flight_id)
+                        ).first()
+                        
+                        if attempt:
+                            state_data['attempt_weight'] = attempt.declared_weight or 0
+                            state_data['current_lift'] = attempt.lift_type or ''
+                except Exception as e:
+                    print(f"Warning: Could not fetch athlete data: {e}")
+            
+            state_file.parent.mkdir(parents=True, exist_ok=True)
+            with open(state_file, 'w') as f:
+                json.dump(state_data, f)
+            return jsonify({'success': True})
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
+    else:
+        # GET request - return the current state
+        try:
+            if state_file.exists():
+                with open(state_file, 'r') as f:
+                    state = json.load(f)
+                    return jsonify(state)
+            else:
+                # Return default empty state
+                return jsonify({
+                    'athlete_name': '',
+                    'attempt_number': '',
+                    'timer_seconds': 60,
+                    'timer_running': False,
+                    'timer_mode': 'attempt',
+                    'competition': '',
+                    'event': '',
+                    'flight': '',
+                    'weight_class': '',
+                    'team': '',
+                    'current_lift': '',
+                    'attempt_weight': '',
+                    'timestamp': 0
+                })
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
 
 # NOTE:
 # The temporary mock API endpoints for competitions/events/flights
