@@ -40,6 +40,34 @@ def timer_state():
         try:
             # Save the timer state from timekeeper
             state_data = request.get_json()
+            
+            # Enrich with athlete attempt data if available
+            athlete_id = state_data.get('athlete_id')
+            attempt_number = state_data.get('attempt_number')
+            flight_id = state_data.get('flight_id')
+            
+            if athlete_id and attempt_number and flight_id:
+                from app.models import Athlete, Attempt, Flight
+                try:
+                    athlete = Athlete.query.get(int(athlete_id))
+                    if athlete:
+                        # Add athlete details
+                        state_data['weight_class'] = athlete.weight_class or ''
+                        state_data['team'] = athlete.team or ''
+                        
+                        # Find the specific attempt
+                        attempt = Attempt.query.filter_by(
+                            athlete_id=int(athlete_id),
+                            attempt_number=int(attempt_number),
+                            flight_id=int(flight_id)
+                        ).first()
+                        
+                        if attempt:
+                            state_data['attempt_weight'] = attempt.declared_weight or 0
+                            state_data['current_lift'] = attempt.lift_type or ''
+                except Exception as e:
+                    print(f"Warning: Could not fetch athlete data: {e}")
+            
             state_file.parent.mkdir(parents=True, exist_ok=True)
             with open(state_file, 'w') as f:
                 json.dump(state_data, f)

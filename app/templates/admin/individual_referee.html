@@ -590,23 +590,23 @@ class IndividualReferee {
         timerDisplay.textContent = timeStr;
         
         // Update athlete info
-        if (athleteName && state.athlete_name) {
-            athleteName.textContent = state.athlete_name;
+        if (athleteName) {
+            athleteName.textContent = state.athlete_name || 'Athlete Name';
         }
-        if (attemptWeight && state.attempt_weight) {
-            attemptWeight.textContent = state.attempt_weight + 'kg';
+        if (attemptWeight) {
+            attemptWeight.textContent = state.attempt_weight ? `${state.attempt_weight}kg` : '0kg';
         }
-        if (attemptNumber && state.attempt_number) {
-            attemptNumber.textContent = `Attempt #${state.attempt_number}`;
+        if (attemptNumber) {
+            attemptNumber.textContent = state.attempt_number ? `Attempt #${state.attempt_number}` : 'Attempt #1';
         }
-        if (currentLift && state.current_lift) {
-            currentLift.textContent = state.current_lift;
+        if (currentLift) {
+            currentLift.textContent = state.current_lift || state.event || 'Current Lift';
         }
-        if (athleteWeightClass && state.weight_class) {
-            athleteWeightClass.textContent = state.weight_class;
+        if (athleteWeightClass) {
+            athleteWeightClass.textContent = state.weight_class || 'Weight Class';
         }
-        if (athleteTeam && state.team) {
-            athleteTeam.textContent = state.team;
+        if (athleteTeam) {
+            athleteTeam.textContent = state.team || state.flight || 'Team';
         }
         
         // Update status indicator

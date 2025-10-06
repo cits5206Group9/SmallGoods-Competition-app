@@ -262,13 +262,19 @@
     try {
       const logKey = getLogKey();
       const stored = localStorage.getItem(logKey);
+      
+      // Clear existing logs first to prevent appending
+      MASTER_LOG.length = 0;
+      
       if (stored) {
         const logs = JSON.parse(stored);
-        MASTER_LOG.length = 0;
         MASTER_LOG.push(...logs);
-        renderLogTable();
         console.log(`Loaded ${logs.length} log entries for competition: ${CURRENT_CTX.competition}`);
+      } else {
+        console.log(`No saved logs found for competition: ${CURRENT_CTX.competition}`);
       }
+      
+      renderLogTable();
     } catch (e) {
       console.warn("Failed to load timer log:", e);
     }
@@ -282,15 +288,21 @@
     // Get precise current timer value
     const currentSeconds = attemptClock.currentSeconds();
     
+    // Get athlete data from the stored context or fetch it
+    const athleteId = athleteSelect?.value || localStorage.getItem("TK_ATHLETE_ID") || '';
+    const attemptNumber = attemptSelect?.value || '';
+    
     const state = {
       athlete_name: getAthleteName() || '',
-      attempt_number: attemptSelect?.value || '',
+      athlete_id: athleteId,
+      attempt_number: attemptNumber,
       timer_seconds: currentSeconds, // Use precise value, not rounded
       timer_running: attemptClock.running,
       timer_mode: attemptClock.mode,
       competition: CURRENT_CTX.competition || '',
       event: CURRENT_CTX.event || '',
       flight: CURRENT_CTX.flight || '',
+      flight_id: CURRENT_CTX.flightId || '',
       base_seconds: attemptClock.baseSeconds,
       timestamp: Date.now()
     };
@@ -522,6 +534,17 @@
     PINS.splice(idx, 1);
     ensurePinsPanelVisibility();
     saveTimerState();
+  }
+
+  function clearAllPins() {
+    // Stop and remove all pinned timers
+    while (PINS.length > 0) {
+      const pin = PINS[0];
+      if (pin.restTimer) pin.restTimer.pause();
+      if (pin.elements?.card) pin.elements.card.remove();
+      PINS.shift();
+    }
+    ensurePinsPanelVisibility();
   }
 
   function pinFinishedAttempt({ athlete, attempt, attemptDurationSec }) {
@@ -858,6 +881,14 @@
       flight: flight.name,
       flightId: flight.id
     });
+
+    // Clear previous competition's data when switching flights
+    if (typeof clearAllPins === 'function') {
+      clearAllPins();
+    }
+    if (typeof loadTimerLog === 'function') {
+      loadTimerLog();
+    }
 
     if (athleteEditor) {
       populateAthleteDropdown(flight.id);
