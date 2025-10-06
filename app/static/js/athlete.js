@@ -665,11 +665,36 @@
         const maxFailures = 3;
         let pollingIntervalId = null;
         let currentAttemptInfo = null; // Store attempt info for notifications
+        let activeEventId = null; // Track active event context
+        
+        // Get active event context first
+        async function getActiveEvent() {
+            try {
+                const response = await fetch('/athlete/get-active-event');
+                if (response.ok) {
+                    const eventData = await response.json();
+                    if (eventData.active_event) {
+                        activeEventId = eventData.active_event.id;
+                    }
+                }
+            } catch (error) {
+                // Silently ignore - will use fallback logic
+            }
+        }
+        
+        // Get active event on initialization
+        getActiveEvent();
         
         // Poll every 1 second for more responsive timer updates
         pollingIntervalId = setInterval(async () => {
             try {
-                const response = await fetch('/athlete/next-attempt-timer');
+                // Include active event context in request if available
+                let url = '/athlete/next-attempt-timer';
+                if (activeEventId) {
+                    url += `?event_id=${activeEventId}`;
+                }
+                
+                const response = await fetch(url);
                 
                 if (!response.ok) {
                     throw new Error(`HTTP ${response.status}`);
@@ -679,6 +704,11 @@
                 
                 // Reset failure count on successful connection
                 connectionFailures = 0;
+                
+                // Periodically refresh active event context (every 5 minutes)
+                if (Date.now() % 300000 < 1000) {
+                    getActiveEvent();
+                }
                 
                 const infoEl = document.querySelector('.next-attempt-info');
                 
