@@ -373,11 +373,14 @@
 class RefereeInterface {
     constructor() {
         this.currentDecision = null;
+        this.currentDecisionLabel = null;
         this.lastSyncedState = null;
         this.localTimerValue = 60;
         this.localTimerRunning = false;
         this.lastSyncTime = null;
         this.localTimerStartValue = null;
+        this.currentAttemptId = null;  // Store current attempt_id
+        this.lastAttemptId = null;  // Track attempt changes
         
         this.init();
     }
@@ -430,20 +433,33 @@ class RefereeInterface {
             return;
         }
         
-        const submitBtn = document.getElementById('submit-btn');
+        if (!this.currentAttemptId) {
+            alert('No active attempt. Please wait for timekeeper to start an attempt.');
+            return;
+        }
+        
+        const submitBtn = document.getElementById('submit-decision');
+        if (!submitBtn) {
+            console.error('Submit button not found');
+            return;
+        }
+        
         submitBtn.disabled = true;
         submitBtn.textContent = 'Submitting...';
         
         try {
-            const response = await fetch('/admin/api/referee/decision', {
+            const response = await fetch('/admin/api/referee-decision', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
                     referee_id: {{ referee.id }},
+                    competition_id: {{ referee.competition.id if referee.competition else 'null' }},
+                    attempt_id: this.currentAttemptId,  // Include attempt_id
                     decision: this.currentDecision,
-                    timestamp: new Date().toISOString()
+                    timestamp: new Date().toISOString(),
+                    notes: `Decision: ${this.currentDecisionLabel || this.currentDecision}`
                 })
             });
             
@@ -453,9 +469,11 @@ class RefereeInterface {
                 alert('Decision submitted successfully!');
                 // Reset decision
                 this.currentDecision = null;
-                document.querySelectorAll('.decision-btn').forEach(btn => {
+                this.currentDecisionLabel = null;
+                document.querySelectorAll('.result-btn').forEach(btn => {
                     btn.classList.remove('selected');
                 });
+                submitBtn.disabled = true;
                 submitBtn.textContent = 'Submit Decision';
             } else {
                 alert('Error submitting decision: ' + data.message);
@@ -582,6 +600,24 @@ class RefereeInterface {
         this.localTimerRunning = state.timer_running;
         this.localTimerValue = state.timer_seconds;
         this.localTimerStartValue = state.timer_seconds; // Start value for interpolation
+        
+        // Store current attempt_id for decision submission
+        if (state.attempt_id) {
+            this.currentAttemptId = state.attempt_id;
+            // Reset decision when new attempt starts
+            if (this.lastAttemptId !== this.currentAttemptId) {
+                this.currentDecision = null;
+                this.currentDecisionLabel = null;
+                this.lastAttemptId = this.currentAttemptId;
+                document.querySelectorAll('.result-btn').forEach(btn => {
+                    btn.classList.remove('selected');
+                });
+                const submitBtn = document.getElementById('submit-decision');
+                if (submitBtn) submitBtn.disabled = true;
+            }
+        } else {
+            this.currentAttemptId = null;
+        }
         
         // Always update display immediately with the value from timekeeper
         const displayValue = Math.floor(state.timer_seconds);
