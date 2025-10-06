@@ -1578,6 +1578,156 @@ def api_submit_score():
             'message': str(e)
         }), 500
 
+# Scoreboard History Routes
+@admin_bp.route('/scoreboard-history')
+def scoreboard_history():
+    """Scoreboard history page"""
+    return render_template('admin/scoreboard_history.html')
+
+@admin_bp.route('/api/scores', methods=['GET'])
+def get_all_scores():
+    """Get all scores with athlete and event information"""
+    try:
+        scores = Score.query.order_by(Score.calculated_at.desc()).all()
+        
+        scores_data = []
+        for score in scores:
+            athlete_entry = score.athlete_entry
+            athlete = athlete_entry.athlete
+            event = athlete_entry.event
+            competition = event.competition if event else None
+            flight = Flight.query.get(athlete_entry.flight_id) if athlete_entry.flight_id else None
+            
+            scores_data.append({
+                'id': score.id,
+                'athlete_entry_id': score.athlete_entry_id,
+                'athlete_name': f"{athlete.first_name} {athlete.last_name}",
+                'athlete_id': athlete.id,
+                'event_name': event.name if event else 'N/A',
+                'event_id': event.id if event else None,
+                'competition_id': competition.id if competition else None,
+                'competition_name': competition.name if competition else 'N/A',
+                'flight_id': athlete_entry.flight_id,
+                'flight_name': flight.name if flight else 'N/A',
+                'lift_type': athlete_entry.lift_type or 'N/A',
+                'best_attempt_weight': score.best_attempt_weight,
+                'total_score': score.total_score,
+                'rank': score.rank,
+                'score_type': score.score_type,
+                'calculated_at': score.calculated_at.isoformat() if score.calculated_at else None,
+                'is_final': score.is_final
+            })
+        
+        return jsonify(scores_data)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@admin_bp.route('/api/scores/<int:score_id>', methods=['PUT'])
+def update_score(score_id):
+    """Update a score"""
+    try:
+        score = Score.query.get_or_404(score_id)
+        data = request.get_json()
+        
+        # Update fields
+        if 'best_attempt_weight' in data:
+            score.best_attempt_weight = data['best_attempt_weight']
+        if 'total_score' in data:
+            score.total_score = data['total_score']
+        if 'rank' in data:
+            score.rank = data['rank']
+        if 'is_final' in data:
+            score.is_final = data['is_final']
+        
+        score.calculated_at = datetime.utcnow()
+        
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Score updated successfully'
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
+
+@admin_bp.route('/api/scores/<int:score_id>', methods=['DELETE'])
+def delete_score(score_id):
+    """Delete a score"""
+    try:
+        score = Score.query.get_or_404(score_id)
+        db.session.delete(score)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Score deleted successfully'
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
+
+@admin_bp.route('/api/scores/export')
+def export_scores():
+    """Export scores to CSV"""
+    try:
+        import io
+        import csv
+        from flask import make_response
+        
+        competition_id = request.args.get('competition_id')
+        
+        query = Score.query
+        if competition_id:
+            query = query.join(AthleteEntry).join(Event).filter(Event.competition_id == competition_id)
+        
+        scores = query.order_by(Score.calculated_at.desc()).all()
+        
+        # Create CSV
+        output = io.StringIO()
+        writer = csv.writer(output)
+        
+        # Headers
+        writer.writerow([
+            'Rank', 'Athlete', 'Event', 'Flight', 'Lift Type', 'Best Weight (kg)', 
+            'Total Score', 'Status', 'Calculated At'
+        ])
+        
+        # Data
+        for score in scores:
+            athlete_entry = score.athlete_entry
+            athlete = athlete_entry.athlete
+            event = athlete_entry.event
+            flight = Flight.query.get(athlete_entry.flight_id) if athlete_entry.flight_id else None
+            
+            writer.writerow([
+                score.rank or '-',
+                f"{athlete.first_name} {athlete.last_name}",
+                event.name if event else 'N/A',
+                flight.name if flight else 'N/A',
+                athlete_entry.lift_type or '-',
+                score.best_attempt_weight or '-',
+                score.total_score or '-',
+                'FINAL' if score.is_final else 'PROVISIONAL',
+                score.calculated_at.strftime('%Y-%m-%d %H:%M:%S') if score.calculated_at else '-'
+            ])
+        
+        # Create response
+        output.seek(0)
+        response = make_response(output.getvalue())
+        response.headers['Content-Disposition'] = 'attachment; filename=scores_export.csv'
+        response.headers['Content-Type'] = 'text/csv'
+        
+        return response
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @admin_bp.route('/api/referees/auto-generate/<int:competition_id>', methods=['POST'])
 def auto_generate_referees(competition_id):
     """Auto-generate referees based on competition referee configuration"""
