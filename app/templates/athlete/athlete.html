@@ -203,7 +203,7 @@
                                                  data-attempt-id="{{ attempt.id }}">
                                                 <span>Attempt {{ attempt.attempt_number }}:</span>
                                                 {% if attempt.status != 'finished' %}
-                                                    {% if attempt.number == 1 %}
+                                                    {% if attempt.attempt_number == 1 %}
                                                         <!-- Attempt 1 shows opening weight -->
                                                         <div class="weight-display">
                                                             <span class="weight-value">

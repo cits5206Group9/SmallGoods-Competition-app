@@ -800,6 +800,13 @@
     disable(btnGo, true);
     if (!eventId) { disable(selFlight, true); return; }
 
+    // Set this event as active for athlete context
+    try {
+      await fetch(`/athlete/set-active-event/${eventId}`, { method: 'POST' });
+    } catch (error) {
+      // Silently ignore errors - not critical for timekeeper operation
+    }
+
     const flights = await getFlights(eventId);
     flights.forEach((f) =>
       selFlight.append(opt(f.id, f.name + (f.is_active === false ? " (inactive)" : "")))
