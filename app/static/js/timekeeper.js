@@ -31,13 +31,16 @@
   let CURRENT_FLIGHT_ID = parseInt(getQueryParam("flight_id") || "", 10);
   if (Number.isNaN(CURRENT_FLIGHT_ID)) CURRENT_FLIGHT_ID = null;
 
-  const CURRENT_CTX = { competition: "", event: "", flight: "" };
+  const CURRENT_CTX = { competition: "", event: "", flight: "", flightId: "" };
   window.TK_updateContext = function ({ competition, event, flight, flightId } = {}) {
     const prevCompetition = CURRENT_CTX.competition;
     if (typeof competition === "string") CURRENT_CTX.competition = competition;
     if (typeof event === "string") CURRENT_CTX.event = event;
     if (typeof flight === "string") CURRENT_CTX.flight = flight;
-    if (flightId != null) CURRENT_FLIGHT_ID = Number(flightId);
+    if (flightId != null) {
+      CURRENT_FLIGHT_ID = Number(flightId);
+      CURRENT_CTX.flightId = String(flightId);  // Store in CURRENT_CTX as well
+    }
     
     // Load the log for this competition if it changed
     if (competition && competition !== prevCompetition) {
