@@ -344,38 +344,20 @@ class RefereePanel {
         // Clear existing referee votes
         votesContainer.innerHTML = '';
         
-        // Generate referee rows based on config
+        // Generate referee rows based on config - showing only vote results, not buttons
         for (let i = 1; i <= this.refereeConfig.number_of_referees; i++) {
             const refereeDiv = document.createElement('div');
             refereeDiv.className = 'referee-vote';
             
-            let buttonsHtml = '';
-            this.refereeConfig.decision_options.forEach((option, index) => {
-                // Create a unique identifier for each option
-                const optionId = `ref-${i}-option-${index}`;
-                const buttonClass = `vote-btn option-${index}`;
-                
-                buttonsHtml += `
-                    <button class="${buttonClass}" 
-                            data-referee="${i}" 
-                            data-vote="${option.value}" 
-                            data-label="${option.label}"
-                            id="${optionId}"
-                            style="background-color: ${option.color}; color: white; margin: 2px; padding: 8px 12px; border: 2px solid #ddd; border-radius: 4px; cursor: pointer; font-weight: bold;">
-                        ${option.label}
-                    </button>
-                `;
-            });
-            
             refereeDiv.innerHTML = `
-                <span style="min-width: 80px; display: inline-block;">Referee ${i}:</span>
-                ${buttonsHtml}
+                <span style="min-width: 100px; display: inline-block; font-weight: 600;">Referee ${i}:</span>
+                <span class="vote-result pending" id="referee-${i}-vote">-</span>
             `;
             
             votesContainer.appendChild(refereeDiv);
         }
         
-        console.log(`Generated ${this.refereeConfig.number_of_referees} referee rows`);
+        console.log(`Generated ${this.refereeConfig.number_of_referees} referee vote displays (results only)`);
     }
 
     // Removed bindVoteEvents method since we're using event delegation
@@ -597,8 +579,38 @@ class RefereePanel {
             this.updateLocalTimerDisplay();
         }, 100);
         
+        // Poll for referee decisions every 2 seconds
+        this.pollRefereeDecisions();
+        this.decisionsInterval = setInterval(() => {
+            this.pollRefereeDecisions();
+        }, 2000);
+        
         // Fetch immediately on init
         this.fetchTimerState();
+    }
+    
+    async pollRefereeDecisions() {
+        // Poll for referee decisions from other referees
+        if (!this.currentCompetition?.id) return;
+        
+        try {
+            const response = await fetch(`/admin/api/referee-decisions/${this.currentCompetition.id}`);
+            if (!response.ok) return;
+            
+            const data = await response.json();
+            if (data.success && data.decisions) {
+                // Update vote displays
+                Object.entries(data.decisions).forEach(([refereeId, decisionData]) => {
+                    const voteDisplay = document.getElementById(`referee-${refereeId}-vote`);
+                    if (voteDisplay) {
+                        voteDisplay.textContent = decisionData.decision_label || decisionData.decision_value;
+                        voteDisplay.className = 'vote-result voted';
+                    }
+                });
+            }
+        } catch (error) {
+            console.warn('Failed to poll referee decisions:', error);
+        }
     }
 
     async fetchTimerState() {
@@ -1060,15 +1072,11 @@ class RefereePanel {
     }
 
     recordRefereeVote(refereeNum, vote, label) {
-        // Clear previous vote for this referee
-        document.querySelectorAll(`[data-referee="${refereeNum}"]`).forEach(btn => {
-            btn.classList.remove('selected');
-        });
-        
-        // Select new vote
-        const selectedBtn = document.querySelector(`[data-referee="${refereeNum}"][data-vote="${vote}"]`);
-        if (selectedBtn) {
-            selectedBtn.classList.add('selected');
+        // Update the vote result display
+        const voteDisplay = document.getElementById(`referee-${refereeNum}-vote`);
+        if (voteDisplay) {
+            voteDisplay.textContent = label || vote;
+            voteDisplay.className = 'vote-result voted';
         }
         
         this.refereeVotes[refereeNum] = {

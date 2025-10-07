@@ -49,6 +49,24 @@
             box-shadow: 0 1px 2px rgba(52, 152, 219, 0.3);
         }
         
+        .decision-results-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3) !important;
+        }
+        
+        .decision-results-btn:hover {
+            background: linear-gradient(135deg, #5568d3 0%, #63408a 100%) !important;
+            transform: translateY(-2px) !important;
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4) !important;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+        
         .referee-header h1 {
             margin: 0 0 10px 0;
             color: #2c3e50;
@@ -183,6 +201,29 @@
                 transform: scale(1.2);
             }
         }
+        
+        /* Vote Result Display */
+        .vote-result {
+            display: inline-block;
+            padding: 8px 20px;
+            border-radius: 20px;
+            font-weight: 700;
+            font-size: 18px;
+            min-width: 60px;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+        
+        .vote-result.pending {
+            background: #ecf0f1;
+            color: #95a5a6;
+        }
+        
+        .vote-result.voted {
+            background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(231, 76, 60, 0.4);
+        }
     </style>
 {% endblock %}
 
@@ -211,7 +252,12 @@
     <div class="referee-header">
         <div class="header-left">
             <h1>Referee Panel</h1>
-            <button id="referees-setting-btn" class="setting-btn" onclick="openRefereesSettings()">⚙️ Referees Setting</button>
+            <div class="button-group">
+                <button id="referees-setting-btn" class="setting-btn" onclick="openRefereesSettings()">⚙️ Referees Setting</button>
+                <a href="{{ url_for('admin.referee_decisions_page') }}" class="setting-btn decision-results-btn" style="text-decoration: none; display: inline-flex; align-items: center; gap: 5px;">
+                    📊 Decision Results
+                </a>
+            </div>
             <div class="competition-info">
                 <span id="competition-name">Select Competition</span>
                 <span id="current-event">No Event Selected</span>
@@ -266,20 +312,6 @@
     <div class="referee-decisions" id="referee-panel" style="display: none;">
         <h3>Referee Decisions</h3>
         
-        <div class="lift-result">
-            <h4>Lift Result</h4>
-            <div class="result-buttons">
-                <button class="result-btn good-lift" data-result="good">
-                    <i class="icon-check"></i>
-                    Good Lift
-                </button>
-                <button class="result-btn no-lift" data-result="no-lift">
-                    <i class="icon-x"></i>
-                    No Lift
-                </button>
-            </div>
-        </div>
-
         <div class="technical-decisions" id="technical-decisions">
             <h4>Technical Violations (if No Lift)</h4>
             <div class="violation-checkboxes">
@@ -299,18 +331,23 @@
             <div class="votes-display">
                 <div class="referee-vote">
                     <span>Referee 1:</span>
-                    <button class="vote-btn white" data-referee="1" data-vote="good">⚪</button>
-                    <button class="vote-btn red" data-referee="1" data-vote="no-lift">🔴</button>
+                    <span class="vote-result" id="referee-1-vote">-</span>
                 </div>
                 <div class="referee-vote">
                     <span>Referee 2:</span>
-                    <button class="vote-btn white" data-referee="2" data-vote="good">⚪</button>
-                    <button class="vote-btn red" data-referee="2" data-vote="no-lift">🔴</button>
+                    <span class="vote-result" id="referee-2-vote">-</span>
                 </div>
                 <div class="referee-vote">
                     <span>Referee 3:</span>
-                    <button class="vote-btn white" data-referee="3" data-vote="good">⚪</button>
-                    <button class="vote-btn red" data-referee="3" data-vote="no-lift">🔴</button>
+                    <span class="vote-result" id="referee-3-vote">-</span>
+                </div>
+                <div class="referee-vote">
+                    <span>Referee 4:</span>
+                    <span class="vote-result" id="referee-4-vote">-</span>
+                </div>
+                <div class="referee-vote">
+                    <span>Referee 5:</span>
+                    <span class="vote-result" id="referee-5-vote">-</span>
                 </div>
             </div>
             

@@ -98,6 +98,15 @@ def data():
 def referee():
     return render_template('admin/referee.html')
 
+@admin_bp.route('/referee-decisions')
+def referee_decisions_page():
+    """Display referee decisions page with filtering"""
+    auth_check = require_admin_auth()
+    if auth_check:
+        return auth_check
+    competitions = Competition.query.all()
+    return render_template('admin/referee_decisions.html', competitions=competitions)
+
 @admin_bp.route('/results')
 def results_dashboard():
     return render_template('admin/results_dashboard.html')
@@ -1311,8 +1320,12 @@ def referee_logout_page():
 
 @admin_bp.route('/api/referee-decision', methods=['POST'])
 def submit_referee_decision():
-    """Submit a referee decision"""
+    """Submit a referee decision and store in database"""
     try:
+        from ..models import RefereeDecisionLog
+        import json
+        from pathlib import Path
+        
         data = request.get_json()
         
         if not data:
@@ -1331,28 +1344,112 @@ def submit_referee_decision():
         if not referee:
             return jsonify({'success': False, 'message': 'Invalid referee or competition'}), 404
         
-        # For now, we'll store decisions in a simple way by updating the referee's notes
-        # In a full implementation, you might want to create a separate table for decisions
-        decision_info = f"Decision at {timestamp}: {decision.get('label', 'Unknown')} (Value: {decision.get('value', 'Unknown')})"
+        # Get current timer state for athlete details
+        state_file = Path(__file__).parent.parent.parent / 'instance' / 'timer_state.json'
+        timer_state = {}
+        try:
+            if state_file.exists():
+                with open(state_file, 'r') as f:
+                    timer_state = json.load(f)
+        except Exception as e:
+            print(f"Warning: Could not read timer state: {e}")
         
-        if referee.notes:
-            referee.notes += f"\n{decision_info}"
-        else:
-            referee.notes = decision_info
+        # Extract athlete information from timer state or data
+        athlete_name = timer_state.get('athlete_name', data.get('athlete_name', 'Unknown'))
+        event_name = timer_state.get('event', data.get('event'))
+        flight_name = timer_state.get('flight', data.get('flight'))
+        weight_class = timer_state.get('weight_class', '')
+        team = timer_state.get('team', '')
+        current_lift = timer_state.get('current_lift', '')
+        attempt_number = timer_state.get('attempt_number', data.get('attempt_number', 1))
+        attempt_weight = timer_state.get('attempt_weight', data.get('attempt_weight', 0))
         
+        # Create new decision record in database
+        new_decision = RefereeDecisionLog(
+            referee_id=referee_id,
+            competition_id=competition_id,
+            athlete_name=athlete_name,
+            event_name=event_name,
+            flight_name=flight_name,
+            weight_class=weight_class,
+            team=team,
+            current_lift=current_lift,
+            attempt_number=int(attempt_number) if attempt_number else 1,
+            attempt_weight=float(attempt_weight) if attempt_weight else 0,
+            decision_label=decision.get('label', 'Unknown'),
+            decision_value=bool(decision.get('value', False)),
+            decision_color=decision.get('color', ''),
+            timestamp=datetime.utcnow()
+        )
+        
+        db.session.add(new_decision)
         db.session.commit()
+        
+        # Also store in memory for real-time display (backwards compatibility)
+        if not hasattr(submit_referee_decision, 'decisions'):
+            submit_referee_decision.decisions = {}
+        
+        comp_key = f"comp_{competition_id}"
+        if comp_key not in submit_referee_decision.decisions:
+            submit_referee_decision.decisions[comp_key] = {}
+        
+        submit_referee_decision.decisions[comp_key][str(referee_id)] = {
+            'referee_id': referee_id,
+            'referee_name': referee.name,
+            'decision_label': decision.get('label', 'Unknown'),
+            'decision_value': decision.get('value', 'Unknown'),
+            'timestamp': timestamp
+        }
         
         return jsonify({
             'success': True, 
-            'message': 'Decision submitted successfully',
+            'message': 'Decision recorded successfully',
             'referee_id': referee_id,
-            'decision': decision
+            'decision': decision,
+            'decision_log_id': new_decision.id
         })
         
     except Exception as e:
         db.session.rollback()
         print("Error submitting referee decision:", str(e))
+        import traceback
+        traceback.print_exc()
         return jsonify({'success': False, 'message': 'Error submitting decision'}), 500
+
+@admin_bp.route('/api/referee-decisions/<int:competition_id>', methods=['GET'])
+def get_referee_decisions(competition_id):
+    """Get all referee decisions for current attempt in a competition"""
+    try:
+        # Get decisions from in-memory store
+        if not hasattr(submit_referee_decision, 'decisions'):
+            return jsonify({'success': True, 'decisions': {}})
+        
+        comp_key = f"comp_{competition_id}"
+        decisions = submit_referee_decision.decisions.get(comp_key, {})
+        
+        return jsonify({
+            'success': True,
+            'decisions': decisions
+        })
+        
+    except Exception as e:
+        print("Error fetching referee decisions:", str(e))
+        return jsonify({'success': False, 'message': 'Error fetching decisions'}), 500
+
+@admin_bp.route('/api/referee-decisions/<int:competition_id>/clear', methods=['POST'])
+def clear_referee_decisions(competition_id):
+    """Clear all referee decisions for a competition (for next attempt)"""
+    try:
+        if hasattr(submit_referee_decision, 'decisions'):
+            comp_key = f"comp_{competition_id}"
+            if comp_key in submit_referee_decision.decisions:
+                submit_referee_decision.decisions[comp_key] = {}
+        
+        return jsonify({'success': True, 'message': 'Decisions cleared'})
+        
+    except Exception as e:
+        print("Error clearing referee decisions:", str(e))
+        return jsonify({'success': False, 'message': 'Error clearing decisions'}), 500
 
 @admin_bp.route('/api/current-attempt', methods=['GET'])
 def get_current_attempt():
@@ -1363,6 +1460,75 @@ def get_current_attempt():
         'status': 'waiting',
         'message': 'No active attempt'
     })
+
+@admin_bp.route('/api/decision-results', methods=['GET'])
+def get_decision_results():
+    """Get referee decisions with filtering"""
+    try:
+        from ..models import RefereeDecisionLog
+        
+        competition_id = request.args.get('competition_id', type=int)
+        event = request.args.get('event')
+        flight = request.args.get('flight')
+        
+        query = RefereeDecisionLog.query.options(
+            db.joinedload(RefereeDecisionLog.referee),
+            db.joinedload(RefereeDecisionLog.competition)
+        )
+        
+        if competition_id:
+            query = query.filter_by(competition_id=competition_id)
+        
+        if event:
+            query = query.filter_by(event_name=event)
+        
+        if flight:
+            query = query.filter_by(flight_name=flight)
+        
+        decisions = query.order_by(RefereeDecisionLog.timestamp.desc()).all()
+        
+        return jsonify({
+            'success': True,
+            'decisions': [d.to_dict() for d in decisions]
+        }), 200
+        
+    except Exception as e:
+        print(f"Error fetching decision results: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@admin_bp.route('/api/decision-filters/<int:competition_id>', methods=['GET'])
+def get_decision_filters(competition_id):
+    """Get available filter values for a competition"""
+    try:
+        from ..models import RefereeDecisionLog
+        
+        # Get unique events
+        events = db.session.query(RefereeDecisionLog.event_name)\
+            .filter_by(competition_id=competition_id)\
+            .filter(RefereeDecisionLog.event_name.isnot(None))\
+            .distinct()\
+            .all()
+        
+        # Get unique flights
+        flights = db.session.query(RefereeDecisionLog.flight_name)\
+            .filter_by(competition_id=competition_id)\
+            .filter(RefereeDecisionLog.flight_name.isnot(None))\
+            .distinct()\
+            .all()
+        
+        return jsonify({
+            'success': True,
+            'events': [e[0] for e in events if e[0]],
+            'flights': [f[0] for f in flights if f[0]]
+        }), 200
+        
+    except Exception as e:
+        print(f"Error fetching filters: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 @admin_bp.route('/referee/dashboard/<int:referee_id>')
 def referee_dashboard_page(referee_id):

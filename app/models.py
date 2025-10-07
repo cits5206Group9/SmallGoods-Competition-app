@@ -300,3 +300,66 @@ class TimerLog(db.Model):
 
     created_at     = db.Column(db.DateTime(timezone=True), server_default=db.func.now(), nullable=False)
     meta_json      = db.Column(db.JSON, nullable=True)  # optional: store extras (mode, notes)
+
+
+## Referee Decision Log - Store all referee decisions with full context ##
+class RefereeDecisionLog(db.Model):
+    """Store referee decisions with complete athlete and competition context"""
+    __tablename__ = 'referee_decision_log'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    
+    # Referee information
+    referee_id = db.Column(db.Integer, db.ForeignKey('referee.id'), nullable=False)
+    referee = db.relationship('Referee', backref='decision_logs')
+    
+    # Competition and event information
+    competition_id = db.Column(db.Integer, db.ForeignKey('competition.id'), nullable=False)
+    competition = db.relationship('Competition', backref='referee_decision_logs')
+    
+    event_name = db.Column(db.String(150), nullable=True)
+    flight_name = db.Column(db.String(50), nullable=True)
+    
+    # Athlete information
+    athlete_name = db.Column(db.String(255), nullable=False)
+    athlete_id = db.Column(db.Integer, nullable=True)  # Optional link to athlete
+    weight_class = db.Column(db.String(50), nullable=True)
+    team = db.Column(db.String(255), nullable=True)
+    
+    # Lift details
+    current_lift = db.Column(db.String(100), nullable=True)  # e.g., "Snatch", "Clean & Jerk"
+    attempt_number = db.Column(db.Integer, nullable=False)
+    attempt_weight = db.Column(db.Float, nullable=True)
+    
+    # Decision details
+    decision_label = db.Column(db.String(100), nullable=False)  # e.g., "Good Lift", "No Lift"
+    decision_value = db.Column(db.Boolean, nullable=False)  # True for good, False for no lift
+    decision_color = db.Column(db.String(50), nullable=True)
+    
+    # Timestamp
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    
+    def __repr__(self):
+        return f'<RefereeDecisionLog {self.referee.name if self.referee else "Unknown"} - {self.athlete_name} - {self.decision_label}>'
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'referee_id': self.referee_id,
+            'referee_name': self.referee.name if self.referee else 'Unknown',
+            'referee_position': self.referee.position if self.referee else None,
+            'competition_id': self.competition_id,
+            'competition_name': self.competition.name if self.competition else 'Unknown',
+            'event_name': self.event_name,
+            'flight_name': self.flight_name,
+            'athlete_name': self.athlete_name,
+            'weight_class': self.weight_class,
+            'team': self.team,
+            'current_lift': self.current_lift,
+            'attempt_number': self.attempt_number,
+            'attempt_weight': self.attempt_weight,
+            'decision_label': self.decision_label,
+            'decision_value': self.decision_value,
+            'decision_color': self.decision_color,
+            'timestamp': self.timestamp.isoformat() if self.timestamp else None
+        }
