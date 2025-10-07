@@ -800,7 +800,14 @@ def get_next_attempt_timer():
     try:
         athlete = resolve_current_athlete()
         if not athlete:
-            return jsonify({"error": "Athlete not found"}), 404
+            return jsonify({
+                "error": "Athlete not found",
+                "no_attempts": True,
+                "message": "No athlete logged in",
+                "time": None,
+                "timer_active": False,
+                "timer_type": "inactive"
+            }), 404
 
         # Get the current event being managed (from timekeeper context or active timer)
         current_event_id = request.args.get('event_id', type=int)
@@ -822,7 +829,7 @@ def get_next_attempt_timer():
                     AthleteEntry.athlete_id == athlete.id,
                     Attempt.status.in_(['in-progress', 'finished'])  # Recent activity
                 )
-                .order_by(Attempt.updated_at.desc())
+                .order_by(Attempt.started_at.desc().nullslast(), Attempt.id.desc())
                 .first()
             )
             
@@ -836,24 +843,43 @@ def get_next_attempt_timer():
             if current_event:
                 current_sport_type = current_event.sport_type
 
-        # Find next pending attempt within the current sport type
-        na_query = (
+        # First, try to find any in-progress attempt
+        in_progress_attempt = (
             Attempt.query.options(
                 joinedload(Attempt.athlete_entry).joinedload(AthleteEntry.event)
             )
             .join(AthleteEntry, Attempt.athlete_entry_id == AthleteEntry.id)
-            .join(Event, AthleteEntry.event_id == Event.id)
             .filter(
                 AthleteEntry.athlete_id == athlete.id,
-                Attempt.status == 'waiting'
+                Attempt.status == 'in-progress'
             )
+            .first()
         )
         
-        # Filter by sport type if we have one
-        if current_sport_type:
-            na_query = na_query.filter(Event.sport_type == current_sport_type)
+        # If we have an in-progress attempt, use it
+        if in_progress_attempt:
+            na = in_progress_attempt
+            current_event_id = na.athlete_entry.event.id
+            current_sport_type = na.athlete_entry.event.sport_type
+        else:
+            # Find next pending attempt within the current sport type
+            na_query = (
+                Attempt.query.options(
+                    joinedload(Attempt.athlete_entry).joinedload(AthleteEntry.event)
+                )
+                .join(AthleteEntry, Attempt.athlete_entry_id == AthleteEntry.id)
+                .join(Event, AthleteEntry.event_id == Event.id)
+                .filter(
+                    AthleteEntry.athlete_id == athlete.id,
+                    Attempt.status == 'waiting'
+                )
+            )
             
-        na = na_query.order_by(Attempt.attempt_number.asc()).first()
+            # Filter by sport type if we have one
+            if current_sport_type:
+                na_query = na_query.filter(Event.sport_type == current_sport_type)
+                
+            na = na_query.order_by(Attempt.attempt_number.asc()).first()
         
         if not na:
             # No attempts found within current sport type
@@ -886,8 +912,42 @@ def get_next_attempt_timer():
         if timer_active:
             competition_id = event.competition_id if event else None
             athlete_id = athlete.id
+            
             if competition_id:
                 # Check which timer is active
+                attempt_timer_id = f"attempt_{na.id}"
+                break_timer_id = f"break_athlete_{athlete_id}"
+                
+                # Check attempt timer first
+                attempt_timer_data = timer_manager.get_timer_data(competition_id, attempt_timer_id)
+                if attempt_timer_data and attempt_timer_data.state.value in ['running', 'paused']:
+                    timer_type = "attempt"
+                    time_remaining = attempt_timer_data.remaining
+                else:
+                    # Check break timer
+                    break_timer_data = timer_manager.get_timer_data(competition_id, break_timer_id)
+                    if break_timer_data and break_timer_data.state.value in ['running', 'paused']:
+                        timer_type = "break"
+                        time_remaining = break_timer_data.remaining
+                        # For break timer, show the next attempt details
+                        next_attempt = (
+                            Attempt.query.options(
+                                joinedload(Attempt.athlete_entry).joinedload(AthleteEntry.event)
+                            )
+                            .join(AthleteEntry, Attempt.athlete_entry_id == AthleteEntry.id)
+                            .filter(
+                                AthleteEntry.athlete_id == athlete.id,
+                                Attempt.status == 'waiting',
+                                Attempt.attempt_number > na.attempt_number if na.status == 'finished' else True
+                            )
+                            .order_by(Attempt.attempt_number.asc())
+                            .first()
+                        )
+                        if next_attempt:
+                            display_attempt = next_attempt
+                    else:
+                        timer_active = False
+                        timer_type = "inactive"
                 attempt_timer = timer_manager.get_timer_data(competition_id, f"attempt_{na.id}")
                 break_timer = timer_manager.get_timer_data(competition_id, f"break_athlete_{athlete_id}")
                 
@@ -987,6 +1047,7 @@ def get_next_attempt_timer():
             "time": time_remaining,
             "timer_active": timer_active,
             "timer_type": timer_type,
+            "status": display_attempt.status,
             "event": {
                 "id": event.id,
                 "name": event.name,
@@ -997,10 +1058,19 @@ def get_next_attempt_timer():
             "lift_type": movement_name,
             "order": display_attempt.attempt_number,
             "weight": display_attempt.requested_weight,
-            "sport_type": current_sport_type.value if current_sport_type else None
+            "sport_type": current_sport_type.value if current_sport_type else None,
+            "no_attempts": False
         })
     except Exception as e:
-        return jsonify({"error": "Error fetching timer data", "detail": str(e)}), 500
+        print(f"Error in next_attempt_timer: {str(e)}")
+        return jsonify({
+            "error": str(e),
+            "no_attempts": True,
+            "message": "Error fetching attempt details",
+            "time": None,
+            "timer_active": False,
+            "timer_type": "inactive"
+        }), 500
 
 
 @athlete_bp.route("/timer/start-attempt/<int:attempt_id>", methods=["POST"])

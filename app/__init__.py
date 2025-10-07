@@ -105,7 +105,20 @@ def create_app(config_name: str | None = None) -> Flask:
             # Suppress logs for timer endpoint to reduce noise
             if hasattr(record, 'getMessage'):
                 message = record.getMessage()
+                # Suppress athlete timer endpoint
                 if '/athlete/next-attempt-timer' in message and '200' in message:
+                    return False
+                # Suppress admin timer-state endpoint
+                if '/admin/api/timer-state' in message and '200' in message:
+                    return False
+                # Suppress display rankings endpoint
+                if '/display/api/competition/' in message and '/rankings' in message and '200' in message:
+                    return False
+                # Suppress display state endpoint
+                if '/display/api/competition/' in message and '/state' in message and '200' in message:
+                    return False
+                # Suppress Socket.IO polling endpoints
+                if '/socket.io/' in message and 'EIO=4&transport=polling' in message and '200' in message:
                     return False
             return True
     

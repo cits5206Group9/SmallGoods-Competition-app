@@ -56,6 +56,52 @@
     return el ? el.value.trim() : "";
   }
 
+  // Helper function to update attempt status - make it globally accessible
+  window.updateAttemptStatus = async function(athleteId, attemptNumber, flightId, status) {
+    if (!athleteId || !attemptNumber) {
+      console.warn('Missing athlete ID or attempt number for status update');
+      return false;
+    }
+
+    try {
+      // First, get the attempt ID from the athlete's attempts
+      const response = await fetch(`/admin/athletes/${athleteId}/attempts?flight_id=${flightId || ''}`);
+      if (!response.ok) {
+        console.warn('Failed to fetch athlete attempts');
+        return false;
+      }
+      
+      const data = await response.json();
+      const attempt = data.attempts.find(a => a.attempt_number == attemptNumber);
+      
+      if (!attempt) {
+        console.warn(`Attempt ${attemptNumber} not found for athlete ${athleteId}`);
+        return false;
+      }
+
+      // Update the attempt status
+      const updateResponse = await fetch('/admin/update_attempt_status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          attempt_id: attempt.id,
+          status: status
+        })
+      });
+
+      if (updateResponse.ok) {
+        console.log(`Successfully updated attempt ${attemptNumber} status to ${status} for athlete ${athleteId}`);
+        return true;
+      } else {
+        console.warn('Failed to update attempt status:', await updateResponse.text());
+        return false;
+      }
+    } catch (error) {
+      console.warn('Error updating attempt status:', error);
+      return false;
+    }
+  };
+
   // ---------- Timer primitive ----------
   class Timer {
     constructor({ displayEl, mode = "countup", onExpire, formatter = fmtHMS }) {
@@ -649,7 +695,7 @@
   }
 
   // Stop / “Bar left platform”
-  bindClick("btnBarLeft", () => {
+  bindClick("btnBarLeft", async () => {
     attemptClock.pause();
     if (attemptSessionStartTime) {
       const startTs = attemptSessionStartTime;
@@ -660,6 +706,12 @@
       else durationSec = Math.max(0, attemptSessionStartRemOrElapsed - nowSecs);
 
       const attemptNo = document.getElementById("attemptSelect")?.value || "";
+      const athleteId = localStorage.getItem("TK_ATHLETE_ID") || null;
+
+      // Update attempt status to 'finished' when timer is stopped
+      if (athleteId && attemptNo) {
+        await window.updateAttemptStatus(athleteId, attemptNo, CURRENT_FLIGHT_ID, 'finished');
+      }
 
       // 1) UI log row (exact seconds)
       addLogRow({
@@ -675,7 +727,7 @@
         athlete: getAthleteName(),
         attempt: attemptNo || "?",
         attemptDurationSec: durationSec,
-        athleteId: localStorage.getItem("TK_ATHLETE_ID") || null
+        athleteId: athleteId
       });
 
       // 3) DB POST
@@ -930,7 +982,7 @@
   }
 
   if (btnAthlete) {
-    btnAthlete.addEventListener("click", () => {
+    btnAthlete.addEventListener("click", async () => {
       let id = "", name = "";
       if (athleteSelect && athleteSelect.value) {
         id = athleteSelect.value;
@@ -940,6 +992,13 @@
       }
       if (id) localStorage.setItem(ATHLETE_ID_KEY, id); else localStorage.removeItem(ATHLETE_ID_KEY);
       localStorage.setItem(ATHLETE_KEY, name);
+      
+      // Update attempt status to 'in-progress' when athlete is applied
+      const attemptNumber = attemptSelect?.value;
+      if (id && attemptNumber) {
+        await window.updateAttemptStatus(id, attemptNumber, lastFlightId, 'in-progress');
+      }
+      
       updateAthleteApplied();
     });
   }

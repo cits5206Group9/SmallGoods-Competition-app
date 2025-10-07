@@ -107,9 +107,12 @@ def results_dashboard():
 def display():
     competitions = Competition.query.filter_by(is_active=True).all()
     current_competition = competitions[0] if competitions else None
-    return render_template('admin/display.html',
-                         competitions=competitions,
-                         current_competition=current_competition)
+    
+    # Redirect to the display competition page
+    if current_competition:
+        return redirect(url_for('display.display_competition', competition_id=current_competition.id))
+    else:
+        return redirect(url_for('display.display_competition'))
 
 # API Routes below
 @admin_bp.route('/competition-model/get/<int:id>')
