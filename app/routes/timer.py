@@ -46,27 +46,55 @@ def timer_state():
             attempt_number = state_data.get('attempt_number')
             flight_id = state_data.get('flight_id')
             
-            if athlete_id and attempt_number and flight_id:
-                from app.models import Athlete, Attempt, Flight
+            if athlete_id and attempt_number:
+                from app.models import Athlete, Attempt, AthleteEntry
                 try:
                     athlete = Athlete.query.get(int(athlete_id))
                     if athlete:
                         # Add athlete details
-                        state_data['weight_class'] = athlete.weight_class or ''
+                        if hasattr(athlete, 'bodyweight'):
+                            state_data['weight_class'] = f"{athlete.bodyweight}kg" if athlete.bodyweight else ''
                         state_data['team'] = athlete.team or ''
                         
-                        # Find the specific attempt
-                        attempt = Attempt.query.filter_by(
-                            athlete_id=int(athlete_id),
-                            attempt_number=int(attempt_number),
-                            flight_id=int(flight_id)
-                        ).first()
+                        # Find the athlete's attempts - try multiple approaches
+                        attempt = None
+                        if flight_id:
+                            # Try with flight_id if provided
+                            attempt = Attempt.query.filter_by(
+                                athlete_id=int(athlete_id),
+                                attempt_number=int(attempt_number),
+                                flight_id=int(flight_id)
+                            ).first()
+                        
+                        if not attempt:
+                            # Try without flight_id
+                            attempt = Attempt.query.filter_by(
+                                athlete_id=int(athlete_id),
+                                attempt_number=int(attempt_number)
+                            ).first()
                         
                         if attempt:
-                            state_data['attempt_weight'] = attempt.declared_weight or 0
-                            state_data['current_lift'] = attempt.lift_type or ''
+                            state_data['attempt_weight'] = attempt.requested_weight or attempt.actual_weight or 0
+                        else:
+                            # If no attempt found, try to get from athlete entry (opening weight)
+                            athlete_entry = AthleteEntry.query.filter_by(athlete_id=int(athlete_id)).first()
+                            if athlete_entry and athlete_entry.opening_weights:
+                                state_data['attempt_weight'] = athlete_entry.opening_weights
+                        
+                        # Try to get lift type from event
+                        if state_data.get('event'):
+                            event_name = state_data['event'].lower()
+                            if 'snatch' in event_name:
+                                state_data['current_lift'] = 'Snatch'
+                            elif 'clean' in event_name or 'jerk' in event_name:
+                                state_data['current_lift'] = 'Clean & Jerk'
+                            else:
+                                state_data['current_lift'] = state_data['event']
+                                
                 except Exception as e:
                     print(f"Warning: Could not fetch athlete data: {e}")
+                    import traceback
+                    traceback.print_exc()
             
             state_file.parent.mkdir(parents=True, exist_ok=True)
             with open(state_file, 'w') as f:

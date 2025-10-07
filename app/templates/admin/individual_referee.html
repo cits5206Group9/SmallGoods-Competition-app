@@ -672,6 +672,16 @@ class IndividualReferee {
         if (this.hasVoted) return;
         
         try {
+            // Include current athlete and timer state information in the decision
+            const athleteName = document.getElementById('athlete-name')?.textContent || 'Unknown';
+            const attemptWeight = document.getElementById('attempt-weight')?.textContent || '0';
+            const attemptNumber = document.getElementById('attempt-number')?.textContent?.replace('#', '') || '1';
+            const currentLift = document.getElementById('current-lift')?.textContent || '';
+            const athleteWeightClass = document.getElementById('athlete-weight-class')?.textContent || '';
+            const athleteTeam = document.getElementById('athlete-team')?.textContent || '';
+            const eventName = document.getElementById('event-name')?.textContent || '';
+            const flightName = document.getElementById('flight-name')?.textContent || '';
+            
             const response = await fetch('/admin/api/referee-decision', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -679,7 +689,16 @@ class IndividualReferee {
                     referee_id: this.refereeId,
                     competition_id: this.competitionId,
                     decision: decisionOption,
-                    timestamp: new Date().toISOString()
+                    timestamp: new Date().toISOString(),
+                    // Include athlete context for database storage
+                    athlete_name: athleteName,
+                    attempt_weight: parseFloat(attemptWeight) || 0,
+                    attempt_number: parseInt(attemptNumber) || 1,
+                    current_lift: currentLift,
+                    weight_class: athleteWeightClass,
+                    team: athleteTeam,
+                    event: eventName,
+                    flight: flightName
                 })
             });
             
