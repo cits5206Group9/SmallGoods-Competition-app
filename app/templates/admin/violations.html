@@ -1,0 +1,632 @@
+{% extends "base.html" %}
+
+{% block title %}Technical Violations Management - Small Goods Competition{% endblock %}
+
+{% block css %}
+<style>
+    .violations-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 30px 20px;
+    }
+    
+    .violations-header {
+        background: white;
+        border-radius: 12px;
+        padding: 25px;
+        margin-bottom: 25px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .violations-header h1 {
+        margin: 0;
+        color: #2c3e50;
+        font-size: 32px;
+        font-weight: 700;
+    }
+    
+    .btn-add {
+        background: #28a745;
+        color: white;
+        border: none;
+        padding: 12px 24px;
+        border-radius: 8px;
+        font-size: 16px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .btn-add:hover {
+        background: #218838;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
+    }
+    
+    .violations-table-section {
+        background: white;
+        border-radius: 12px;
+        padding: 25px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    
+    .table-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+    }
+    
+    .table-header h2 {
+        margin: 0;
+        color: #2c3e50;
+        font-size: 20px;
+        font-weight: 600;
+    }
+    
+    .toggle-inactive {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 14px;
+        color: #6c757d;
+    }
+    
+    .toggle-inactive input[type="checkbox"] {
+        width: 18px;
+        height: 18px;
+        cursor: pointer;
+    }
+    
+    .violations-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    
+    .violations-table thead {
+        background: #6c5ce7;
+        color: white;
+    }
+    
+    .violations-table th {
+        padding: 15px;
+        text-align: left;
+        font-weight: 600;
+        font-size: 14px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .violations-table td {
+        padding: 15px;
+        border-bottom: 1px solid #e0e0e0;
+    }
+    
+    .violations-table tbody tr:hover {
+        background: #f8f9fa;
+    }
+    
+    .violations-table tbody tr.inactive {
+        opacity: 0.6;
+        background: #f8f9fa;
+    }
+    
+    .status-badge {
+        display: inline-block;
+        padding: 4px 12px;
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: 600;
+    }
+    
+    .status-badge.active {
+        background: #d4edda;
+        color: #155724;
+    }
+    
+    .status-badge.inactive {
+        background: #f8d7da;
+        color: #721c24;
+    }
+    
+    .action-buttons {
+        display: flex;
+        gap: 8px;
+    }
+    
+    .btn-action {
+        padding: 6px 12px;
+        border: none;
+        border-radius: 6px;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    
+    .btn-edit {
+        background: #007bff;
+        color: white;
+    }
+    
+    .btn-edit:hover {
+        background: #0056b3;
+    }
+    
+    .btn-toggle {
+        background: #ffc107;
+        color: #000;
+    }
+    
+    .btn-toggle:hover {
+        background: #e0a800;
+    }
+    
+    .btn-delete {
+        background: #dc3545;
+        color: white;
+    }
+    
+    .btn-delete:hover {
+        background: #c82333;
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+        color: #6c757d;
+    }
+    
+    .empty-state-icon {
+        font-size: 64px;
+        margin-bottom: 20px;
+    }
+    
+    /* Modal Styles */
+    .modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.5);
+        z-index: 1000;
+        justify-content: center;
+        align-items: center;
+    }
+    
+    .modal.show {
+        display: flex;
+    }
+    
+    .modal-content {
+        background: white;
+        border-radius: 12px;
+        padding: 30px;
+        max-width: 500px;
+        width: 90%;
+        max-height: 90vh;
+        overflow-y: auto;
+    }
+    
+    .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+    }
+    
+    .modal-header h2 {
+        margin: 0;
+        color: #2c3e50;
+        font-size: 24px;
+        font-weight: 700;
+    }
+    
+    .close-modal {
+        background: none;
+        border: none;
+        font-size: 28px;
+        color: #6c757d;
+        cursor: pointer;
+        line-height: 1;
+    }
+    
+    .close-modal:hover {
+        color: #000;
+    }
+    
+    .form-group {
+        margin-bottom: 20px;
+    }
+    
+    .form-group label {
+        display: block;
+        margin-bottom: 8px;
+        color: #2c3e50;
+        font-weight: 600;
+        font-size: 14px;
+    }
+    
+    .form-group input[type="text"],
+    .form-group textarea {
+        width: 100%;
+        padding: 12px;
+        border: 2px solid #e0e0e0;
+        border-radius: 8px;
+        font-size: 16px;
+        transition: border-color 0.3s;
+        box-sizing: border-box;
+    }
+    
+    .form-group input[type="text"]:focus,
+    .form-group textarea:focus {
+        outline: none;
+        border-color: #6c5ce7;
+    }
+    
+    .form-group textarea {
+        resize: vertical;
+        min-height: 80px;
+    }
+    
+    .modal-actions {
+        display: flex;
+        gap: 10px;
+        justify-content: flex-end;
+        margin-top: 25px;
+    }
+    
+    .btn-modal {
+        padding: 12px 24px;
+        border: none;
+        border-radius: 8px;
+        font-size: 16px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+    
+    .btn-cancel {
+        background: #6c757d;
+        color: white;
+    }
+    
+    .btn-cancel:hover {
+        background: #5a6268;
+    }
+    
+    .btn-save {
+        background: #28a745;
+        color: white;
+    }
+    
+    .btn-save:hover {
+        background: #218838;
+    }
+    
+    .notification {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        padding: 15px 20px;
+        border-radius: 8px;
+        color: white;
+        font-weight: 600;
+        z-index: 2000;
+        animation: slideIn 0.3s ease;
+        max-width: 400px;
+    }
+    
+    .notification.success {
+        background: #28a745;
+    }
+    
+    .notification.error {
+        background: #dc3545;
+    }
+    
+    @keyframes slideIn {
+        from {
+            transform: translateX(400px);
+            opacity: 0;
+        }
+        to {
+            transform: translateX(0);
+            opacity: 1;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="violations-container">
+    <div class="violations-header">
+        <h1>🚫 Technical Violations Management</h1>
+        <button class="btn-add" onclick="violationsManager.showAddModal()">
+            <span>+</span> Add New Violation
+        </button>
+    </div>
+    
+    <div class="violations-table-section">
+        <div class="table-header">
+            <h2>Violations List</h2>
+            <div class="toggle-inactive">
+                <input type="checkbox" id="show-inactive" onchange="violationsManager.toggleShowInactive()">
+                <label for="show-inactive">Show Inactive</label>
+            </div>
+        </div>
+        
+        <div id="table-container">
+            <table class="violations-table" id="violations-table">
+                <thead>
+                    <tr>
+                        <th style="width: 50px;">#</th>
+                        <th>Violation Name</th>
+                        <th>Description</th>
+                        <th style="width: 100px;">Status</th>
+                        <th style="width: 200px;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="violations-tbody">
+                    <!-- Dynamic content -->
+                </tbody>
+            </table>
+            
+            <div id="empty-state" class="empty-state" style="display: none;">
+                <div class="empty-state-icon">📋</div>
+                <h3>No Violations Found</h3>
+                <p>Click "Add New Violation" to create your first violation</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add/Edit Modal -->
+<div id="violation-modal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 id="modal-title">Add New Violation</h2>
+            <button class="close-modal" onclick="violationsManager.closeModal()">&times;</button>
+        </div>
+        
+        <form id="violation-form" onsubmit="violationsManager.saveViolation(event)">
+            <input type="hidden" id="violation-id">
+            
+            <div class="form-group">
+                <label for="violation-name">Violation Name *</label>
+                <input type="text" id="violation-name" required placeholder="e.g., Press Out, Knee Touch">
+            </div>
+            
+            <div class="form-group">
+                <label for="violation-description">Description</label>
+                <textarea id="violation-description" placeholder="Brief description of the violation (optional)"></textarea>
+            </div>
+            
+            <div class="modal-actions">
+                <button type="button" class="btn-modal btn-cancel" onclick="violationsManager.closeModal()">Cancel</button>
+                <button type="submit" class="btn-modal btn-save">Save Violation</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+class ViolationsManager {
+    constructor() {
+        this.violations = [];
+        this.showInactive = false;
+        this.editingId = null;
+        this.init();
+    }
+    
+    async init() {
+        await this.loadViolations();
+    }
+    
+    async loadViolations() {
+        try {
+            const url = `/admin/api/violations?show_all=${this.showInactive}`;
+            const response = await fetch(url);
+            const data = await response.json();
+            
+            if (data.success) {
+                this.violations = data.violations;
+                this.renderTable();
+            } else {
+                this.showNotification('Error loading violations', 'error');
+            }
+        } catch (error) {
+            console.error('Error loading violations:', error);
+            this.showNotification('Error loading violations', 'error');
+        }
+    }
+    
+    renderTable() {
+        const tbody = document.getElementById('violations-tbody');
+        const emptyState = document.getElementById('empty-state');
+        const table = document.getElementById('violations-table');
+        
+        if (this.violations.length === 0) {
+            table.style.display = 'none';
+            emptyState.style.display = 'block';
+            return;
+        }
+        
+        table.style.display = 'table';
+        emptyState.style.display = 'none';
+        
+        tbody.innerHTML = this.violations.map(v => `
+            <tr class="${v.is_active ? '' : 'inactive'}">
+                <td>${v.display_order}</td>
+                <td><strong>${v.name}</strong></td>
+                <td>${v.description || '-'}</td>
+                <td>
+                    <span class="status-badge ${v.is_active ? 'active' : 'inactive'}">
+                        ${v.is_active ? 'Active' : 'Inactive'}
+                    </span>
+                </td>
+                <td>
+                    <div class="action-buttons">
+                        <button class="btn-action btn-edit" onclick="violationsManager.showEditModal(${v.id})">
+                            Edit
+                        </button>
+                        <button class="btn-action btn-toggle" onclick="violationsManager.toggleStatus(${v.id})">
+                            ${v.is_active ? 'Disable' : 'Enable'}
+                        </button>
+                        <button class="btn-action btn-delete" onclick="violationsManager.deleteViolation(${v.id})">
+                            Delete
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `).join('');
+    }
+    
+    showAddModal() {
+        this.editingId = null;
+        document.getElementById('modal-title').textContent = 'Add New Violation';
+        document.getElementById('violation-id').value = '';
+        document.getElementById('violation-name').value = '';
+        document.getElementById('violation-description').value = '';
+        document.getElementById('violation-modal').classList.add('show');
+    }
+    
+    showEditModal(id) {
+        const violation = this.violations.find(v => v.id === id);
+        if (!violation) return;
+        
+        this.editingId = id;
+        document.getElementById('modal-title').textContent = 'Edit Violation';
+        document.getElementById('violation-id').value = id;
+        document.getElementById('violation-name').value = violation.name;
+        document.getElementById('violation-description').value = violation.description || '';
+        document.getElementById('violation-modal').classList.add('show');
+    }
+    
+    closeModal() {
+        document.getElementById('violation-modal').classList.remove('show');
+    }
+    
+    async saveViolation(e) {
+        e.preventDefault();
+        
+        const id = this.editingId;
+        const name = document.getElementById('violation-name').value.trim();
+        const description = document.getElementById('violation-description').value.trim();
+        
+        if (!name) {
+            this.showNotification('Violation name is required', 'error');
+            return;
+        }
+        
+        try {
+            const url = id ? `/admin/api/violations/${id}` : '/admin/api/violations';
+            const method = id ? 'PUT' : 'POST';
+            
+            const response = await fetch(url, {
+                method: method,
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ name, description })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                this.showNotification(data.message, 'success');
+                this.closeModal();
+                await this.loadViolations();
+            } else {
+                this.showNotification(data.message || 'Error saving violation', 'error');
+            }
+        } catch (error) {
+            console.error('Error saving violation:', error);
+            this.showNotification('Error saving violation', 'error');
+        }
+    }
+    
+    async toggleStatus(id) {
+        const violation = this.violations.find(v => v.id === id);
+        if (!violation) return;
+        
+        const action = violation.is_active ? 'disable' : 'enable';
+        if (!confirm(`Are you sure you want to ${action} "${violation.name}"?`)) {
+            return;
+        }
+        
+        try {
+            const response = await fetch(`/admin/api/violations/${id}/toggle`, {
+                method: 'POST'
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                this.showNotification(data.message, 'success');
+                await this.loadViolations();
+            } else {
+                this.showNotification(data.error || 'Error toggling violation', 'error');
+            }
+        } catch (error) {
+            console.error('Error toggling violation:', error);
+            this.showNotification('Error toggling violation', 'error');
+        }
+    }
+    
+    async deleteViolation(id) {
+        const violation = this.violations.find(v => v.id === id);
+        if (!violation) return;
+        
+        if (!confirm(`Are you sure you want to delete "${violation.name}"?\n\nThis action cannot be undone!`)) {
+            return;
+        }
+        
+        try {
+            const response = await fetch(`/admin/api/violations/${id}`, {
+                method: 'DELETE'
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                this.showNotification(data.message, 'success');
+                await this.loadViolations();
+            } else {
+                this.showNotification(data.error || 'Error deleting violation', 'error');
+            }
+        } catch (error) {
+            console.error('Error deleting violation:', error);
+            this.showNotification('Error deleting violation', 'error');
+        }
+    }
+    
+    toggleShowInactive() {
+        this.showInactive = document.getElementById('show-inactive').checked;
+        this.loadViolations();
+    }
+    
+    showNotification(message, type = 'success') {
+        const notification = document.createElement('div');
+        notification.className = `notification ${type}`;
+        notification.textContent = message;
+        document.body.appendChild(notification);
+        
+        setTimeout(() => {
+            notification.remove();
+        }, 3000);
+    }
+}
+
+// Initialize on page load
+const violationsManager = new ViolationsManager();
+</script>
+{% endblock %}
