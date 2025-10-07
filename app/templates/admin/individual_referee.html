@@ -366,6 +366,69 @@
         .decision-btn.white { background-color: #f8f9fa !important; color: #000 !important; text-shadow: none !important; }
         .decision-btn.black { background-color: #343a40 !important; }
         
+        /* Technical Violations Section */
+        .violations-section {
+            margin-top: 25px;
+            padding: 20px;
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+            border-radius: 12px;
+            display: none;
+        }
+        
+        .violations-section.show {
+            display: block;
+        }
+        
+        .violations-section h4 {
+            margin: 0 0 15px 0;
+            color: #856404;
+            font-size: 18px;
+            font-weight: 700;
+        }
+        
+        .violations-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+        }
+        
+        .violation-checkbox {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px;
+            background: white;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .violation-checkbox:hover {
+            border-color: #ffc107;
+            background: #fffbf0;
+        }
+        
+        .violation-checkbox input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+        }
+        
+        .violation-checkbox label {
+            cursor: pointer;
+            margin: 0;
+            font-size: 14px;
+            color: #495057;
+            flex: 1;
+        }
+        
+        .violation-checkbox input[type="checkbox"]:checked + label {
+            font-weight: 600;
+            color: #856404;
+        }
+        
         #vote-status {
             text-align: center;
             margin-top: 20px;
@@ -432,6 +495,46 @@
         
         <div class="decision-buttons" id="decision-buttons">
             <!-- Dynamic decision buttons will be populated here -->
+        </div>
+        
+        <!-- Technical Violations Section (always visible) -->
+        <div class="violations-section show" id="violations-section">
+            <h4>Technical Violations (Optional)</h4>
+            <p style="color: #856404; margin: 0 0 15px 0; font-size: 14px;">Select applicable violations (if any), then click your decision above</p>
+            <div class="violations-grid">
+                <div class="violation-checkbox">
+                    <input type="checkbox" id="violation-press-out" value="Press Out">
+                    <label for="violation-press-out">Press Out</label>
+                </div>
+                <div class="violation-checkbox">
+                    <input type="checkbox" id="violation-elbow-touch" value="Elbow Touch">
+                    <label for="violation-elbow-touch">Elbow Touch</label>
+                </div>
+                <div class="violation-checkbox">
+                    <input type="checkbox" id="violation-knee-touch" value="Knee Touch">
+                    <label for="violation-knee-touch">Knee Touch</label>
+                </div>
+                <div class="violation-checkbox">
+                    <input type="checkbox" id="violation-bar-pressed-down" value="Bar Pressed Down">
+                    <label for="violation-bar-pressed-down">Bar Pressed Down</label>
+                </div>
+                <div class="violation-checkbox">
+                    <input type="checkbox" id="violation-incomplete-lockout" value="Incomplete Lockout">
+                    <label for="violation-incomplete-lockout">Incomplete Lockout</label>
+                </div>
+                <div class="violation-checkbox">
+                    <input type="checkbox" id="violation-foot-movement" value="Foot Movement">
+                    <label for="violation-foot-movement">Foot Movement</label>
+                </div>
+                <div class="violation-checkbox">
+                    <input type="checkbox" id="violation-early-drop" value="Early Drop">
+                    <label for="violation-early-drop">Early Drop</label>
+                </div>
+                <div class="violation-checkbox">
+                    <input type="checkbox" id="violation-other" value="Other Technical">
+                    <label for="violation-other">Other Technical</label>
+                </div>
+            </div>
         </div>
         
         <div id="vote-status" style="display: none;">
@@ -644,6 +747,12 @@ class IndividualReferee {
             button.textContent = option.label;
             
             button.addEventListener('click', () => {
+                if (this.hasVoted) {
+                    alert('You have already cast your decision. Please refresh the page to vote again.');
+                    return;
+                }
+                
+                // Submit decision with any selected violations
                 this.castDecision(option);
             });
             
@@ -677,6 +786,14 @@ class IndividualReferee {
             const eventName = document.getElementById('event-name')?.textContent || '';
             const flightName = document.getElementById('flight-name')?.textContent || '';
             
+            // Collect selected violations from checkboxes
+            const violations = [];
+            document.querySelectorAll('.violations-section input[type="checkbox"]:checked').forEach(checkbox => {
+                violations.push(checkbox.value);
+            });
+            
+            console.log('Submitting decision:', decisionOption.label, 'with violations:', violations);
+            
             const response = await fetch('/admin/api/referee-decision', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -685,6 +802,7 @@ class IndividualReferee {
                     competition_id: this.competitionId,
                     decision: decisionOption,
                     timestamp: new Date().toISOString(),
+                    violations: violations,
                     // Include athlete context for database storage
                     athlete_name: athleteName,
                     attempt_weight: parseFloat(attemptWeight) || 0,
@@ -707,10 +825,18 @@ class IndividualReferee {
                 
                 document.querySelector(`[data-decision='${JSON.stringify(decisionOption)}']`).classList.add('selected');
                 
-                document.getElementById('vote-status').style.display = 'block';
-                document.getElementById('vote-message').textContent = `Decision "${decisionOption.label}" submitted successfully!`;
+                // Disable violation checkboxes after submission
+                document.querySelectorAll('.violations-section input[type="checkbox"]').forEach(cb => cb.disabled = true);
                 
-                this.showNotification(`Decision "${decisionOption.label}" submitted successfully!`, 'success');
+                document.getElementById('vote-status').style.display = 'block';
+                
+                let successMessage = `Decision "${decisionOption.label}" submitted successfully!`;
+                if (violations.length > 0) {
+                    successMessage += ` Violations: ${violations.join(', ')}`;
+                }
+                document.getElementById('vote-message').textContent = successMessage;
+                
+                this.showNotification(successMessage, 'success');
             } else {
                 const errorData = await response.json();
                 throw new Error(errorData.message || 'Failed to submit decision');

@@ -1364,6 +1364,10 @@ def submit_referee_decision():
         attempt_number = timer_state.get('attempt_number', data.get('attempt_number', 1))
         attempt_weight = timer_state.get('attempt_weight', data.get('attempt_weight', 0))
         
+        # Get violations if provided (for "No Lift" decisions)
+        violations = data.get('violations', [])
+        violations_str = ', '.join(violations) if violations else None
+        
         # Create new decision record in database
         new_decision = RefereeDecisionLog(
             referee_id=referee_id,
@@ -1379,6 +1383,7 @@ def submit_referee_decision():
             decision_label=decision.get('label', 'Unknown'),
             decision_value=bool(decision.get('value', False)),
             decision_color=decision.get('color', ''),
+            violations=violations_str,
             timestamp=datetime.utcnow()
         )
         
@@ -1562,6 +1567,12 @@ def update_decision_result(decision_id):
             decision.decision_value = bool(data['decision_value'])
         if 'decision_color' in data:
             decision.decision_color = data['decision_color']
+        if 'violations' in data:
+            # Handle violations as array or string
+            if isinstance(data['violations'], list):
+                decision.violations = ', '.join(data['violations']) if data['violations'] else None
+            else:
+                decision.violations = data['violations']
         
         db.session.commit()
         
