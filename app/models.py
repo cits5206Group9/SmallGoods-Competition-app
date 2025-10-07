@@ -336,6 +336,9 @@ class RefereeDecisionLog(db.Model):
     decision_value = db.Column(db.Boolean, nullable=False)  # True for good, False for no lift
     decision_color = db.Column(db.String(50), nullable=True)
     
+    # Technical violations (for "No Lift" decisions)
+    violations = db.Column(db.Text, nullable=True)  # Comma-separated list of violations
+    
     # Timestamp
     timestamp = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     
@@ -361,5 +364,6 @@ class RefereeDecisionLog(db.Model):
             'decision_label': self.decision_label,
             'decision_value': self.decision_value,
             'decision_color': self.decision_color,
+            'violations': self.violations,
             'timestamp': self.timestamp.isoformat() if self.timestamp else None
         }
