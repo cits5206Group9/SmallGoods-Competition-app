@@ -83,13 +83,9 @@ class Flight(db.Model):
     movement_type = db.Column(db.String(50), nullable=True)  # e.g., "snatch", "clean_jerk", "squat", "bench", "deadlift"
     
     # Relationships
-    athlete_flights = db.relationship("AthleteFlight", backref="flight", lazy=True)
+    athlete_flights = db.relationship("AthleteFlight", backref="flight", lazy=True, cascade="all, delete-orphan")
     competition = db.relationship("Competition", backref="flights", lazy=True)
     
-    # Each flight should have only one movement type within an event
-    __table_args__ = (
-        db.UniqueConstraint("event_id", "movement_type", name="uq_event_movement_flight"),
-    )
 
 class Athlete(db.Model):
     """Competition participants"""
@@ -124,7 +120,7 @@ class AthleteEntry(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     athlete_id = db.Column(db.Integer, db.ForeignKey("athlete.id"), nullable=False)
     event_id = db.Column(db.Integer, db.ForeignKey("event.id"), nullable=False)
-    flight_id = db.Column(db.Integer, db.ForeignKey("flight.id"), nullable=False)
+    flight_id = db.Column(db.Integer, db.ForeignKey("flight.id", ondelete="CASCADE"), nullable=False)
     entry_order = db.Column(db.Integer, db.ForeignKey("athlete_flight.order"), nullable=False)
     is_active = db.Column(db.Boolean, default=True)
     lift_type = db.Column(db.String(50), nullable=False) # e.g., "snatch", "clean_jerk"
@@ -139,6 +135,7 @@ class AthleteEntry(db.Model):
     # Relationships
     attempts = db.relationship("Attempt", backref="athlete_entry", lazy=True, cascade="all, delete-orphan")
     event = db.relationship("Event", backref="athlete_entries")
+    flight = db.relationship("Flight", backref="athlete_entries")
     
     # Prevent duplicate (athlete, event, lift_type) - Allow athlete in multiple flights of different movements
     __table_args__ = (
@@ -169,14 +166,15 @@ class Attempt(db.Model):
     )
     athlete_entry_id = db.Column(
         db.Integer, 
-        db.ForeignKey("athlete_entry.id", name="fk_attempt_athlete_entry_id"), 
+        db.ForeignKey("athlete_entry.id", name="fk_attempt_athlete_entry_id", ondelete="CASCADE"), 
         nullable=False
     )
     flight_id = db.Column(
         db.Integer, 
-        db.ForeignKey("flight.id", name="fk_attempt_flight_id"), 
+        db.ForeignKey("flight.id", name="fk_attempt_flight_id", ondelete="CASCADE"), 
         nullable=False
     )
+    movement_type = db.Column(db.String(50), nullable=True)  # e.g., "snatch", "clean_jerk", "squat", "bench", "deadlift"
     attempt_number = db.Column(db.Integer, nullable=False)
     requested_weight = db.Column(db.Float, nullable=False)
     actual_weight = db.Column(db.Float)

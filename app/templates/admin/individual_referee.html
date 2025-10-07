@@ -527,6 +527,7 @@ class IndividualReferee {
         this.localTimerRunning = false;
         this.lastSyncTime = null;
         this.localTimerStartValue = null;
+        this.currentAttemptId = null;  // Store current attempt_id from timer state
         this.init();
     }
     
@@ -732,6 +733,24 @@ class IndividualReferee {
         this.localTimerValue = state.timer_seconds;
         this.localTimerStartValue = state.timer_seconds; // Start value for interpolation
         
+        // Store current attempt_id for decision submission
+        if (state.attempt_id) {
+            this.currentAttemptId = state.attempt_id;
+            // Reset hasVoted when new attempt starts
+            if (this.lastAttemptId !== this.currentAttemptId) {
+                this.hasVoted = false;
+                this.lastAttemptId = this.currentAttemptId;
+                // Re-enable decision buttons
+                document.querySelectorAll('.decision-btn').forEach(btn => {
+                    btn.disabled = false;
+                    btn.classList.remove('selected');
+                });
+                document.getElementById('vote-status').style.display = 'none';
+            }
+        } else {
+            this.currentAttemptId = null;
+        }
+        
         // Always update display immediately with the value from timekeeper
         const displayValue = Math.floor(state.timer_seconds);
         const minutes = Math.floor(displayValue / 60);
@@ -831,23 +850,19 @@ class IndividualReferee {
         if (this.hasVoted) return;
         
         try {
-            // Include current athlete and timer state information in the decision
-            const athleteName = document.getElementById('athlete-name')?.textContent || 'Unknown';
-            const attemptWeight = document.getElementById('attempt-weight')?.textContent || '0';
-            const attemptNumber = document.getElementById('attempt-number')?.textContent?.replace('#', '') || '1';
-            const currentLift = document.getElementById('current-lift')?.textContent || '';
-            const athleteWeightClass = document.getElementById('athlete-weight-class')?.textContent || '';
-            const athleteTeam = document.getElementById('athlete-team')?.textContent || '';
-            const eventName = document.getElementById('event-name')?.textContent || '';
-            const flightName = document.getElementById('flight-name')?.textContent || '';
+            // Convert decision option value to string format the backend expects
+            let decisionValue;
+            if (typeof decisionOption.value === 'boolean') {
+                decisionValue = decisionOption.value ? 'good_lift' : 'no_lift';
+            } else if (typeof decisionOption.value === 'string') {
+                decisionValue = decisionOption.value;
+            } else {
+                decisionValue = decisionOption.label.toLowerCase().replace(/ /g, '_');
+            }
             
-            // Collect selected violations from checkboxes
-            const violations = [];
-            document.querySelectorAll('.violations-section input[type="checkbox"]:checked').forEach(checkbox => {
-                violations.push(checkbox.value);
-            });
-            
-            console.log('Submitting decision:', decisionOption.label, 'with violations:', violations);
+            if (!this.currentAttemptId) {
+                throw new Error('No active attempt. Please wait for timekeeper to start an attempt.');
+            }
             
             const response = await fetch('/admin/api/referee-decision', {
                 method: 'POST',
@@ -855,22 +870,16 @@ class IndividualReferee {
                 body: JSON.stringify({
                     referee_id: this.refereeId,
                     competition_id: this.competitionId,
-                    decision: decisionOption,
+                    attempt_id: this.currentAttemptId,  // Include attempt_id
+                    decision: decisionValue,
                     timestamp: new Date().toISOString(),
-                    violations: violations,
-                    // Include athlete context for database storage
-                    athlete_name: athleteName,
-                    attempt_weight: parseFloat(attemptWeight) || 0,
-                    attempt_number: parseInt(attemptNumber) || 1,
-                    current_lift: currentLift,
-                    weight_class: athleteWeightClass,
-                    team: athleteTeam,
-                    event: eventName,
-                    flight: flightName
+                    notes: `Decision: ${decisionOption.label}`
                 })
             });
             
-            if (response.ok) {
+            const responseData = await response.json();
+            
+            if (response.ok && responseData.success) {
                 this.hasVoted = true;
                 
                 document.querySelectorAll('.decision-btn').forEach(btn => {
@@ -893,8 +902,7 @@ class IndividualReferee {
                 
                 this.showNotification(successMessage, 'success');
             } else {
-                const errorData = await response.json();
-                throw new Error(errorData.message || 'Failed to submit decision');
+                throw new Error(responseData.message || 'Failed to submit decision');
             }
         } catch (error) {
             console.error('Error casting decision:', error);
