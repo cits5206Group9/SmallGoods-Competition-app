@@ -640,6 +640,7 @@ class DecisionResults {
         this.competitionSelect = document.getElementById('competition-select');
         this.eventSelect = document.getElementById('event-select');
         this.flightSelect = document.getElementById('flight-select');
+        this.athleteSelect = document.getElementById('athlete-select');
         this.loadBtn = document.getElementById('load-btn');
         this.resultsContainer = document.getElementById('results-container');
         this.emptyState = document.getElementById('empty-state');
@@ -654,6 +655,7 @@ class DecisionResults {
         this.competitionSelect.addEventListener('change', () => this.onCompetitionChange());
         this.eventSelect.addEventListener('change', () => this.onFilterChange());
         this.flightSelect.addEventListener('change', () => this.onFilterChange());
+        this.athleteSelect.addEventListener('change', () => this.onFilterChange());
         this.loadBtn.addEventListener('click', () => this.loadResults());
     }
     
@@ -663,9 +665,11 @@ class DecisionResults {
         if (!competitionId) {
             this.eventSelect.disabled = true;
             this.flightSelect.disabled = true;
+            this.athleteSelect.disabled = true;
             this.loadBtn.disabled = true;
             this.eventSelect.innerHTML = '<option value="">Select event...</option>';
             this.flightSelect.innerHTML = '<option value="">Select flight...</option>';
+            this.athleteSelect.innerHTML = '<option value="">All athletes...</option>';
             return;
         }
         
@@ -700,8 +704,20 @@ class DecisionResults {
                 });
             }
             
+            // Populate athletes
+            this.athleteSelect.innerHTML = '<option value="">All athletes</option>';
+            if (data.athletes && data.athletes.length > 0) {
+                data.athletes.forEach(athlete => {
+                    const option = document.createElement('option');
+                    option.value = athlete;
+                    option.textContent = athlete;
+                    this.athleteSelect.appendChild(option);
+                });
+            }
+            
             this.eventSelect.disabled = false;
             this.flightSelect.disabled = false;
+            this.athleteSelect.disabled = false;
             this.loadBtn.disabled = false;
             
         } catch (error) {
@@ -719,6 +735,7 @@ class DecisionResults {
         const competitionId = this.competitionSelect.value;
         const event = this.eventSelect.value;
         const flight = this.flightSelect.value;
+        const athlete = this.athleteSelect.value;
         
         if (!competitionId) return;
         
@@ -728,6 +745,7 @@ class DecisionResults {
             let url = `/admin/api/decision-results?competition_id=${competitionId}`;
             if (event) url += `&event=${encodeURIComponent(event)}`;
             if (flight) url += `&flight=${encodeURIComponent(flight)}`;
+            if (athlete) url += `&athlete=${encodeURIComponent(athlete)}`;
             
             const response = await fetch(url);
             const data = await response.json();
