@@ -1,8 +1,9 @@
 from asyncio.log import logger
 from flask import Blueprint, render_template, request, jsonify, session, redirect, url_for, flash
-from ..extensions import db, socketio
-from ..models import (Competition, Athlete, Flight, Event, SportType, AthleteFlight, ScoringType, Referee,TimerLog,Attempt, AttemptResult, AthleteEntry, User, UserRole, CoachAssignment, Timer)
+from ..extensions import db
+from ..models import (Competition, Athlete, Flight, Event, SportType, AthleteFlight, ScoringType, Referee,TimerLog,Attempt, AttemptResult, AthleteEntry, User, UserRole, CoachAssignment, Timer, RefereeDecision, RefereeAssignment, Score)
 from ..utils.referee_generator import generate_sample_referee_data, generate_random_username, generate_random_password
+from ..utils.scoring import ScoringCalculator, calculate_scores_after_referee_decision, TimerScoring
 from datetime import datetime,timezone
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import joinedload
@@ -115,9 +116,12 @@ def results_dashboard():
 def display():
     competitions = Competition.query.filter_by(is_active=True).all()
     current_competition = competitions[0] if competitions else None
-    return render_template('admin/display.html',
-                         competitions=competitions,
-                         current_competition=current_competition)
+    
+    # Redirect to the display competition page
+    if current_competition:
+        return redirect(url_for('display.display_competition', competition_id=current_competition.id))
+    else:
+        return redirect(url_for('display.display_competition'))
 
 # API Routes below
 @admin_bp.route('/competition-model/get/<int:id>')
@@ -1321,6 +1325,11 @@ def referee_logout_page():
 @admin_bp.route('/api/referee-decision', methods=['POST'])
 def submit_referee_decision():
     """Submit a referee decision and store in database"""
+    """
+    Submit a referee decision for an attempt.
+    This endpoint now properly creates RefereeDecision records and calculates scores.
+    If attempt_id is not provided, it will try to get the current attempt from timer state.
+    """
     try:
         from ..models import RefereeDecisionLog
         import json
@@ -1333,109 +1342,189 @@ def submit_referee_decision():
         
         referee_id = data.get('referee_id')
         competition_id = data.get('competition_id')
-        decision = data.get('decision')
+        attempt_id = data.get('attempt_id')
+        decision = data.get('decision')  # Should be decision value like 'good_lift', 'no_lift'
         timestamp = data.get('timestamp')
+        notes = data.get('notes', '')
         
+        # Handle decision being passed as an object (legacy support)
+        if isinstance(decision, dict):
+            decision_label = decision.get('label', 'Unknown')
+            decision_value = decision.get('value')
+            # Convert boolean to string format
+            if isinstance(decision_value, bool):
+                decision = 'good_lift' if decision_value else 'no_lift'
+            elif isinstance(decision_value, str):
+                decision = decision_value
+            else:
+                decision = decision_label.lower().replace(' ', '_')
+            notes = notes or f"Decision: {decision_label}"
+        
+        # Validate required fields
         if not all([referee_id, competition_id, decision]):
             return jsonify({'success': False, 'message': 'Missing required fields'}), 400
+        
+        # If attempt_id is not provided, try to get it from current timer state
+        if not attempt_id:
+            import json
+            from pathlib import Path
+            
+            state_file = Path(__file__).parent.parent.parent / 'instance' / 'timer_state.json'
+            
+            if state_file.exists():
+                try:
+                    with open(state_file, 'r') as f:
+                        timer_state = json.load(f)
+                    
+                    athlete_id = timer_state.get('athlete_id')
+                    attempt_number = timer_state.get('attempt_number')
+                    flight_id = timer_state.get('flight_id')
+                    
+                    if athlete_id and attempt_number and flight_id:
+                        # Find the attempt
+                        attempt = Attempt.query.filter_by(
+                            athlete_id=int(athlete_id),
+                            attempt_number=int(attempt_number),
+                            flight_id=int(flight_id)
+                        ).first()
+                        
+                        if attempt:
+                            attempt_id = attempt.id
+                except Exception as e:
+                    pass  # Timer state not available
         
         # Verify referee exists and belongs to the competition
         referee = Referee.query.filter_by(id=referee_id, competition_id=competition_id).first()
         if not referee:
             return jsonify({'success': False, 'message': 'Invalid referee or competition'}), 404
         
-        # Get current timer state for athlete details
-        state_file = Path(__file__).parent.parent.parent / 'instance' / 'timer_state.json'
-        timer_state = {}
-        try:
-            if state_file.exists():
-                with open(state_file, 'r') as f:
-                    timer_state = json.load(f)
-        except Exception as e:
-            print(f"Warning: Could not read timer state: {e}")
+        # Get or create referee assignment
+        # Note: Using a large offset (1000000) to avoid collision with actual User IDs
+        # This maps Referee.id to a virtual user_id for RefereeAssignment
+        virtual_user_id = 1000000 + referee_id
         
-        # Extract athlete information from timer state or data
-        athlete_name = timer_state.get('athlete_name', data.get('athlete_name', 'Unknown'))
-        event_name = timer_state.get('event', data.get('event'))
-        flight_name = timer_state.get('flight', data.get('flight'))
-        weight_class = timer_state.get('weight_class', '')
-        team = timer_state.get('team', '')
-        current_lift = timer_state.get('current_lift', '')
-        attempt_number = timer_state.get('attempt_number', data.get('attempt_number', 1))
-        attempt_weight = timer_state.get('attempt_weight', data.get('attempt_weight', 0))
+        referee_assignment = RefereeAssignment.query.filter_by(
+            user_id=virtual_user_id,
+            referee_position=referee.position
+        ).first()
         
-        # Get violations if provided (for "No Lift" decisions)
-        violations = data.get('violations', [])
-        violations_str = ', '.join(violations) if violations else None
+        if not referee_assignment:
+            # Create a referee assignment for this referee
+            referee_assignment = RefereeAssignment(
+                user_id=virtual_user_id,
+                referee_position=referee.position or 'Referee',
+                is_active=True
+            )
+            db.session.add(referee_assignment)
+            db.session.flush()
         
-        # Create new decision record in database
-        new_decision = RefereeDecisionLog(
-            referee_id=referee_id,
-            competition_id=competition_id,
-            athlete_name=athlete_name,
-            event_name=event_name,
-            flight_name=flight_name,
-            weight_class=weight_class,
-            team=team,
-            current_lift=current_lift,
-            attempt_number=int(attempt_number) if attempt_number else 1,
-            attempt_weight=float(attempt_weight) if attempt_weight else 0,
-            decision_label=decision.get('label', 'Unknown'),
-            decision_value=bool(decision.get('value', False)),
-            decision_color=decision.get('color', ''),
-            violations=violations_str,
-            timestamp=datetime.utcnow()
-        )
+        # If we have an attempt_id (either provided or found from timer state), create proper RefereeDecision
+        if attempt_id:
+            attempt = Attempt.query.get(attempt_id)
+            if not attempt:
+                return jsonify({'success': False, 'message': f'Invalid attempt ID: {attempt_id}'}), 404
+            
+            # Parse decision value to AttemptResult enum
+            try:
+                decision_enum = AttemptResult[decision.upper().replace(' ', '_')]
+            except (KeyError, AttributeError):
+                # Default mapping for common decision labels
+                decision_map = {
+                    'good_lift': AttemptResult.GOOD_LIFT,
+                    'good': AttemptResult.GOOD_LIFT,
+                    'no_lift': AttemptResult.NO_LIFT,
+                    'no': AttemptResult.NO_LIFT,
+                    'not_to_depth': AttemptResult.NOT_TO_DEPTH,
+                    'missed': AttemptResult.MISSED,
+                    'dnf': AttemptResult.DNF
+                }
+                decision_enum = decision_map.get(decision.lower(), AttemptResult.NO_LIFT)
+            
+            # Create or update referee decision
+            existing_decision = RefereeDecision.query.filter_by(
+                attempt_id=attempt_id,
+                referee_assignment_id=referee_assignment.id
+            ).first()
+            
+            if existing_decision:
+                existing_decision.decision = decision_enum
+                existing_decision.decision_time = datetime.utcnow()
+                existing_decision.notes = notes
+                referee_decision = existing_decision
+                action = "updated"
+            else:
+                referee_decision = RefereeDecision(
+                    attempt_id=attempt_id,
+                    referee_assignment_id=referee_assignment.id,
+                    decision=decision_enum,
+                    decision_time=datetime.utcnow(),
+                    notes=notes
+                )
+                db.session.add(referee_decision)
+                action = "created"
+            
+            # Also log in referee notes for audit trail
+            decision_info = f"Decision at {timestamp}: {decision} for attempt {attempt_id}"
+            if referee.notes:
+                referee.notes += f"\n{decision_info}"
+            else:
+                referee.notes = decision_info
+            
+            db.session.commit()
+            
+            # Calculate scores after decision is submitted
+            try:
+                score_results = calculate_scores_after_referee_decision(attempt_id)
+                
+                return jsonify({
+                    'success': True,
+                    'message': f'Decision {action} successfully',
+                    'referee_id': referee_id,
+                    'attempt_id': attempt_id,
+                    'decision': decision,
+                    'decision_enum': decision_enum.value,
+                    'attempt_result': score_results['attempt_result'],
+                    'score': score_results['score'],
+                    'rankings_updated': True
+                })
+            except Exception as score_error:
+                # Still return success for decision submission even if score calculation fails
+                return jsonify({
+                    'success': True,
+                    'message': f'Decision {action} successfully (score calculation pending)',
+                    'referee_id': referee_id,
+                    'attempt_id': attempt_id,
+                    'decision': decision,
+                    'decision_enum': decision_enum.value
+                })
         
-        db.session.add(new_decision)
-        db.session.commit()
-        
-        # Also store in memory for real-time display (backwards compatibility)
-        if not hasattr(submit_referee_decision, 'decisions'):
-            submit_referee_decision.decisions = {}
-        
-        comp_key = f"comp_{competition_id}"
-        if comp_key not in submit_referee_decision.decisions:
-            submit_referee_decision.decisions[comp_key] = {}
-        
-        submit_referee_decision.decisions[comp_key][str(referee_id)] = {
-            'referee_id': referee_id,
-            'referee_name': referee.name,
-            'decision_label': decision.get('label', 'Unknown'),
-            'decision_value': decision.get('value', 'Unknown'),
-            'timestamp': timestamp,
-            'violations': violations
-        }
-        
-        # Broadcast decision to all connected clients via WebSocket
-        try:
-            socketio.emit('referee_decision_updated', {
-                'competition_id': competition_id,
+        else:
+            # No attempt_id found - store in notes only
+            warning_msg = "Warning: No attempt_id provided or found in timer state. Decision logged in notes only."
+            
+            decision_info = f"Decision at {timestamp}: {decision} (NO ATTEMPT LINKED)"
+            
+            if referee.notes:
+                referee.notes += f"\n{decision_info}"
+            else:
+                referee.notes = decision_info
+            
+            db.session.commit()
+            
+            return jsonify({
+                'success': True,
+                'message': warning_msg,
                 'referee_id': referee_id,
-                'referee_name': referee.name,
                 'decision': decision,
-                'violations': violations,
-                'athlete_name': athlete_name,
-                'attempt_weight': attempt_weight,
-                'timestamp': timestamp
-            }, namespace='/')
-        except Exception as e:
-            print(f"WebSocket broadcast error: {e}")
-        
-        return jsonify({
-            'success': True, 
-            'message': 'Decision recorded successfully',
-            'referee_id': referee_id,
-            'decision': decision,
-            'decision_log_id': new_decision.id
-        })
+                'warning': 'Decision not linked to attempt - stored in notes only'
+            })
         
     except Exception as e:
         db.session.rollback()
         print("Error submitting referee decision:", str(e))
         import traceback
         traceback.print_exc()
-        return jsonify({'success': False, 'message': 'Error submitting decision'}), 500
+        return jsonify({'success': False, 'message': f'Error submitting decision: {str(e)}'}), 500
 
 @admin_bp.route('/api/referee-decisions/<int:competition_id>', methods=['GET'])
 def get_referee_decisions(competition_id):
@@ -1699,6 +1788,156 @@ def api_submit_score():
             'success': False,
             'message': str(e)
         }), 500
+
+# Scoreboard History Routes
+@admin_bp.route('/scoreboard-history')
+def scoreboard_history():
+    """Scoreboard history page"""
+    return render_template('admin/scoreboard_history.html')
+
+@admin_bp.route('/api/scores', methods=['GET'])
+def get_all_scores():
+    """Get all scores with athlete and event information"""
+    try:
+        scores = Score.query.order_by(Score.calculated_at.desc()).all()
+        
+        scores_data = []
+        for score in scores:
+            athlete_entry = score.athlete_entry
+            athlete = athlete_entry.athlete
+            event = athlete_entry.event
+            competition = event.competition if event else None
+            flight = Flight.query.get(athlete_entry.flight_id) if athlete_entry.flight_id else None
+            
+            scores_data.append({
+                'id': score.id,
+                'athlete_entry_id': score.athlete_entry_id,
+                'athlete_name': f"{athlete.first_name} {athlete.last_name}",
+                'athlete_id': athlete.id,
+                'event_name': event.name if event else 'N/A',
+                'event_id': event.id if event else None,
+                'competition_id': competition.id if competition else None,
+                'competition_name': competition.name if competition else 'N/A',
+                'flight_id': athlete_entry.flight_id,
+                'flight_name': flight.name if flight else 'N/A',
+                'lift_type': athlete_entry.lift_type or 'N/A',
+                'best_attempt_weight': score.best_attempt_weight,
+                'total_score': score.total_score,
+                'rank': score.rank,
+                'score_type': score.score_type,
+                'calculated_at': score.calculated_at.isoformat() if score.calculated_at else None,
+                'is_final': score.is_final
+            })
+        
+        return jsonify(scores_data)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@admin_bp.route('/api/scores/<int:score_id>', methods=['PUT'])
+def update_score(score_id):
+    """Update a score"""
+    try:
+        score = Score.query.get_or_404(score_id)
+        data = request.get_json()
+        
+        # Update fields
+        if 'best_attempt_weight' in data:
+            score.best_attempt_weight = data['best_attempt_weight']
+        if 'total_score' in data:
+            score.total_score = data['total_score']
+        if 'rank' in data:
+            score.rank = data['rank']
+        if 'is_final' in data:
+            score.is_final = data['is_final']
+        
+        score.calculated_at = datetime.utcnow()
+        
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Score updated successfully'
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
+
+@admin_bp.route('/api/scores/<int:score_id>', methods=['DELETE'])
+def delete_score(score_id):
+    """Delete a score"""
+    try:
+        score = Score.query.get_or_404(score_id)
+        db.session.delete(score)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Score deleted successfully'
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
+
+@admin_bp.route('/api/scores/export')
+def export_scores():
+    """Export scores to CSV"""
+    try:
+        import io
+        import csv
+        from flask import make_response
+        
+        competition_id = request.args.get('competition_id')
+        
+        query = Score.query
+        if competition_id:
+            query = query.join(AthleteEntry).join(Event).filter(Event.competition_id == competition_id)
+        
+        scores = query.order_by(Score.calculated_at.desc()).all()
+        
+        # Create CSV
+        output = io.StringIO()
+        writer = csv.writer(output)
+        
+        # Headers
+        writer.writerow([
+            'Rank', 'Athlete', 'Event', 'Flight', 'Lift Type', 'Best Weight (kg)', 
+            'Total Score', 'Status', 'Calculated At'
+        ])
+        
+        # Data
+        for score in scores:
+            athlete_entry = score.athlete_entry
+            athlete = athlete_entry.athlete
+            event = athlete_entry.event
+            flight = Flight.query.get(athlete_entry.flight_id) if athlete_entry.flight_id else None
+            
+            writer.writerow([
+                score.rank or '-',
+                f"{athlete.first_name} {athlete.last_name}",
+                event.name if event else 'N/A',
+                flight.name if flight else 'N/A',
+                athlete_entry.lift_type or '-',
+                score.best_attempt_weight or '-',
+                score.total_score or '-',
+                'FINAL' if score.is_final else 'PROVISIONAL',
+                score.calculated_at.strftime('%Y-%m-%d %H:%M:%S') if score.calculated_at else '-'
+            ])
+        
+        # Create response
+        output.seek(0)
+        response = make_response(output.getvalue())
+        response.headers['Content-Disposition'] = 'attachment; filename=scores_export.csv'
+        response.headers['Content-Type'] = 'text/csv'
+        
+        return response
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 @admin_bp.route('/api/referees/auto-generate/<int:competition_id>', methods=['POST'])
 def auto_generate_referees(competition_id):
@@ -2519,6 +2758,63 @@ def get_flight_athletes(flight_id):
             'message': 'Failed to retrieve flight athletes: ' + str(e)
         }), 500
 
+@admin_bp.route('/athletes/<int:athlete_id>/attempts', methods=['GET'])
+def get_athlete_attempts(athlete_id):
+    """Get attempts for a specific athlete, optionally filtered by flight (for timekeeper attempt dropdown)"""
+    try:
+        athlete = Athlete.query.get(athlete_id)
+        if not athlete:
+            return jsonify({
+                'status': 'error',
+                'message': 'Athlete not found'
+            }), 404
+        
+        # Check if flight_id is provided as query parameter for filtering
+        flight_id = request.args.get('flight_id', type=int)
+        
+        # Get athlete entries with their attempts, optionally filtered by flight
+        entries_query = AthleteEntry.query.options(
+            joinedload(AthleteEntry.attempts),
+            joinedload(AthleteEntry.event)
+        ).filter_by(athlete_id=athlete_id)
+        
+        if flight_id:
+            # Filter by specific flight if provided
+            entries_query = entries_query.filter_by(flight_id=flight_id)
+        
+        entries = entries_query.all()
+        
+        attempts_data = []
+        for entry in entries:
+            for attempt in sorted(entry.attempts, key=lambda x: x.attempt_number):
+                attempts_data.append({
+                    'id': attempt.id,
+                    'attempt_number': attempt.attempt_number,
+                    'movement_type': attempt.movement_type,
+                    'lift_type': entry.lift_type,
+                    'movement_name': entry.movement_name,
+                    'requested_weight': attempt.requested_weight,
+                    'status': attempt.status or 'waiting',
+                    'event_name': entry.event.name if entry.event else None,
+                    'sport_type': entry.event.sport_type.value if entry.event and entry.event.sport_type else None
+                })
+        
+        # Get unique attempt numbers for dropdown
+        attempt_numbers = sorted(set(attempt['attempt_number'] for attempt in attempts_data))
+        
+        return jsonify({
+            'athlete_id': athlete_id,
+            'athlete_name': f"{athlete.first_name} {athlete.last_name}",
+            'attempt_numbers': attempt_numbers,
+            'attempts': attempts_data
+        }), 200
+        
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': 'Failed to retrieve athlete attempts: ' + str(e)
+        }), 500
+
 @admin_bp.route('/flights/<int:flight_id>/athletes/<int:athlete_id>', methods=['POST'])
 def add_athlete_to_flight(flight_id, athlete_id):
     """Add an athlete to a flight"""
@@ -3187,11 +3483,15 @@ def update_attempt_weight(attempt_id):
                 'message': 'Cannot modify weight of a finished attempt'
             }), 400
         
-        # Weight progression validation DISABLED - allow any weight values
-        # (Original validation code removed to allow flexible weight adjustments)
-        
         # Update the weight
         attempt.requested_weight = new_weight
+        
+        # If this is attempt 1 (opening weight), also update the AthleteEntry.opening_weights
+        if attempt.attempt_number == 1 and attempt.athlete_entry_id:
+            athlete_entry = AthleteEntry.query.get(attempt.athlete_entry_id)
+            if athlete_entry:
+                athlete_entry.opening_weights = int(new_weight) if new_weight is not None else 0
+        
         db.session.commit()
         
         return jsonify({
@@ -3361,6 +3661,220 @@ def update_attempt(attempt_id):
         
         if not data:
             return jsonify({'error': 'No data provided'}), 400
+        
+        # Update fields if provided
+        if 'requested_weight' in data:
+            attempt.requested_weight = data['requested_weight']
+        if 'actual_weight' in data:
+            attempt.actual_weight = data['actual_weight']
+        if 'final_result' in data:
+            attempt.final_result = AttemptResult[data['final_result'].upper()]
+        if 'status' in data:
+            attempt.status = data['status']
+        if 'lifting_order' in data:
+            attempt.lifting_order = data['lifting_order']
+        
+        db.session.commit()
+        
+        return jsonify({
+            'message': 'Attempt updated successfully',
+            'attempt_id': attempt.id
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error updating attempt: {str(e)}")
+        return jsonify({'error': 'Failed to update attempt'}), 500
+
+
+# ============================================================================
+# SCORING API ENDPOINTS
+# ============================================================================
+
+@admin_bp.route('/api/scoring/athlete-entry/<int:athlete_entry_id>', methods=['GET'])
+def get_athlete_entry_score(athlete_entry_id):
+    """
+    Get calculated score for an athlete entry.
+    """
+    try:
+        score_data = ScoringCalculator.calculate_athlete_entry_score(athlete_entry_id)
+        return jsonify({
+            'success': True,
+            'athlete_entry_id': athlete_entry_id,
+            'score': score_data
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'Error calculating score: {str(e)}'
+        }), 500
+
+
+@admin_bp.route('/api/scoring/athlete-entry/<int:athlete_entry_id>/save', methods=['POST'])
+def save_athlete_entry_score(athlete_entry_id):
+    """
+    Calculate and save score for an athlete entry.
+    """
+    try:
+        score = ScoringCalculator.calculate_and_save_score(athlete_entry_id)
+        return jsonify({
+            'success': True,
+            'message': 'Score calculated and saved successfully',
+            'score': {
+                'id': score.id,
+                'athlete_entry_id': score.athlete_entry_id,
+                'best_attempt_weight': score.best_attempt_weight,
+                'total_score': score.total_score,
+                'rank': score.rank,
+                'score_type': score.score_type,
+                'is_final': score.is_final
+            }
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'Error saving score: {str(e)}'
+        }), 500
+
+
+@admin_bp.route('/api/scoring/event/<int:event_id>/rankings', methods=['GET'])
+def get_event_rankings(event_id):
+    """
+    Get rankings for all athletes in an event.
+    """
+    try:
+        rankings = ScoringCalculator.calculate_event_rankings(event_id)
+        return jsonify({
+            'success': True,
+            'event_id': event_id,
+            'rankings': rankings
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'Error calculating rankings: {str(e)}'
+        }), 500
+
+
+@admin_bp.route('/api/scoring/flight/<int:flight_id>/rankings', methods=['GET'])
+def get_flight_rankings(flight_id):
+    """
+    Get rankings for all athletes in a flight.
+    """
+    try:
+        rankings = ScoringCalculator.calculate_flight_rankings(flight_id)
+        return jsonify({
+            'success': True,
+            'flight_id': flight_id,
+            'rankings': rankings
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'Error calculating flight rankings: {str(e)}'
+        }), 500
+
+
+@admin_bp.route('/api/scoring/event/<int:event_id>/finalize', methods=['POST'])
+def finalize_event_scores(event_id):
+    """
+    Mark all scores for an event as final.
+    """
+    try:
+        ScoringCalculator.finalize_event_scores(event_id)
+        return jsonify({
+            'success': True,
+            'message': f'Scores for event {event_id} have been finalized'
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'Error finalizing scores: {str(e)}'
+        }), 500
+
+
+@admin_bp.route('/api/scoring/athlete/<int:athlete_id>/event/<int:event_id>/total', methods=['GET'])
+def get_athlete_total_score(athlete_id, event_id):
+    """
+    Get total score for an athlete across all movements in an event.
+    Useful for Olympic Weightlifting (Snatch + Clean & Jerk).
+    """
+    try:
+        total_data = ScoringCalculator.get_athlete_total_score(athlete_id, event_id)
+        return jsonify({
+            'success': True,
+            'total': total_data
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'Error calculating total score: {str(e)}'
+        }), 500
+
+
+@admin_bp.route('/api/scoring/attempt/<int:attempt_id>/time', methods=['POST'])
+def record_attempt_time(attempt_id):
+    """
+    Record timing data for an attempt (for time-based scoring).
+    """
+    try:
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'success': False, 'message': 'No data provided'}), 400
+        
+        # Parse timestamps
+        start_time_str = data.get('start_time')
+        end_time_str = data.get('end_time')
+        
+        if not start_time_str or not end_time_str:
+            return jsonify({'success': False, 'message': 'start_time and end_time required'}), 400
+        
+        # Convert to datetime objects
+        start_time = datetime.fromisoformat(start_time_str.replace('Z', '+00:00'))
+        end_time = datetime.fromisoformat(end_time_str.replace('Z', '+00:00'))
+        
+        time_taken = TimerScoring.record_attempt_time(attempt_id, start_time, end_time)
+        
+        return jsonify({
+            'success': True,
+            'message': 'Attempt time recorded successfully',
+            'time_taken': time_taken,
+            'attempt_id': attempt_id
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'Error recording time: {str(e)}'
+        }), 500
+
+
+@admin_bp.route('/api/scoring/attempt/<int:attempt_id>/duration', methods=['GET'])
+def get_attempt_duration(attempt_id):
+    """
+    Get duration of an attempt.
+    """
+    try:
+        duration = TimerScoring.get_attempt_duration(attempt_id)
+        
+        if duration is None:
+            return jsonify({
+                'success': False,
+                'message': 'Attempt timing data not available'
+            }), 404
+        
+        return jsonify({
+            'success': True,
+            'attempt_id': attempt_id,
+            'duration': duration
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'Error getting attempt duration: {str(e)}'
+        }), 500
+
+# ============================================================================
         
         # Update fields if provided
         if 'requested_weight' in data:

@@ -38,6 +38,20 @@
             <!-- Timer Card -->
             <div class="timer-card">
                 <h2>Next Attempt</h2>
+                <button id="enable-notifications" class="notification-btn" style="display: none; margin-bottom: 10px; padding: 8px 12px; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                    🔔 Enable Notifications
+                </button>
+                <!-- Visual notification alert -->
+                <div id="visual-notification" style="display: none; margin-bottom: 10px; padding: 12px; background: #ff9800; color: white; border-radius: 4px; font-weight: bold; animation: pulse 1s infinite;">
+                    <div id="notification-title"></div>
+                    <div id="notification-body" style="font-size: 0.9em; margin-top: 4px;"></div>
+                </div>
+                <style>
+                    @keyframes pulse {
+                        0%, 100% { transform: scale(1); }
+                        50% { transform: scale(1.02); }
+                    }
+                </style>
                 <div class="timer countdown-timer" id="main-timer" data-time="{{ next_attempt.time if next_attempt and next_attempt.time else 0 }}">
                     {% if next_attempt and next_attempt.time %}
                         {% set minutes = (next_attempt.time // 60)|int %}
@@ -49,7 +63,7 @@
                 </div>
                 <div class="next-attempt-info" data-template="next-attempt-info">
                     {% if next_attempt %}
-                    <p><strong>Event:</strong> <span class="event-type">{{ next_attempt.event_name }}</span></p>
+                    <p><strong>Type:</strong> <span class="sport-type">{{ next_attempt.sport_type|replace('_', ' ')|title if next_attempt.sport_type else 'N/A' }}</span></p>
                     <p><strong>Lift:</strong> <span class="lift-type">{{ next_attempt.lift_type }}</span></p>
                     <p><strong>Weight:</strong> <span class="weight">{{ next_attempt.requested_weight }}</span>kg</p>
                     <p><strong>Attempt:</strong> <span class="attempt-order">{{ next_attempt.attempt_number }}</span></p>
@@ -185,11 +199,11 @@
                                         <h5>Attempts</h5>
                                         <div class="attempts-list">
                                             {% for attempt in entry.attempts|sort(attribute='attempt_number') %}
-                                            <div class="attempt {% if not attempt.final_result %}next-attempt{% endif %}" 
+                                            <div class="attempt {% if attempt.status != 'finished' %}next-attempt{% endif %}" 
                                                  data-attempt-id="{{ attempt.id }}">
-                                                <span>Attempt {{ attempt.number }}:</span>
-                                                {% if not attempt.final_result %}
-                                                    {% if attempt.number == 1 %}
+                                                <span>Attempt {{ attempt.attempt_number }}:</span>
+                                                {% if attempt.status != 'finished' %}
+                                                    {% if attempt.attempt_number == 1 %}
                                                         <!-- Attempt 1 shows opening weight -->
                                                         <div class="weight-display">
                                                             <span class="weight-value">
@@ -218,10 +232,10 @@
                                                 <span>{{ attempt.requested_weight }}kg</span>
                                                 {% endif %}
                                                 <span class="status">
-                                                    {{ 'Completed' if attempt.final_result else 'Pending' }}
+                                                    {{ attempt.status|title if attempt.status else 'Waiting' }}
                                                 </span>
                                                 {% if attempt.final_result %}
-                                                <span class="result">{{ attempt.final_result.value }}</span>
+                                                <span class="result">{{ attempt.final_result.value|replace('_', ' ')|title }}</span>
                                                 {% endif %}
                                             </div>
                                             {% endfor %}
