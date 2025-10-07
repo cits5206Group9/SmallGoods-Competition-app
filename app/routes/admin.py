@@ -1530,6 +1530,77 @@ def get_decision_filters(competition_id):
         traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 500
 
+@admin_bp.route('/api/decision-results/<int:decision_id>', methods=['PUT'])
+def update_decision_result(decision_id):
+    """Update a decision result"""
+    try:
+        from ..models import RefereeDecisionLog
+        
+        decision = RefereeDecisionLog.query.get_or_404(decision_id)
+        data = request.get_json()
+        
+        # Update allowed fields
+        if 'athlete_name' in data:
+            decision.athlete_name = data['athlete_name']
+        if 'event_name' in data:
+            decision.event_name = data['event_name']
+        if 'flight_name' in data:
+            decision.flight_name = data['flight_name']
+        if 'weight_class' in data:
+            decision.weight_class = data['weight_class']
+        if 'team' in data:
+            decision.team = data['team']
+        if 'current_lift' in data:
+            decision.current_lift = data['current_lift']
+        if 'attempt_number' in data:
+            decision.attempt_number = int(data['attempt_number'])
+        if 'attempt_weight' in data:
+            decision.attempt_weight = float(data['attempt_weight'])
+        if 'decision_label' in data:
+            decision.decision_label = data['decision_label']
+        if 'decision_value' in data:
+            decision.decision_value = bool(data['decision_value'])
+        if 'decision_color' in data:
+            decision.decision_color = data['decision_color']
+        
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Decision updated successfully',
+            'decision': decision.to_dict()
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error updating decision result: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@admin_bp.route('/api/decision-results/<int:decision_id>', methods=['DELETE'])
+def delete_decision_result(decision_id):
+    """Delete a decision result"""
+    try:
+        from ..models import RefereeDecisionLog
+        
+        decision = RefereeDecisionLog.query.get_or_404(decision_id)
+        
+        db.session.delete(decision)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Decision deleted successfully'
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error deleting decision result: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @admin_bp.route('/referee/dashboard/<int:referee_id>')
 def referee_dashboard_page(referee_id):
     """Individual referee dashboard"""
