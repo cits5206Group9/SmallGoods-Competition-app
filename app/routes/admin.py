@@ -1475,6 +1475,7 @@ def get_decision_results():
         competition_id = request.args.get('competition_id', type=int)
         event = request.args.get('event')
         flight = request.args.get('flight')
+        athlete = request.args.get('athlete')
         
         query = RefereeDecisionLog.query.options(
             db.joinedload(RefereeDecisionLog.referee),
@@ -1489,6 +1490,9 @@ def get_decision_results():
         
         if flight:
             query = query.filter_by(flight_name=flight)
+        
+        if athlete:
+            query = query.filter_by(athlete_name=athlete)
         
         decisions = query.order_by(RefereeDecisionLog.timestamp.desc()).all()
         
@@ -1523,10 +1527,19 @@ def get_decision_filters(competition_id):
             .distinct()\
             .all()
         
+        # Get unique athlete names
+        athletes = db.session.query(RefereeDecisionLog.athlete_name)\
+            .filter_by(competition_id=competition_id)\
+            .filter(RefereeDecisionLog.athlete_name.isnot(None))\
+            .distinct()\
+            .order_by(RefereeDecisionLog.athlete_name)\
+            .all()
+        
         return jsonify({
             'success': True,
             'events': [e[0] for e in events if e[0]],
-            'flights': [f[0] for f in flights if f[0]]
+            'flights': [f[0] for f in flights if f[0]],
+            'athletes': [a[0] for a in athletes if a[0]]
         }), 200
         
     except Exception as e:
