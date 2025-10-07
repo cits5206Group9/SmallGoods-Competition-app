@@ -224,6 +224,81 @@
             color: white;
             box-shadow: 0 4px 15px rgba(231, 76, 60, 0.4);
         }
+        
+        /* Referee Vote Card with Violations */
+        .referee-vote-card {
+            background: white;
+            border: 2px solid #e0e0e0;
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 12px;
+            transition: all 0.3s ease;
+        }
+        
+        .referee-vote-card:hover {
+            border-color: #6c5ce7;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(108, 92, 231, 0.2);
+        }
+        
+        .referee-vote-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .referee-name {
+            font-weight: 700;
+            font-size: 16px;
+            color: #2c3e50;
+        }
+        
+        .decision-badge {
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-weight: 700;
+            font-size: 14px;
+            color: white;
+        }
+        
+        .decision-badge.good-lift {
+            background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
+            box-shadow: 0 2px 8px rgba(46, 204, 113, 0.3);
+        }
+        
+        .decision-badge.no-lift {
+            background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+            box-shadow: 0 2px 8px rgba(231, 76, 60, 0.3);
+        }
+        
+        .decision-badge.pending {
+            background: #95a5a6;
+        }
+        
+        .violations-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 8px;
+        }
+        
+        .violation-tag {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            color: #856404;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        .no-violations {
+            color: #6c757d;
+            font-size: 13px;
+            font-style: italic;
+            margin-top: 8px;
+        }
     </style>
 {% endblock %}
 
@@ -331,26 +406,12 @@
 
         <div class="referee-votes">
             <h4>Referee Panel Votes</h4>
-            <div class="votes-display">
-                <div class="referee-vote">
-                    <span>Referee 1:</span>
-                    <span class="vote-result" id="referee-1-vote">-</span>
-                </div>
-                <div class="referee-vote">
-                    <span>Referee 2:</span>
-                    <span class="vote-result" id="referee-2-vote">-</span>
-                </div>
-                <div class="referee-vote">
-                    <span>Referee 3:</span>
-                    <span class="vote-result" id="referee-3-vote">-</span>
-                </div>
-                <div class="referee-vote">
-                    <span>Referee 4:</span>
-                    <span class="vote-result" id="referee-4-vote">-</span>
-                </div>
-                <div class="referee-vote">
-                    <span>Referee 5:</span>
-                    <span class="vote-result" id="referee-5-vote">-</span>
+            <div class="votes-display" id="referee-votes-display">
+                <!-- Dynamic referee votes will be populated here -->
+                <div class="no-votes-message">
+                    <p style="text-align: center; color: #6c757d; padding: 20px;">
+                        Waiting for referee decisions...
+                    </p>
                 </div>
             </div>
             
@@ -1004,6 +1065,199 @@ const violationsManager = new ViolationsManager();
 document.addEventListener('DOMContentLoaded', function() {
     violationsManager.updateViolationCheckboxes();
 });
+
+// Decision Display Manager
+class DecisionDisplayManager {
+    constructor() {
+        this.decisions = {};
+        this.currentCompetitionId = null;
+        this.referees = [];
+        this.violationNames = {};
+        this.init();
+    }
+    
+    async init() {
+        // Load violation names for display
+        await this.loadViolationNames();
+        
+        // Listen for competition selection changes
+        const compSelect = document.getElementById('competition-select');
+        if (compSelect) {
+            compSelect.addEventListener('change', (e) => {
+                this.currentCompetitionId = e.target.value;
+                this.loadReferees();
+                this.clearDecisions();
+            });
+        }
+        
+        // Setup WebSocket listeners
+        this.setupWebSocket();
+    }
+    
+    async loadViolationNames() {
+        try {
+            const response = await fetch('/admin/api/violations');
+            const data = await response.json();
+            if (data.success) {
+                data.violations.forEach(v => {
+                    this.violationNames[v.id] = v.name;
+                });
+            }
+        } catch (error) {
+            console.error('Error loading violation names:', error);
+        }
+    }
+    
+    async loadReferees() {
+        if (!this.currentCompetitionId) return;
+        
+        try {
+            const response = await fetch(`/admin/api/competitions/${this.currentCompetitionId}/referees`);
+            const data = await response.json();
+            if (data.success) {
+                this.referees = data.referees;
+                this.renderDecisionDisplay();
+            }
+        } catch (error) {
+            console.error('Error loading referees:', error);
+        }
+    }
+    
+    setupWebSocket() {
+        // Connect to WebSocket
+        if (typeof io !== 'undefined') {
+            const socket = io();
+            
+            socket.on('referee_decision_updated', (data) => {
+                console.log('Received referee decision:', data);
+                
+                // Update decisions map
+                this.decisions[data.referee_id] = {
+                    referee_id: data.referee_id,
+                    referee_name: data.referee_name,
+                    decision: data.decision,
+                    violations: data.violations || [],
+                    timestamp: data.timestamp
+                };
+                
+                // Re-render display
+                this.renderDecisionDisplay();
+            });
+        }
+    }
+    
+    clearDecisions() {
+        this.decisions = {};
+        this.renderDecisionDisplay();
+    }
+    
+    renderDecisionDisplay() {
+        const container = document.getElementById('referee-votes-display');
+        if (!container) return;
+        
+        if (this.referees.length === 0) {
+            container.innerHTML = `
+                <div class="no-votes-message">
+                    <p style="text-align: center; color: #6c757d; padding: 20px;">
+                        Select a competition to view referee decisions
+                    </p>
+                </div>
+            `;
+            return;
+        }
+        
+        container.innerHTML = this.referees.map(referee => {
+            const decision = this.decisions[referee.id];
+            
+            if (!decision) {
+                // Pending decision
+                return `
+                    <div class="referee-vote-card">
+                        <div class="referee-vote-header">
+                            <span class="referee-name">${referee.name}</span>
+                            <span class="decision-badge pending">Pending</span>
+                        </div>
+                        <div class="no-violations">Waiting for decision...</div>
+                    </div>
+                `;
+            }
+            
+            // Has decision
+            const isGoodLift = decision.decision.value === true || decision.decision.label.toLowerCase().includes('good');
+            const badgeClass = isGoodLift ? 'good-lift' : 'no-lift';
+            const badgeText = decision.decision.label;
+            
+            let violationsHtml = '<div class="no-violations">No violations selected</div>';
+            if (decision.violations && decision.violations.length > 0) {
+                const violationTags = decision.violations.map(vId => {
+                    const name = this.violationNames[vId] || vId;
+                    return `<span class="violation-tag">${name}</span>`;
+                }).join('');
+                violationsHtml = `<div class="violations-tags">${violationTags}</div>`;
+            }
+            
+            return `
+                <div class="referee-vote-card">
+                    <div class="referee-vote-header">
+                        <span class="referee-name">${referee.name}</span>
+                        <span class="decision-badge ${badgeClass}">${badgeText}</span>
+                    </div>
+                    ${violationsHtml}
+                </div>
+            `;
+        }).join('');
+        
+        // Update final decision
+        this.updateFinalDecision();
+    }
+    
+    updateFinalDecision() {
+        const finalResultElement = document.getElementById('final-result');
+        if (!finalResultElement) return;
+        
+        const totalReferees = this.referees.length;
+        const decidedReferees = Object.keys(this.decisions).length;
+        
+        if (decidedReferees === 0) {
+            finalResultElement.textContent = 'Pending';
+            finalResultElement.style.color = '#95a5a6';
+            return;
+        }
+        
+        // Count good lifts
+        let goodLifts = 0;
+        Object.values(this.decisions).forEach(decision => {
+            if (decision.decision.value === true || decision.decision.label.toLowerCase().includes('good')) {
+                goodLifts++;
+            }
+        });
+        
+        const noLifts = decidedReferees - goodLifts;
+        
+        if (decidedReferees < totalReferees) {
+            finalResultElement.textContent = `In Progress (${goodLifts} Good / ${noLifts} No Lift)`;
+            finalResultElement.style.color = '#f39c12';
+        } else {
+            // Majority vote
+            if (goodLifts > noLifts) {
+                finalResultElement.textContent = `✅ GOOD LIFT (${goodLifts}/${totalReferees})`;
+                finalResultElement.style.color = '#2ecc71';
+                finalResultElement.style.fontWeight = '700';
+            } else if (noLifts > goodLifts) {
+                finalResultElement.textContent = `❌ NO LIFT (${noLifts}/${totalReferees})`;
+                finalResultElement.style.color = '#e74c3c';
+                finalResultElement.style.fontWeight = '700';
+            } else {
+                finalResultElement.textContent = `⚖️ TIE (${goodLifts}/${totalReferees})`;
+                finalResultElement.style.color = '#f39c12';
+                finalResultElement.style.fontWeight = '700';
+            }
+        }
+    }
+}
+
+// Initialize decision display manager
+const decisionDisplayManager = new DecisionDisplayManager();
 </script>
 
 <script src="{{ url_for('static', filename='js/referee.js') }}"></script>
