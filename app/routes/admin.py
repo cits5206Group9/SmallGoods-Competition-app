@@ -1,6 +1,6 @@
 from asyncio.log import logger
 from flask import Blueprint, render_template, request, jsonify, session, redirect, url_for, flash
-from ..extensions import db
+from ..extensions import db, socketio
 from ..models import (Competition, Athlete, Flight, Event, SportType, AthleteFlight, ScoringType, Referee,TimerLog,Attempt, AttemptResult, AthleteEntry, User, UserRole, CoachAssignment, Timer)
 from ..utils.referee_generator import generate_sample_referee_data, generate_random_username, generate_random_password
 from datetime import datetime,timezone
@@ -3436,3 +3436,229 @@ def update_account():
         db.session.rollback()
         print(f"Error updating admin account: {str(e)}")
         return jsonify({'success': False, 'error': 'An error occurred while updating account'}), 500
+
+
+# ============================================
+# Technical Violations Management API
+# ============================================
+
+@admin_bp.route('/violations')
+def violations_management():
+    """Violations management page"""
+    auth_check = require_admin_auth()
+    if auth_check:
+        return auth_check
+    return render_template('admin/violations.html')
+
+
+@admin_bp.route('/api/violations', methods=['GET'])
+def get_violations():
+    """Get all technical violations"""
+    try:
+        from ..models import TechnicalViolation
+        
+        # Get only active violations or all based on query param
+        show_all = request.args.get('show_all', 'false').lower() == 'true'
+        
+        if show_all:
+            violations = TechnicalViolation.query.order_by(TechnicalViolation.display_order).all()
+        else:
+            violations = TechnicalViolation.query.filter_by(is_active=True).order_by(TechnicalViolation.display_order).all()
+        
+        return jsonify({
+            'success': True,
+            'violations': [v.to_dict() for v in violations]
+        }), 200
+        
+    except Exception as e:
+        print(f"Error fetching violations: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@admin_bp.route('/api/violations', methods=['POST'])
+def create_violation():
+    """Create a new technical violation"""
+    auth_check = require_admin_auth()
+    if auth_check:
+        return jsonify({'success': False, 'error': 'Not authenticated'}), 401
+    
+    try:
+        from ..models import TechnicalViolation
+        
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'success': False, 'message': 'No data provided'}), 400
+        
+        name = data.get('name', '').strip()
+        description = data.get('description', '').strip()
+        
+        if not name:
+            return jsonify({'success': False, 'message': 'Violation name is required'}), 400
+        
+        # Check if violation with same name already exists
+        existing = TechnicalViolation.query.filter_by(name=name).first()
+        if existing:
+            return jsonify({'success': False, 'message': f'Violation "{name}" already exists'}), 400
+        
+        # Get max display_order and add 1
+        max_order = db.session.query(db.func.max(TechnicalViolation.display_order)).scalar() or 0
+        
+        new_violation = TechnicalViolation(
+            name=name,
+            description=description,
+            is_active=True,
+            display_order=max_order + 1
+        )
+        
+        db.session.add(new_violation)
+        db.session.commit()
+        
+        # Broadcast violation update to all connected clients
+        socketio.emit('violations_updated', {'action': 'created', 'violation': new_violation.to_dict()}, namespace='/')
+        
+        return jsonify({
+            'success': True,
+            'message': f'Violation "{name}" created successfully',
+            'violation': new_violation.to_dict()
+        }), 201
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error creating violation: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@admin_bp.route('/api/violations/<int:violation_id>', methods=['PUT'])
+def update_violation(violation_id):
+    """Update a technical violation"""
+    auth_check = require_admin_auth()
+    if auth_check:
+        return jsonify({'success': False, 'error': 'Not authenticated'}), 401
+    
+    try:
+        from ..models import TechnicalViolation
+        
+        violation = TechnicalViolation.query.get_or_404(violation_id)
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'success': False, 'message': 'No data provided'}), 400
+        
+        # Update name if provided
+        if 'name' in data:
+            new_name = data['name'].strip()
+            if not new_name:
+                return jsonify({'success': False, 'message': 'Violation name cannot be empty'}), 400
+            
+            # Check if another violation with same name exists
+            existing = TechnicalViolation.query.filter(
+                TechnicalViolation.name == new_name,
+                TechnicalViolation.id != violation_id
+            ).first()
+            
+            if existing:
+                return jsonify({'success': False, 'message': f'Violation "{new_name}" already exists'}), 400
+            
+            violation.name = new_name
+        
+        # Update description if provided
+        if 'description' in data:
+            violation.description = data['description'].strip()
+        
+        # Update is_active if provided
+        if 'is_active' in data:
+            violation.is_active = bool(data['is_active'])
+        
+        # Update display_order if provided
+        if 'display_order' in data:
+            violation.display_order = int(data['display_order'])
+        
+        db.session.commit()
+        
+        # Broadcast violation update to all connected clients
+        socketio.emit('violations_updated', {'action': 'updated', 'violation': violation.to_dict()}, namespace='/')
+        
+        return jsonify({
+            'success': True,
+            'message': f'Violation "{violation.name}" updated successfully',
+            'violation': violation.to_dict()
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error updating violation: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@admin_bp.route('/api/violations/<int:violation_id>', methods=['DELETE'])
+def delete_violation(violation_id):
+    """Delete a technical violation"""
+    auth_check = require_admin_auth()
+    if auth_check:
+        return jsonify({'success': False, 'error': 'Not authenticated'}), 401
+    
+    try:
+        from ..models import TechnicalViolation
+        
+        violation = TechnicalViolation.query.get_or_404(violation_id)
+        violation_name = violation.name
+        violation_id = violation.id
+        
+        db.session.delete(violation)
+        db.session.commit()
+        
+        # Broadcast violation update to all connected clients
+        socketio.emit('violations_updated', {'action': 'deleted', 'violation_id': violation_id}, namespace='/')
+        
+        return jsonify({
+            'success': True,
+            'message': f'Violation "{violation_name}" deleted successfully'
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error deleting violation: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@admin_bp.route('/api/violations/<int:violation_id>/toggle', methods=['POST'])
+def toggle_violation(violation_id):
+    """Toggle violation active status"""
+    auth_check = require_admin_auth()
+    if auth_check:
+        return jsonify({'success': False, 'error': 'Not authenticated'}), 401
+    
+    try:
+        from ..models import TechnicalViolation
+        
+        violation = TechnicalViolation.query.get_or_404(violation_id)
+        violation.is_active = not violation.is_active
+        
+        db.session.commit()
+        
+        status = "enabled" if violation.is_active else "disabled"
+        
+        # Broadcast violation update to all connected clients
+        socketio.emit('violations_updated', {'action': 'toggled', 'violation': violation.to_dict()}, namespace='/')
+        
+        return jsonify({
+            'success': True,
+            'message': f'Violation "{violation.name}" {status}',
+            'violation': violation.to_dict()
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error toggling violation: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
