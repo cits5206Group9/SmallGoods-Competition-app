@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}{% endblock %}</title>
+
+    <!-- Your global stylesheet -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    {% block css %}{% endblock %}
+
+  </head>
+
+  <body>
+    <!-- Minimal header without navigation for referee pages -->
+    <header class="site-header">
+      <div class="header-inner" style="justify-content: center;">
+        <div class="brand" style="cursor: default;">
+          <img src="{{ url_for('static', filename='images/logo.png') }}" alt="SmallGoods" class="brand-logo">
+          <span class="brand-name">SmallGoods Admin</span>
+        </div>
+      </div>
+    </header>
+
+    <main class="container page-main">
+      {% block content %}{% endblock %}
+    </main>
+
+    <footer class="site-footer">
+      <div class="footer-inner">
+        <div class="footer-brand">
+          <img src="{{ url_for('static', filename='images/logo.png') }}" alt="SmallGoods" class="footer-logo">
+          <span>SmallGoods</span>
+        </div>
+        <div class="footer-meta">© 2025 Small Goods Gym · All rights reserved</div>
+      </div>
+    </footer>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    {% block scripts %}{% endblock %}
+  </body>
+</html>
