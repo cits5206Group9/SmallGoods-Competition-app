@@ -1403,8 +1403,24 @@ def submit_referee_decision():
             'referee_name': referee.name,
             'decision_label': decision.get('label', 'Unknown'),
             'decision_value': decision.get('value', 'Unknown'),
-            'timestamp': timestamp
+            'timestamp': timestamp,
+            'violations': violations
         }
+        
+        # Broadcast decision to all connected clients via WebSocket
+        try:
+            socketio.emit('referee_decision_updated', {
+                'competition_id': competition_id,
+                'referee_id': referee_id,
+                'referee_name': referee.name,
+                'decision': decision,
+                'violations': violations,
+                'athlete_name': athlete_name,
+                'attempt_weight': attempt_weight,
+                'timestamp': timestamp
+            }, namespace='/')
+        except Exception as e:
+            print(f"WebSocket broadcast error: {e}")
         
         return jsonify({
             'success': True, 
