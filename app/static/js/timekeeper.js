@@ -1050,6 +1050,102 @@
     });
   }
 
+  // Fetch ordered attempts for a flight
+  async function fetchOrderedAttempts(flightId) {
+    try {
+      const res = await fetch(`/admin/flights/${flightId}/attempts/order`, {
+        headers: { "X-Requested-With": "XMLHttpRequest" }
+      });
+      if (!res.ok) return [];
+      const data = await res.json();
+      return data.attempts || [];
+    } catch (e) {
+      console.warn("Failed to fetch ordered attempts:", e);
+      return [];
+    }
+  }
+
+  // Next Athlete button handler
+  const btnNextAthlete = document.getElementById("btnNextAthlete");
+  if (btnNextAthlete) {
+    btnNextAthlete.addEventListener("click", async () => {
+      // Get current flight
+      const flightId = lastFlightId || selFlight.value;
+      if (!flightId) {
+        alert("Please select a flight first");
+        return;
+      }
+
+      // Get all attempts in lifting order (athlete + attempt number combinations)
+      const orderedAttempts = await fetchOrderedAttempts(flightId);
+      if (!orderedAttempts || orderedAttempts.length === 0) {
+        alert("No attempts found in this flight");
+        return;
+      }
+
+      // Get current athlete ID and attempt number
+      const currentAthleteId = athleteSelect?.value;
+      const currentAttemptNumber = attemptSelect?.value;
+      
+      // Find current position in the ordered attempts list
+      let currentIndex = -1;
+      if (currentAthleteId && currentAttemptNumber) {
+        currentIndex = orderedAttempts.findIndex(att => 
+          String(att.athlete_id) === String(currentAthleteId) && 
+          String(att.attempt_number) === String(currentAttemptNumber)
+        );
+      }
+
+      // Get next attempt
+      let nextAttempt = null;
+      if (currentIndex === -1) {
+        // No attempt selected, start with first
+        nextAttempt = orderedAttempts[0];
+      } else if (currentIndex < orderedAttempts.length - 1) {
+        // Move to next attempt in order
+        nextAttempt = orderedAttempts[currentIndex + 1];
+      } else {
+        // Already at last attempt
+        alert("This is the last attempt in the flight");
+        return;
+      }
+
+      // Select next athlete and attempt in dropdowns
+      if (athleteSelect && attemptSelect && nextAttempt) {
+        // Set athlete dropdown
+        athleteSelect.value = String(nextAttempt.athlete_id);
+        
+        // Populate attempts for this athlete
+        await populateAttemptDropdown(nextAttempt.athlete_id);
+        
+        // Set attempt dropdown to the specific attempt
+        attemptSelect.value = String(nextAttempt.attempt_number);
+        
+        // Auto-apply the next attempt
+        const id = nextAttempt.athlete_id;
+        const name = nextAttempt.athlete_name;
+        const attemptNum = nextAttempt.attempt_number;
+        
+        if (id) localStorage.setItem(ATHLETE_ID_KEY, id);
+        localStorage.setItem(ATHLETE_KEY, name);
+        
+        // Update attempt status to 'in-progress'
+        if (id && attemptNum) {
+          await window.updateAttemptStatus(id, attemptNum, flightId, 'in-progress');
+        }
+        
+        updateAthleteApplied();
+        
+        // Show success feedback
+        if (athleteApplied) {
+          athleteApplied.textContent = `Applied: ${name} • Attempt ${attemptNum}`;
+          athleteApplied.style.color = '#28a745';
+          setTimeout(() => { athleteApplied.style.color = ''; }, 2000);
+        }
+      }
+    });
+  }
+
   async function populateAttemptDropdown(athleteId) {
     if (!attemptSelect || !athleteId) {
       if (attemptSelect) {
