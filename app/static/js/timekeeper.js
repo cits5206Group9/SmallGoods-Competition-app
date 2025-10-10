@@ -341,6 +341,41 @@
     const athleteId = athleteSelect?.value || localStorage.getItem("TK_ATHLETE_ID") || '';
     const attemptNumber = attemptSelect?.value || '';
     
+    // Try to get attempt weight from the active pin or athlete data
+    let attemptWeight = 0;
+    let weightClass = '';
+    let team = '';
+    let currentLift = '';
+    
+    // Look for active pin with athlete data
+    const activePin = PINS.find(p => p.athlete && p.athlete.id && p.athlete.id.toString() === athleteId.toString());
+    if (activePin && activePin.athlete) {
+      // Try to get weight from attempts data
+      if (activePin.athlete.attempts && activePin.athlete.attempts.length > 0) {
+        const attemptNum = parseInt(attemptNumber) || 1;
+        const attemptData = activePin.athlete.attempts.find(a => a.attempt_number === attemptNum);
+        if (attemptData) {
+          attemptWeight = attemptData.requested_weight || attemptData.actual_weight || 0;
+        }
+      }
+      
+      // Get other athlete info
+      weightClass = activePin.athlete.weight_class || activePin.athlete.bodyweight || '';
+      team = activePin.athlete.team || '';
+    }
+    
+    // Try to infer lift type from event name
+    if (CURRENT_CTX.event) {
+      const eventLower = CURRENT_CTX.event.toLowerCase();
+      if (eventLower.includes('snatch')) {
+        currentLift = 'Snatch';
+      } else if (eventLower.includes('clean') || eventLower.includes('jerk')) {
+        currentLift = 'Clean & Jerk';
+      } else {
+        currentLift = CURRENT_CTX.event;
+      }
+    }
+    
     const state = {
       athlete_name: getAthleteName() || '',
       athlete_id: athleteId,
@@ -353,7 +388,12 @@
       flight: CURRENT_CTX.flight || '',
       flight_id: CURRENT_CTX.flightId || '',
       base_seconds: attemptClock.baseSeconds,
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      // Additional athlete context for referee decisions
+      attempt_weight: attemptWeight,
+      weight_class: weightClass,
+      team: team,
+      current_lift: currentLift
     };
     
     fetch('/admin/api/timer-state', {
