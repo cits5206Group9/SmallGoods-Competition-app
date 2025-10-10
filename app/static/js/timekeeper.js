@@ -1381,7 +1381,44 @@
       }
       
       const data = await response.json();
-      displayAttemptOrder(data.attempts || []);
+      const attempts = data.attempts || [];
+      displayAttemptOrder(attempts);
+      
+      // Auto-load the first athlete from the ordered attempts
+      if (attempts.length > 0 && athleteSelect && attemptSelect) {
+        const firstAttempt = attempts[0];
+        
+        // Set athlete dropdown
+        athleteSelect.value = String(firstAttempt.athlete_id);
+        
+        // Populate attempts for this athlete
+        await populateAttemptDropdown(firstAttempt.athlete_id);
+        
+        // Set attempt dropdown to the specific attempt
+        attemptSelect.value = String(firstAttempt.attempt_number);
+        
+        // Auto-apply the first attempt
+        const id = firstAttempt.athlete_id;
+        const name = firstAttempt.athlete_name;
+        const attemptNum = firstAttempt.attempt_number;
+        
+        if (id) localStorage.setItem(ATHLETE_ID_KEY, id);
+        localStorage.setItem(ATHLETE_KEY, name);
+        
+        // Update attempt status to 'in-progress' if it's waiting
+        if (id && attemptNum && firstAttempt.status === 'waiting') {
+          await window.updateAttemptStatus(id, attemptNum, flightId, 'in-progress');
+        }
+        
+        updateAthleteApplied();
+        
+        // Show success feedback
+        if (athleteApplied) {
+          athleteApplied.textContent = `Applied: ${name} • Attempt ${attemptNum}`;
+          athleteApplied.style.color = '#28a745';
+          setTimeout(() => { athleteApplied.style.color = ''; }, 2000);
+        }
+      }
     } catch (error) {
       console.error("Error loading attempt order:", error);
       attemptOrderList.innerHTML = `<div style="color:#e53e3e;padding:1rem;background:#fff5f5;border-radius:8px">Error loading attempts: ${error.message}</div>`;
