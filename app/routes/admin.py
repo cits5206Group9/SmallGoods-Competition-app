@@ -99,6 +99,15 @@ def data():
 def referee():
     return render_template('admin/referee.html')
 
+@admin_bp.route('/referee-decisions')
+def referee_decisions_page():
+    """Display referee decisions page with filtering"""
+    auth_check = require_admin_auth()
+    if auth_check:
+        return auth_check
+    competitions = Competition.query.all()
+    return render_template('admin/referee_decisions.html', competitions=competitions)
+
 @admin_bp.route('/results')
 def results_dashboard():
     return render_template('admin/results_dashboard.html')
@@ -1169,6 +1178,7 @@ def create_referee():
             position=data.get('position'),
             email=data.get('email'),
             phone=data.get('phone'),
+            competition_id=data.get('competition_id'),  # Added competition_id field
             is_active=data.get('is_active', True),
             notes=data.get('notes')
         )
@@ -1178,7 +1188,8 @@ def create_referee():
         
         return jsonify({
             'message': 'Referee created successfully',
-            'id': referee.id
+            'id': referee.id,
+            'competition_id': referee.competition_id
         })
         
     except Exception as e:
@@ -1205,12 +1216,16 @@ def update_referee(referee_id):
         referee.position = data.get('position', referee.position)
         referee.email = data.get('email', referee.email)
         referee.phone = data.get('phone', referee.phone)
+        referee.competition_id = data.get('competition_id', referee.competition_id)  # Added competition_id update
         referee.is_active = data.get('is_active', referee.is_active)
         referee.notes = data.get('notes', referee.notes)
         
         db.session.commit()
         
-        return jsonify({'message': 'Referee updated successfully'})
+        return jsonify({
+            'message': 'Referee updated successfully',
+            'competition_id': referee.competition_id
+        })
         
     except Exception as e:
         db.session.rollback()
@@ -1315,12 +1330,17 @@ def referee_logout_page():
 
 @admin_bp.route('/api/referee-decision', methods=['POST'])
 def submit_referee_decision():
+    """Submit a referee decision and store in database"""
     """
     Submit a referee decision for an attempt.
     This endpoint now properly creates RefereeDecision records and calculates scores.
     If attempt_id is not provided, it will try to get the current attempt from timer state.
     """
     try:
+        from ..models import RefereeDecisionLog
+        import json
+        from pathlib import Path
+        
         data = request.get_json()
         
         if not data:
@@ -1512,6 +1532,41 @@ def submit_referee_decision():
         traceback.print_exc()
         return jsonify({'success': False, 'message': f'Error submitting decision: {str(e)}'}), 500
 
+@admin_bp.route('/api/referee-decisions/<int:competition_id>', methods=['GET'])
+def get_referee_decisions(competition_id):
+    """Get all referee decisions for current attempt in a competition"""
+    try:
+        # Get decisions from in-memory store
+        if not hasattr(submit_referee_decision, 'decisions'):
+            return jsonify({'success': True, 'decisions': {}})
+        
+        comp_key = f"comp_{competition_id}"
+        decisions = submit_referee_decision.decisions.get(comp_key, {})
+        
+        return jsonify({
+            'success': True,
+            'decisions': decisions
+        })
+        
+    except Exception as e:
+        print("Error fetching referee decisions:", str(e))
+        return jsonify({'success': False, 'message': 'Error fetching decisions'}), 500
+
+@admin_bp.route('/api/referee-decisions/<int:competition_id>/clear', methods=['POST'])
+def clear_referee_decisions(competition_id):
+    """Clear all referee decisions for a competition (for next attempt)"""
+    try:
+        if hasattr(submit_referee_decision, 'decisions'):
+            comp_key = f"comp_{competition_id}"
+            if comp_key in submit_referee_decision.decisions:
+                submit_referee_decision.decisions[comp_key] = {}
+        
+        return jsonify({'success': True, 'message': 'Decisions cleared'})
+        
+    except Exception as e:
+        print("Error clearing referee decisions:", str(e))
+        return jsonify({'success': False, 'message': 'Error clearing decisions'}), 500
+
 @admin_bp.route('/api/current-attempt', methods=['GET'])
 def get_current_attempt():
     """Get current attempt data for referees"""
@@ -1521,6 +1576,165 @@ def get_current_attempt():
         'status': 'waiting',
         'message': 'No active attempt'
     })
+
+@admin_bp.route('/api/decision-results', methods=['GET'])
+def get_decision_results():
+    """Get referee decisions with filtering"""
+    try:
+        from ..models import RefereeDecisionLog
+        
+        competition_id = request.args.get('competition_id', type=int)
+        event = request.args.get('event')
+        flight = request.args.get('flight')
+        athlete = request.args.get('athlete')
+        
+        query = RefereeDecisionLog.query.options(
+            db.joinedload(RefereeDecisionLog.referee),
+            db.joinedload(RefereeDecisionLog.competition)
+        )
+        
+        if competition_id:
+            query = query.filter_by(competition_id=competition_id)
+        
+        if event:
+            query = query.filter_by(event_name=event)
+        
+        if flight:
+            query = query.filter_by(flight_name=flight)
+        
+        if athlete:
+            query = query.filter_by(athlete_name=athlete)
+        
+        decisions = query.order_by(RefereeDecisionLog.timestamp.desc()).all()
+        
+        return jsonify({
+            'success': True,
+            'decisions': [d.to_dict() for d in decisions]
+        }), 200
+        
+    except Exception as e:
+        print(f"Error fetching decision results: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@admin_bp.route('/api/decision-filters/<int:competition_id>', methods=['GET'])
+def get_decision_filters(competition_id):
+    """Get available filter values for a competition"""
+    try:
+        from ..models import RefereeDecisionLog
+        
+        # Get unique events
+        events = db.session.query(RefereeDecisionLog.event_name)\
+            .filter_by(competition_id=competition_id)\
+            .filter(RefereeDecisionLog.event_name.isnot(None))\
+            .distinct()\
+            .all()
+        
+        # Get unique flights
+        flights = db.session.query(RefereeDecisionLog.flight_name)\
+            .filter_by(competition_id=competition_id)\
+            .filter(RefereeDecisionLog.flight_name.isnot(None))\
+            .distinct()\
+            .all()
+        
+        # Get unique athlete names
+        athletes = db.session.query(RefereeDecisionLog.athlete_name)\
+            .filter_by(competition_id=competition_id)\
+            .filter(RefereeDecisionLog.athlete_name.isnot(None))\
+            .distinct()\
+            .order_by(RefereeDecisionLog.athlete_name)\
+            .all()
+        
+        return jsonify({
+            'success': True,
+            'events': [e[0] for e in events if e[0]],
+            'flights': [f[0] for f in flights if f[0]],
+            'athletes': [a[0] for a in athletes if a[0]]
+        }), 200
+        
+    except Exception as e:
+        print(f"Error fetching filters: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@admin_bp.route('/api/decision-results/<int:decision_id>', methods=['PUT'])
+def update_decision_result(decision_id):
+    """Update a decision result"""
+    try:
+        from ..models import RefereeDecisionLog
+        
+        decision = RefereeDecisionLog.query.get_or_404(decision_id)
+        data = request.get_json()
+        
+        # Update allowed fields
+        if 'athlete_name' in data:
+            decision.athlete_name = data['athlete_name']
+        if 'event_name' in data:
+            decision.event_name = data['event_name']
+        if 'flight_name' in data:
+            decision.flight_name = data['flight_name']
+        if 'weight_class' in data:
+            decision.weight_class = data['weight_class']
+        if 'team' in data:
+            decision.team = data['team']
+        if 'current_lift' in data:
+            decision.current_lift = data['current_lift']
+        if 'attempt_number' in data:
+            decision.attempt_number = int(data['attempt_number'])
+        if 'attempt_weight' in data:
+            decision.attempt_weight = float(data['attempt_weight'])
+        if 'decision_label' in data:
+            decision.decision_label = data['decision_label']
+        if 'decision_value' in data:
+            decision.decision_value = bool(data['decision_value'])
+        if 'decision_color' in data:
+            decision.decision_color = data['decision_color']
+        if 'violations' in data:
+            # Handle violations as array or string
+            if isinstance(data['violations'], list):
+                decision.violations = ', '.join(data['violations']) if data['violations'] else None
+            else:
+                decision.violations = data['violations']
+        
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Decision updated successfully',
+            'decision': decision.to_dict()
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error updating decision result: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@admin_bp.route('/api/decision-results/<int:decision_id>', methods=['DELETE'])
+def delete_decision_result(decision_id):
+    """Delete a decision result"""
+    try:
+        from ..models import RefereeDecisionLog
+        
+        decision = RefereeDecisionLog.query.get_or_404(decision_id)
+        
+        db.session.delete(decision)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Decision deleted successfully'
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error deleting decision result: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 @admin_bp.route('/referee/dashboard/<int:referee_id>')
 def referee_dashboard_page(referee_id):
@@ -3758,3 +3972,229 @@ def update_account():
         db.session.rollback()
         print(f"Error updating admin account: {str(e)}")
         return jsonify({'success': False, 'error': 'An error occurred while updating account'}), 500
+
+
+# ============================================
+# Technical Violations Management API
+# ============================================
+
+@admin_bp.route('/violations')
+def violations_management():
+    """Violations management page"""
+    auth_check = require_admin_auth()
+    if auth_check:
+        return auth_check
+    return render_template('admin/violations.html')
+
+
+@admin_bp.route('/api/violations', methods=['GET'])
+def get_violations():
+    """Get all technical violations"""
+    try:
+        from ..models import TechnicalViolation
+        
+        # Get only active violations or all based on query param
+        show_all = request.args.get('show_all', 'false').lower() == 'true'
+        
+        if show_all:
+            violations = TechnicalViolation.query.order_by(TechnicalViolation.display_order).all()
+        else:
+            violations = TechnicalViolation.query.filter_by(is_active=True).order_by(TechnicalViolation.display_order).all()
+        
+        return jsonify({
+            'success': True,
+            'violations': [v.to_dict() for v in violations]
+        }), 200
+        
+    except Exception as e:
+        print(f"Error fetching violations: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@admin_bp.route('/api/violations', methods=['POST'])
+def create_violation():
+    """Create a new technical violation"""
+    auth_check = require_admin_auth()
+    if auth_check:
+        return jsonify({'success': False, 'error': 'Not authenticated'}), 401
+    
+    try:
+        from ..models import TechnicalViolation
+        
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'success': False, 'message': 'No data provided'}), 400
+        
+        name = data.get('name', '').strip()
+        description = data.get('description', '').strip()
+        
+        if not name:
+            return jsonify({'success': False, 'message': 'Violation name is required'}), 400
+        
+        # Check if violation with same name already exists
+        existing = TechnicalViolation.query.filter_by(name=name).first()
+        if existing:
+            return jsonify({'success': False, 'message': f'Violation "{name}" already exists'}), 400
+        
+        # Get max display_order and add 1
+        max_order = db.session.query(db.func.max(TechnicalViolation.display_order)).scalar() or 0
+        
+        new_violation = TechnicalViolation(
+            name=name,
+            description=description,
+            is_active=True,
+            display_order=max_order + 1
+        )
+        
+        db.session.add(new_violation)
+        db.session.commit()
+        
+        # Broadcast violation update to all connected clients
+        socketio.emit('violations_updated', {'action': 'created', 'violation': new_violation.to_dict()}, namespace='/')
+        
+        return jsonify({
+            'success': True,
+            'message': f'Violation "{name}" created successfully',
+            'violation': new_violation.to_dict()
+        }), 201
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error creating violation: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@admin_bp.route('/api/violations/<int:violation_id>', methods=['PUT'])
+def update_violation(violation_id):
+    """Update a technical violation"""
+    auth_check = require_admin_auth()
+    if auth_check:
+        return jsonify({'success': False, 'error': 'Not authenticated'}), 401
+    
+    try:
+        from ..models import TechnicalViolation
+        
+        violation = TechnicalViolation.query.get_or_404(violation_id)
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'success': False, 'message': 'No data provided'}), 400
+        
+        # Update name if provided
+        if 'name' in data:
+            new_name = data['name'].strip()
+            if not new_name:
+                return jsonify({'success': False, 'message': 'Violation name cannot be empty'}), 400
+            
+            # Check if another violation with same name exists
+            existing = TechnicalViolation.query.filter(
+                TechnicalViolation.name == new_name,
+                TechnicalViolation.id != violation_id
+            ).first()
+            
+            if existing:
+                return jsonify({'success': False, 'message': f'Violation "{new_name}" already exists'}), 400
+            
+            violation.name = new_name
+        
+        # Update description if provided
+        if 'description' in data:
+            violation.description = data['description'].strip()
+        
+        # Update is_active if provided
+        if 'is_active' in data:
+            violation.is_active = bool(data['is_active'])
+        
+        # Update display_order if provided
+        if 'display_order' in data:
+            violation.display_order = int(data['display_order'])
+        
+        db.session.commit()
+        
+        # Broadcast violation update to all connected clients
+        socketio.emit('violations_updated', {'action': 'updated', 'violation': violation.to_dict()}, namespace='/')
+        
+        return jsonify({
+            'success': True,
+            'message': f'Violation "{violation.name}" updated successfully',
+            'violation': violation.to_dict()
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error updating violation: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@admin_bp.route('/api/violations/<int:violation_id>', methods=['DELETE'])
+def delete_violation(violation_id):
+    """Delete a technical violation"""
+    auth_check = require_admin_auth()
+    if auth_check:
+        return jsonify({'success': False, 'error': 'Not authenticated'}), 401
+    
+    try:
+        from ..models import TechnicalViolation
+        
+        violation = TechnicalViolation.query.get_or_404(violation_id)
+        violation_name = violation.name
+        violation_id = violation.id
+        
+        db.session.delete(violation)
+        db.session.commit()
+        
+        # Broadcast violation update to all connected clients
+        socketio.emit('violations_updated', {'action': 'deleted', 'violation_id': violation_id}, namespace='/')
+        
+        return jsonify({
+            'success': True,
+            'message': f'Violation "{violation_name}" deleted successfully'
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error deleting violation: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@admin_bp.route('/api/violations/<int:violation_id>/toggle', methods=['POST'])
+def toggle_violation(violation_id):
+    """Toggle violation active status"""
+    auth_check = require_admin_auth()
+    if auth_check:
+        return jsonify({'success': False, 'error': 'Not authenticated'}), 401
+    
+    try:
+        from ..models import TechnicalViolation
+        
+        violation = TechnicalViolation.query.get_or_404(violation_id)
+        violation.is_active = not violation.is_active
+        
+        db.session.commit()
+        
+        status = "enabled" if violation.is_active else "disabled"
+        
+        # Broadcast violation update to all connected clients
+        socketio.emit('violations_updated', {'action': 'toggled', 'violation': violation.to_dict()}, namespace='/')
+        
+        return jsonify({
+            'success': True,
+            'message': f'Violation "{violation.name}" {status}',
+            'violation': violation.to_dict()
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error toggling violation: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
