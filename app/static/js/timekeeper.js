@@ -538,9 +538,10 @@
     timeEl.className = "pin-time";
     timeEl.textContent = fmtHMS(defaultRestSeconds);
 
-    // set time row (no presets)
+    // set time row (no presets) - initially hidden
     const setRow = document.createElement("div");
     setRow.className = "pin-setrow";
+    setRow.style.display = "none";
     setRow.innerHTML = `
       <label class="pin-setlabel">Set Time:
         <input type="text" class="pin-hms" placeholder="HH:MM:SS">
@@ -551,6 +552,10 @@
     // actions
     const actions = document.createElement("div");
     actions.className = "pin-actions";
+
+    const btnEdit = document.createElement("button");
+    btnEdit.className = "pin-btn";
+    btnEdit.textContent = "✎ Edit";
 
     const btnStart = document.createElement("button");
     btnStart.className = "pin-btn";
@@ -564,7 +569,7 @@
     btnReset.className = "pin-btn";
     btnReset.textContent = "Reset";
 
-    actions.append(btnStart, btnPause, btnReset);
+    actions.append(btnEdit, btnStart, btnPause, btnReset);
 
     card.append(close, title, sub, timeEl, setRow, actions);
     wrap.prepend(card);
@@ -692,6 +697,8 @@
       const secs = parseHMS(inputHMS.value);
       if (!Number.isNaN(secs) && secs >= 0) {
         restTimer.set(secs);
+        setRow.style.display = "none";
+        btnEdit.textContent = "✎ Edit";
         saveTimerState();
       } else {
         btnApply.classList.add("invalid");
@@ -699,7 +706,20 @@
       }
     };
 
-    pin.elements = { card, timeEl, btnStart, btnPause, btnReset, sub, inputHMS, btnApply };
+    // Edit button to toggle the set time row
+    btnEdit.onclick = () => {
+      const isVisible = setRow.style.display !== "none";
+      setRow.style.display = isVisible ? "none" : "flex";
+      btnEdit.textContent = isVisible ? "✎ Edit" : "✕ Cancel";
+      
+      // Pre-fill with current timer value when opening
+      if (!isVisible) {
+        const currentSeconds = restTimer.currentSeconds();
+        inputHMS.value = fmtHMS(currentSeconds);
+      }
+    };
+
+    pin.elements = { card, timeEl, btnEdit, btnStart, btnPause, btnReset, sub, inputHMS, btnApply };
     pin.restTimer = restTimer;
 
     ensurePinsPanelVisibility();
@@ -798,6 +818,11 @@
 
   // ---------- Attempt: countdown toggle + defaults sync ----------
   const btnAttemptToggle = $("btnAttemptToggle");
+  const btnAttemptEdit = $("btnAttemptEdit");
+  const attemptSetRow = $("attemptSetRow");
+  const attemptHMS = $("attemptHMS");
+  const btnAttemptApply = $("btnAttemptApply");
+  
   let countdownOn = false;
   function setAttemptMode(countdownSeconds) {
     if (typeof countdownSeconds === "number" && countdownSeconds > 0) {
@@ -817,6 +842,56 @@
   if (btnAttemptToggle) {
     btnAttemptToggle.onclick = () => {
       setAttemptMode(countdownOn ? 0 : 60);
+    };
+  }
+  
+  // Edit button to show/hide time setter
+  if (btnAttemptEdit && attemptSetRow) {
+    btnAttemptEdit.onclick = () => {
+      const isVisible = attemptSetRow.style.display !== "none";
+      attemptSetRow.style.display = isVisible ? "none" : "flex";
+      btnAttemptEdit.textContent = isVisible ? "✎ Edit Time" : "✕ Cancel";
+      
+      // Pre-fill with current timer value when opening
+      if (!isVisible) {
+        const currentSeconds = attemptClock.currentSeconds();
+        attemptHMS.value = fmtHMS(currentSeconds);
+      }
+    };
+  }
+  
+  // Apply button to set new time
+  if (btnAttemptApply && attemptHMS) {
+    btnAttemptApply.onclick = () => {
+      const val = attemptHMS.value.trim();
+      if (!val) return;
+      
+      const parts = val.split(":").map(s => parseInt(s, 10) || 0);
+      let totalSec = 0;
+      if (parts.length === 3) {
+        totalSec = parts[0] * 3600 + parts[1] * 60 + parts[2];
+      } else if (parts.length === 2) {
+        totalSec = parts[0] * 60 + parts[1];
+      } else if (parts.length === 1) {
+        totalSec = parts[0];
+      }
+      
+      if (totalSec < 0) totalSec = 0;
+      
+      // Preserve the current mode (countdown or countup)
+      const wasRunning = attemptClock.running;
+      attemptClock.set(totalSec);
+      
+      // If timer was running, restart it
+      if (wasRunning) {
+        attemptClock.start();
+      }
+      
+      // Hide the setter
+      attemptSetRow.style.display = "none";
+      btnAttemptEdit.textContent = "✎ Edit Time";
+      
+      saveTimerState();
     };
   }
 
@@ -2068,6 +2143,11 @@
   }
   
   // Break timer button event listeners
+  const btnBreakEdit = document.getElementById("btnBreakEdit");
+  const breakTimerEditRow = document.getElementById("breakTimerEditRow");
+  const breakTimerHMS = document.getElementById("breakTimerHMS");
+  const btnBreakApply = document.getElementById("btnBreakApply");
+  
   if (btnBreakStart) {
     btnBreakStart.addEventListener('click', startBreakCountdown);
   }
@@ -2082,6 +2162,60 @@
   
   if (btnBreakDismiss) {
     btnBreakDismiss.addEventListener('click', dismissBreakTimer);
+  }
+  
+  // Edit button to show/hide time setter
+  if (btnBreakEdit && breakTimerEditRow) {
+    btnBreakEdit.addEventListener('click', () => {
+      const isVisible = breakTimerEditRow.style.display !== 'none';
+      breakTimerEditRow.style.display = isVisible ? 'none' : 'block';
+      btnBreakEdit.textContent = isVisible ? '✎ Edit' : '✕ Cancel';
+      
+      // Pre-fill with current timer value when opening
+      if (!isVisible) {
+        breakTimerHMS.value = formatTime(breakTimerSeconds);
+      }
+    });
+  }
+  
+  // Apply button to set new time
+  if (btnBreakApply && breakTimerHMS) {
+    btnBreakApply.addEventListener('click', () => {
+      const val = breakTimerHMS.value.trim();
+      if (!val) return;
+      
+      const parts = val.split(":").map(s => parseInt(s, 10) || 0);
+      let totalSec = 0;
+      if (parts.length === 3) {
+        totalSec = parts[0] * 3600 + parts[1] * 60 + parts[2];
+      } else if (parts.length === 2) {
+        totalSec = parts[0] * 60 + parts[1];
+      } else if (parts.length === 1) {
+        totalSec = parts[0];
+      }
+      
+      if (totalSec < 0) totalSec = 0;
+      
+      // Update the break timer
+      const wasRunning = breakTimerRunning;
+      breakTimerSeconds = totalSec;
+      updateBreakTimerDisplay();
+      
+      // Update the subtext to show the custom time that was set
+      if (breakTimerSubtext) {
+        breakTimerSubtext.innerHTML = `<div>Custom break time: ${formatTime(totalSec)}</div>`;
+      }
+      
+      // If timer was running, restart it
+      if (wasRunning) {
+        pauseBreakCountdown();
+        startBreakCountdown();
+      }
+      
+      // Hide the setter
+      breakTimerEditRow.style.display = 'none';
+      btnBreakEdit.textContent = '✎ Edit';
+    });
   }
 
 })();

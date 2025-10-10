@@ -223,6 +223,7 @@
 
           <div class="attempt-controls">
             <button id="btnAttemptToggle" class="btn" type="button">Countdown: Off</button>
+            <button id="btnAttemptEdit" class="btn" type="button" style="margin-left:.5rem">✎ Edit Time</button>
             <div class="timer-set attempt-set" id="attemptSetRow" style="display:none">
               <label for="attemptHMS"><strong>Set</strong></label>
               <input id="attemptHMS" class="input-hms" type="text" inputmode="numeric"
@@ -240,6 +241,7 @@
         <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
           <h5 id="breakTimerTitle">Break Timer</h5>
           <div style="display:flex;gap:.5rem;">
+            <button class="btn" id="btnBreakEdit" type="button">✎ Edit</button>
             <button class="btn" id="btnBreakStart" type="button">Start</button>
             <button class="btn" id="btnBreakPause" type="button">Pause</button>
             <button class="btn danger" id="btnBreakReset" type="button">Reset</button>
@@ -250,6 +252,11 @@
           <div id="breakTimerMessage" style="font-size:1.25rem; color:#2c5282; margin-bottom:1rem; font-weight:600"></div>
           <div id="breakTimerClock" style="font-size:4rem; font-weight:700; color:#2d3748; padding:2rem; background:#ebf8ff; border-radius:12px; margin-bottom:1rem">00:00:00</div>
           <div id="breakTimerSubtext" style="color:#718096; font-size:1rem"></div>
+          <div id="breakTimerEditRow" style="display:none; margin-top:1rem; padding:1rem; background:#f7fafc; border-radius:8px;">
+            <label style="font-weight:600; margin-right:.5rem">Set Time:</label>
+            <input id="breakTimerHMS" type="text" placeholder="HH:MM:SS" style="padding:.5rem; border:1px solid #cbd5e0; border-radius:4px; margin-right:.5rem">
+            <button class="btn" id="btnBreakApply" type="button">Apply</button>
+          </div>
         </div>
       </div>
 
