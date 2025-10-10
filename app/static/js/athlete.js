@@ -4,6 +4,143 @@
     let notifiedAt5Min = false;
     let notifiedAt3Min = false;
     let notifiedAt1Min = false;
+
+    // Timer countdown state
+    let timerCountdownInterval = null;
+    let timerTargetSeconds = 0;
+    let timerLastUpdate = Date.now();
+    
+    // Track if timer has expired (module-level so it's accessible everywhere)
+    let timerHasExpired = false;
+    let currentCountdownAttemptId = null;
+    let lastTimerType = null;
+    let lastServerTime = null; // Track last server time to detect significant changes
+    let timerWasRestored = false; // Track if timer was restored from localStorage
+    let currentAttemptInfo = null;
+
+    let eventStarted = false; // Track if event has started
+    let currentAttemptTimeRemaining = null; // Track time until next attempt
+    
+    // LocalStorage keys for timer persistence
+    const TIMER_STATE_KEY = 'athlete_timer_state';
+    
+    // Save timer state to localStorage
+    function saveTimerState() {
+        try {
+            const state = {
+                timerTargetSeconds,
+                timerLastUpdate,
+                timerHasExpired,
+                currentCountdownAttemptId,
+                lastTimerType,
+                lastServerTime,
+                currentAttemptInfo, // Save attempt info for display
+                hasInterval: !!timerCountdownInterval,
+                savedAt: Date.now()
+            };
+            localStorage.setItem(TIMER_STATE_KEY, JSON.stringify(state));
+        } catch (e) {
+            console.warn('Failed to save timer state:', e);
+        }
+    }
+    
+    // Restore timer state from localStorage
+    function restoreTimerState() {
+        try {
+            const stored = localStorage.getItem(TIMER_STATE_KEY);
+            if (!stored) return false;
+            
+            const state = JSON.parse(stored);
+            
+            // Don't restore if state is too old (> 1 hour)
+            if (Date.now() - state.savedAt > 60 * 60 * 1000) {
+                localStorage.removeItem(TIMER_STATE_KEY);
+                return false;
+            }
+            
+            // Restore state
+            timerHasExpired = state.timerHasExpired || false;
+            currentCountdownAttemptId = state.currentCountdownAttemptId;
+            lastTimerType = state.lastTimerType;
+            lastServerTime = state.lastServerTime;
+            
+            // Restore attempt info for display
+            if (state.currentAttemptInfo) {
+                currentAttemptInfo = state.currentAttemptInfo;
+            }
+            
+            // If timer was running, calculate current time
+            if (state.hasInterval && !state.timerHasExpired) {
+                const elapsedSinceLastUpdate = Math.floor((Date.now() - state.timerLastUpdate) / 1000);
+                timerTargetSeconds = Math.max(0, state.timerTargetSeconds - elapsedSinceLastUpdate);
+                
+                if (timerTargetSeconds > 0) {
+                    timerLastUpdate = Date.now();
+                    console.log(`🔄 Restored timer: ${timerTargetSeconds}s remaining`);
+                    // Restart the countdown from where it left off
+                    startLocalCountdown(timerTargetSeconds, state.lastTimerType, currentAttemptInfo);
+                    
+                    // Restore attempt info display
+                    const infoEl = document.querySelector('.next-attempt-info');
+                    if (infoEl && currentAttemptInfo) {
+                        updateTimerInfoDisplay(infoEl, {
+                            event: currentAttemptInfo.event,
+                            lift_type: currentAttemptInfo.lift_type,
+                            order: currentAttemptInfo.order,
+                            weight: currentAttemptInfo.weight,
+                            no_attempts: false
+                        });
+                    }
+                    
+                    return true;
+                } else {
+                    // Timer expired while page was closed
+                    timerHasExpired = true;
+                    updateTimerDisplay(0, 'ready', '');
+                    
+                    // Restore attempt info display
+                    const infoEl = document.querySelector('.next-attempt-info');
+                    if (infoEl && currentAttemptInfo) {
+                        updateTimerInfoDisplay(infoEl, {
+                            event: currentAttemptInfo.event,
+                            lift_type: currentAttemptInfo.lift_type,
+                            order: currentAttemptInfo.order,
+                            weight: currentAttemptInfo.weight,
+                            no_attempts: false
+                        });
+                    }
+                    
+                    console.log('⏱️ Timer expired while page was closed - showing GET READY');
+                    return true;
+                }
+            } else if (state.timerHasExpired) {
+                // Timer was already expired
+                updateTimerDisplay(0, 'ready', '');
+                
+                // Restore attempt info display
+                const infoEl = document.querySelector('.next-attempt-info');
+                if (infoEl && currentAttemptInfo) {
+                    updateTimerInfoDisplay(infoEl, {
+                        event: currentAttemptInfo.event,
+                        lift_type: currentAttemptInfo.lift_type,
+                        order: currentAttemptInfo.order,
+                        weight: currentAttemptInfo.weight,
+                        no_attempts: false
+                    });
+                }
+                
+                console.log('⏱️ Restored expired timer - showing GET READY');
+                return true;
+            }
+            
+            return false;
+        } catch (e) {
+            console.warn('Failed to restore timer state:', e);
+            localStorage.removeItem(TIMER_STATE_KEY);
+            return false;
+        }
+    }
+
     
     // Update notification button visibility and status
     function updateNotificationButton() {
@@ -31,10 +168,7 @@
     async function requestNotificationPermission() {
         if ('Notification' in window) {
             try {
-                // Check current permission first
                 notificationPermission = Notification.permission;
-                
-                // Update button based on permission status
                 updateNotificationButton();
             } catch (error) {
                 console.warn('Notification initialization error:', error);
@@ -50,7 +184,6 @@
                 notificationPermission = permission;
                 updateNotificationButton();
                 
-                // Show test notification
                 if (permission === 'granted') {
                     showNotification('🎉 Notifications Enabled!', 'You will receive alerts at 5min, 3min, and 1min before your attempts', 'test-notification');
                 }
@@ -62,10 +195,8 @@
     
     // Show notification (works locally without internet)
     function showNotification(title, body, tag) {
-        // Always show visual notification on page
         showVisualNotification(title, body);
         
-        // Try to show browser notification if permission granted
         if (notificationPermission === 'granted') {
             try {
                 const notification = new Notification(title, {
@@ -75,10 +206,8 @@
                     silent: false
                 });
                 
-                // Auto-close after 10 seconds
                 setTimeout(() => notification.close(), 10000);
                 
-                // Focus window when notification clicked
                 notification.onclick = function() {
                     window.focus();
                     this.close();
@@ -89,7 +218,7 @@
         }
     }
     
-    // Show visual notification on the page (always works, no permission needed)
+    // Show visual notification on the page
     function showVisualNotification(title, body) {
         const visualNotif = document.getElementById('visual-notification');
         const titleEl = document.getElementById('notification-title');
@@ -101,7 +230,6 @@
         bodyEl.textContent = body;
         visualNotif.style.display = 'block';
         
-        // Play a beep sound
         try {
             const audioContext = new (window.AudioContext || window.webkitAudioContext)();
             const oscillator = audioContext.createOscillator();
@@ -122,7 +250,6 @@
             // Silently fail if audio doesn't work
         }
         
-        // Auto-hide after 10 seconds
         setTimeout(() => {
             visualNotif.style.display = 'none';
         }, 10000);
@@ -130,9 +257,8 @@
     
     // Check timer and send notifications at specific intervals
     function checkAndNotify(remainingSeconds, timerType, attemptInfo) {
-        // Only notify during break timers (not during attempt)
-        if (timerType !== 'break') {
-            // Reset flags when not in break
+        // Only notify for estimate timers (not "you-are-up")
+        if (timerType !== 'estimate') {
             notifiedAt5Min = false;
             notifiedAt3Min = false;
             notifiedAt1Min = false;
@@ -181,19 +307,16 @@
 
     // Event switching functionality
     function showEvent(eventId) {
-        // Hide all event details
         const allEvents = document.querySelectorAll('.event-details');
         allEvents.forEach(event => {
             event.style.display = 'none';
         });
         
-        // Show selected event
         const selectedEvent = document.getElementById(eventId);
         if (selectedEvent) {
             selectedEvent.style.display = 'block';
         }
         
-        // Update button states
         const allButtons = document.querySelectorAll('.event-button');
         allButtons.forEach(button => {
             button.classList.remove('active');
@@ -205,12 +328,32 @@
         }
     }
 
-    // Form toggling (weight and reps)
+    // Form toggling (weight)
     function toggleForm(valueElement) {
         const display = valueElement.parentElement;
-        const valueSpan = display.querySelector('.weight-value, .reps-value');
-        const form = display.querySelector('.weight-form, .reps-form');
+        const valueSpan = display.querySelector('.weight-value');
+        const form = display.querySelector('.weight-form');
         
+        // Check if this is opening weight
+        const isOpeningWeight = display.closest('.opening-weights-section') !== null;
+        
+        // Get attempt ID if it's an attempt weight
+        let attemptId = null;
+        if (!isOpeningWeight) {
+            const attemptEl = display.closest('.attempt');
+            if (attemptEl) {
+                attemptId = attemptEl.dataset.attemptId;
+            }
+        }
+        
+        // Check if update is allowed
+        const canUpdate = canUpdateWeight(isOpeningWeight, attemptId);
+        
+        if (!canUpdate.allowed) {
+            alert(canUpdate.message);
+            return;
+        }
+
         if (form.style.display === 'none' || !form.style.display) {
             valueSpan.style.display = 'none';
             form.style.display = 'flex';
@@ -230,19 +373,27 @@
         const timerEl = document.querySelector('.countdown-timer');
         if (!timerEl) return;
 
-        if (remaining <= 0 || state === 'inactive' || state === 'disconnected' || state === 'error') {
+        if (remaining <= 0 && timerType !== 'you-are-up' && timerType !== 'ready') {
             timerEl.textContent = '--:--';
+        } else if (timerType === 'you-are-up') {
+            timerEl.textContent = 'YOU ARE UP!';
+            timerEl.classList.add('you-are-up');
+        } else if (timerType === 'ready') {
+            timerEl.textContent = 'GET READY!';
+            timerEl.classList.add('ready');
+            timerEl.classList.remove('you-are-up');
         } else {
             const m = Math.floor(remaining / 60);
             const s = Math.floor(remaining % 60);
             timerEl.textContent = `${m}:${s.toString().padStart(2, "0")}`;
+            timerEl.classList.remove('you-are-up', 'ready');
         }
         
         timerEl.className = `timer countdown-timer ${timerType || ''} ${state || ''}`;
-        timerEl.classList.toggle("warning", remaining <= 120 && remaining > 0);
+        timerEl.classList.toggle("warning", remaining <= 300 && remaining > 60);
         timerEl.classList.toggle("critical", remaining <= 60 && remaining > 0);
         
-        if (state === 'expired' || remaining <= 0) {
+        if (state === 'expired' || (remaining <= 0 && timerType !== 'you-are-up' && timerType !== 'ready')) {
             timerEl.classList.add("expired");
         }
     }
@@ -251,7 +402,6 @@
     function updateTimerInfoDisplay(infoEl, data) {
         if (!infoEl) return;
 
-        // Handle "no attempts left" case
         if (data.no_attempts) {
             infoEl.innerHTML = '<p>' + (data.message || 'No attempt left') + '</p>';
             return;
@@ -268,52 +418,82 @@
         if (attemptOrderEl) attemptOrderEl.textContent = data.order || 1;
     }
 
+    // Start local countdown timer
+    function startLocalCountdown(initialSeconds, timerType, attemptInfo) {
+        console.log('🎬 startLocalCountdown called:', { initialSeconds, timerType });
+        
+        // Clear any existing countdown
+        if (timerCountdownInterval) {
+            clearInterval(timerCountdownInterval);
+            timerCountdownInterval = null;
+            console.log('⚠️ Cleared existing countdown interval');
+        }
+        
+        // Don't countdown for "you-are-up" state
+        if (timerType === 'you-are-up') {
+            updateTimerDisplay(0, 'you-are-up', '');
+            currentAttemptTimeRemaining = 0;
+            updateWeightInputAvailability(); // Update restrictions
+            return;
+        }
+        
+        timerTargetSeconds = initialSeconds;
+        timerLastUpdate = Date.now();
+        currentAttemptTimeRemaining = initialSeconds;
+        
+        // Update immediately
+        updateTimerDisplay(timerTargetSeconds, timerType, '');
+        checkAndNotify(timerTargetSeconds, timerType, attemptInfo);
+        updateWeightInputAvailability(); // Update restrictions
+        
+        // Save initial state
+        saveTimerState();
+        
+        // Start countdown interval (update every second)
+        timerCountdownInterval = setInterval(() => {
+            const now = Date.now();
+            const elapsedSeconds = Math.floor((now - timerLastUpdate) / 1000);
+            
+            if (elapsedSeconds > 0) {
+                timerTargetSeconds = Math.max(0, timerTargetSeconds - elapsedSeconds);
+                timerLastUpdate = now;
+                currentAttemptTimeRemaining = timerTargetSeconds;
+                
+                updateTimerDisplay(timerTargetSeconds, timerType, '');
+                checkAndNotify(timerTargetSeconds, timerType, attemptInfo);
+                updateWeightInputAvailability(); // Update restrictions every second
+                
+                // Save state every second
+                saveTimerState();
+                
+                // Stop countdown when reaching 0
+                if (timerTargetSeconds <= 0) {
+                    console.log('⏱️ Countdown complete - stopping interval');
+                    clearInterval(timerCountdownInterval);
+                    timerCountdownInterval = null;
+                    currentAttemptTimeRemaining = 0;
+                    
+                    // Mark timer as expired
+                    timerHasExpired = true;
+                    console.log('✅ Timer expired flag SET - timerHasExpired =', timerHasExpired);
+                    
+                    // Show "Ready!" message at 0
+                    updateTimerDisplay(0, 'ready', '');
+                    console.log('⏱️ Timer now at READY state');
+                    
+                    updateWeightInputAvailability(); // Final update
+                    
+                    // Save expired state
+                    saveTimerState();
+                }
+            }
+        }, 1000);
+        
+        console.log('✅ Countdown interval started');
+    }
     // Timer initialization - polling system handles all timer updates
     function startCountdown(el) {
         // No-op: Timer updates are handled by initializePollingTimerUpdates
-        // This function is kept for compatibility
-    }
-
-    // Enhanced reps form handling with AJAX
-    async function handleRepsFormSubmit(e) {
-        e.preventDefault();
-        const form = e.target;
-        const repsDisplay = form.closest('.reps-display');
-        const repsValue = repsDisplay.querySelector('.reps-value');
-        const formData = new FormData(form);
-        const submitBtn = form.querySelector('.submit-reps');
-        const originalText = submitBtn.textContent;
-        
-        try {
-            submitBtn.textContent = 'Saving...';
-            submitBtn.disabled = true;
-            
-            const response = await fetch(form.action, {
-                method: 'POST',
-                body: formData
-            });
-            
-            const data = await response.json();
-            
-            if (data.success) {
-                // Update the reps display with the array format
-                const newReps = data.entry.reps_display || formData.get('reps');
-                repsValue.textContent = newReps;
-                
-                // Hide the form
-                toggleForm(repsValue);
-                
-
-            } else {
-                alert('Error updating reps: ' + (data.error || 'Unknown error'));
-            }
-        } catch (error) {
-            console.error('Error updating reps:', error);
-            alert('Error updating reps. Please try again.');
-        } finally {
-            submitBtn.textContent = originalText;
-            submitBtn.disabled = false;
-        }
     }
 
     async function handleWeightFormSubmit(e) {
@@ -325,12 +505,11 @@
         const submitBtn = form.querySelector('.submit-weight');
         const originalText = submitBtn.textContent;
         
-        // Validate weight based on competition rules
         const weightInput = form.querySelector('input[name="weight"]');
         const newWeight = parseFloat(weightInput.value);
         
         if (!validateWeightSelection(form, newWeight)) {
-            return; // Validation failed, don't submit
+            return;
         }
         
         try {
@@ -345,20 +524,13 @@
             const data = await response.json();
             
             if (data.success) {
-                // Update the weight display
                 weightValue.textContent = newWeight + 'kg';
-                
-                // Hide the form
                 toggleForm(weightValue);
                 
-                // If this is an opening weight form, update attempt 1 displays in the same movement section
                 if (form.closest('.opening-weights-section')) {
                     updateAttempt1Display(form, newWeight);
                 }
                 
-
-                
-                // Update next attempt info if this affects the current attempt
                 if (data.attempt) {
                     updateNextAttemptDisplay(data.attempt);
                 }
@@ -381,7 +553,6 @@
         const infoEl = timerCard.querySelector('.next-attempt-info');
         if (!infoEl) return;
 
-        // Update timer info if this is the current attempt
         const weightEl = infoEl.querySelector('.weight');
         if (weightEl && attempt.requested_weight) {
             weightEl.textContent = attempt.requested_weight;
@@ -389,21 +560,16 @@
     }
 
     function updateAttempt1Display(openingWeightForm, newWeight) {
-        // Find the movement section that contains this opening weight form
         const movementSection = openingWeightForm.closest('.movement-section');
         if (!movementSection) return;
 
-        // Find all attempt 1 displays in this movement section
         const attemptsSection = movementSection.querySelector('.attempts-section');
         if (!attemptsSection) return;
 
-        // Look for attempt 1 displays (those that show opening weight)
         const attempt1Elements = attemptsSection.querySelectorAll('.attempt');
         attempt1Elements.forEach(attemptEl => {
-            // Check if this is attempt 1 by looking for the "(Opening Weight)" note
             const weightNote = attemptEl.querySelector('.weight-note');
             if (weightNote && weightNote.textContent.includes('Opening Weight')) {
-                // Update the weight value display
                 const weightValue = attemptEl.querySelector('.weight-value');
                 if (weightValue) {
                     weightValue.textContent = newWeight + 'kg';
@@ -413,19 +579,16 @@
     }
 
     function validateWeightSelection(form, newWeight) {
-        // Skip validation for opening weight forms (attempt 1)
         if (form.closest('.opening-weights-section')) {
-            return true; // Opening weights have no restrictions
+            return true;
         }
 
-        // Get the movement section to analyze previous attempts
         const movementSection = form.closest('.movement-section');
         if (!movementSection) return true;
 
         const attemptsSection = movementSection.querySelector('.attempts-section');
         if (!attemptsSection) return true;
 
-        // Collect attempt data
         const attempts = [];
         const attemptElements = attemptsSection.querySelectorAll('.attempt');
         
@@ -438,7 +601,6 @@
             const weightMatch = attemptText.match(/(\d+(?:\.\d+)?)kg/);
             const weight = weightMatch ? parseFloat(weightMatch[1]) : 0;
             
-            // Extract status and result from the DOM elements
             const statusEl = attemptEl.querySelector('.status');
             const resultEl = attemptEl.querySelector('.result');
             const status = statusEl ? statusEl.textContent.trim().toLowerCase() : 'waiting';
@@ -454,14 +616,11 @@
             });
         });
 
-        // Sort attempts by number
         attempts.sort((a, b) => a.number - b.number);
 
-        // Find which attempt we're updating
         const attemptIdInput = form.querySelector('input[name="attempt_id"]');
         if (!attemptIdInput) return true;
 
-        // Find the current attempt number by matching against attempt elements
         let currentAttemptNum = null;
         const currentAttemptEl = form.closest('.attempt');
         if (currentAttemptEl) {
@@ -474,7 +633,6 @@
 
         if (!currentAttemptNum) return true;
 
-        // Apply validation rules
         const validationResult = applyWeightValidationRules(attempts, currentAttemptNum, newWeight);
         
         if (!validationResult.isValid) {
@@ -486,7 +644,6 @@
     }
 
     function applyWeightValidationRules(attempts, currentAttemptNum, newWeight) {
-        // Rule 1: Find the first successful attempt weight (cannot go lighter than this)
         const firstSuccessfulAttempt = attempts.find(a => a.isCompleted && a.isSuccessful);
         if (firstSuccessfulAttempt && newWeight < firstSuccessfulAttempt.weight) {
             return {
@@ -495,13 +652,10 @@
             };
         }
 
-        // Rule 2: Check the previous attempt (both completed and pending)
         const previousAttempt = attempts.find(a => a.number === currentAttemptNum - 1);
         if (previousAttempt) {
-            // For completed attempts, check result
             if (previousAttempt.isCompleted) {
                 if (previousAttempt.isSuccessful) {
-                    // Previous lift was successful - suggest 2.5kg increase
                     const suggestedWeight = previousAttempt.weight + 2.5;
                     if (newWeight < suggestedWeight) {
                         const confirmMsg = `Previous lift was successful. Suggested weight is ${suggestedWeight}kg (2.5kg increase). Continue with ${newWeight}kg?`;
@@ -510,7 +664,6 @@
                         }
                     }
                 } else {
-                    // Previous lift failed - can repeat same weight or go heavier
                     if (newWeight < previousAttempt.weight) {
                         return {
                             isValid: false,
@@ -518,7 +671,6 @@
                         };
                     }
                     
-                    // If repeating the same weight after a fail, show confirmation
                     if (newWeight === previousAttempt.weight) {
                         const confirmMsg = `Repeating the same weight (${newWeight}kg) after a failed attempt. Continue?`;
                         if (!confirm(confirmMsg)) {
@@ -527,7 +679,6 @@
                     }
                 }
             } else {
-                // For pending attempts, cannot go lighter than previous attempt weight
                 if (newWeight < previousAttempt.weight) {
                     return {
                         isValid: false,
@@ -540,56 +691,164 @@
         return { isValid: true };
     }
 
-    // Form initialization (weight and reps)
+        // Check if weight can be updated
+    function canUpdateWeight(isOpeningWeight, attemptId = null) {
+        if (isOpeningWeight) {
+            // Opening weights can only be updated before event starts
+            if (eventStarted) {
+                return {
+                    allowed: false,
+                    message: 'Opening weights cannot be changed after the event has started.'
+                };
+            }
+            return { allowed: true };
+        }
+        
+        // For attempt weights
+        if (currentAttemptTimeRemaining !== null) {
+            // Check if this is the next attempt
+            const isNextAttempt = attemptId && String(attemptId) === String(currentCountdownAttemptId);
+            
+            if (isNextAttempt) {
+                // Cannot update if less than 3 minutes (180 seconds) remaining
+                if (currentAttemptTimeRemaining < 180) {
+                    const minutes = Math.floor(currentAttemptTimeRemaining / 60);
+                    const seconds = currentAttemptTimeRemaining % 60;
+                    return {
+                        allowed: false,
+                        message: `Cannot update weight with less than 3 minutes remaining. Current time: ${minutes}:${seconds.toString().padStart(2, '0')}`
+                    };
+                }
+            }
+        }
+        
+        return { allowed: true };
+    }
+
+    // Disable weight inputs based on restrictions
+    function updateWeightInputAvailability() {
+        // Handle opening weights
+        document.querySelectorAll('.opening-weights-section .weight-display').forEach(display => {
+            const weightValue = display.querySelector('.weight-value');
+            const form = display.querySelector('.weight-form');
+            
+            if (!weightValue || !form) return;
+            
+            const canUpdate = canUpdateWeight(true);
+            
+            if (!canUpdate.allowed) {
+                // Disable clicking to edit
+                weightValue.style.cursor = 'not-allowed';
+                weightValue.style.opacity = '0.6';
+                weightValue.title = canUpdate.message;
+                
+                // Remove click handler
+                const newWeightValue = weightValue.cloneNode(true);
+                weightValue.parentNode.replaceChild(newWeightValue, weightValue);
+                
+                // Hide form if it's showing
+                if (form.style.display !== 'none') {
+                    newWeightValue.style.display = 'inline';
+                    form.style.display = 'none';
+                }
+            } else {
+                weightValue.style.cursor = 'pointer';
+                weightValue.style.opacity = '1';
+                weightValue.title = 'Click to edit';
+            }
+        });
+        
+        // Handle attempt weights
+        document.querySelectorAll('.attempts-section .weight-display').forEach(display => {
+            const weightValue = display.querySelector('.weight-value');
+            const form = display.querySelector('.weight-form');
+            const attemptEl = display.closest('.attempt');
+            
+            if (!weightValue || !form || !attemptEl) return;
+            
+            const attemptId = attemptEl.dataset.attemptId;
+            const isOpeningWeight = display.querySelector('.weight-note')?.textContent.includes('Opening Weight');
+            
+            // Skip if this is showing opening weight (Attempt 1)
+            if (isOpeningWeight) {
+                const canUpdate = canUpdateWeight(true);
+                if (!canUpdate.allowed) {
+                    weightValue.style.cursor = 'not-allowed';
+                    weightValue.style.opacity = '0.6';
+                    weightValue.title = canUpdate.message;
+                    
+                    const newWeightValue = weightValue.cloneNode(true);
+                    weightValue.parentNode.replaceChild(newWeightValue, weightValue);
+                    
+                    if (form.style.display !== 'none') {
+                        newWeightValue.style.display = 'inline';
+                        form.style.display = 'none';
+                    }
+                }
+                return;
+            }
+            
+            const canUpdate = canUpdateWeight(false, attemptId);
+            
+            if (!canUpdate.allowed) {
+                weightValue.style.cursor = 'not-allowed';
+                weightValue.style.opacity = '0.6';
+                weightValue.title = canUpdate.message;
+                
+                // Remove click handler by cloning
+                const newWeightValue = weightValue.cloneNode(true);
+                weightValue.parentNode.replaceChild(newWeightValue, weightValue);
+                
+                // Hide form if showing
+                if (form.style.display !== 'none') {
+                    newWeightValue.style.display = 'inline';
+                    form.style.display = 'none';
+                }
+            } else {
+                weightValue.style.cursor = 'pointer';
+                weightValue.style.opacity = '1';
+                weightValue.title = 'Click to edit';
+            }
+        });
+    }
+
+    // Detect event start from server data
+    function updateEventStatus(data) {
+        // Event is considered started if there's any timer activity or completed attempts
+        if (data.timer_active || data.has_completed_attempts) {
+            if (!eventStarted) {
+                eventStarted = true;
+                console.log('🏁 Event has started - opening weights now locked');
+                updateWeightInputAvailability();
+            }
+        }
+    }
+    // Form initialization
     function initializeForms(container = document) {
-        // Initialize weight forms
         container.querySelectorAll('.weight-display').forEach(display => {
             const weightValue = display.querySelector('.weight-value');
             const form = display.querySelector('.weight-form');
             
             if (!weightValue || !form) return;
 
-            // Add click event listener to weight value
             weightValue.addEventListener('click', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
                 toggleForm(weightValue);
             });
 
-            // Add submit event listener to form
             form.addEventListener('submit', handleWeightFormSubmit);
-        });
-
-        // Initialize reps forms
-        container.querySelectorAll('.reps-display').forEach(display => {
-            const repsValue = display.querySelector('.reps-value');
-            const form = display.querySelector('.reps-form');
-            
-            if (!repsValue || !form) return;
-
-            // Add click event listener to reps value
-            repsValue.addEventListener('click', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                toggleForm(repsValue);
-            });
-
-            // Add submit event listener to form
-            form.addEventListener('submit', handleRepsFormSubmit);
         });
     }
 
-    // Initialize everything when DOM is ready
+    // Initialize when DOM ready
     document.addEventListener("DOMContentLoaded", () => {
-        // Initialize notification button
         const notificationBtn = document.getElementById('enable-notifications');
         if (notificationBtn) {
             notificationBtn.addEventListener('click', enableNotifications);
         }
         
-        // Initialize event switching
         const buttons = bySelAll(".event-button");
-        
         buttons.forEach(button => {
             button.addEventListener('click', function() {
                 const target = this.dataset.target;
@@ -597,28 +856,29 @@
             });
         });
 
-        // Show first event by default
         const firstButton = document.querySelector('.event-button.active') || document.querySelector('.event-button');
         if (firstButton) {
             const target = firstButton.dataset.target;
             showEvent(target);
             firstButton.classList.add('active');
         }
-
-        // Timer functionality is handled by polling system
         
-        // Initialize forms (weight and reps)
         initializeForms();
         
-        // Initialize WebSocket connection
+        // Restore timer state before initializing WebSocket/polling
+        const restored = restoreTimerState();
+        if (restored) {
+            console.log('✅ Timer state restored from previous session');
+        }
+        
         initializeWebSocket();
+        updateWeightInputAvailability(); // Initialize restrictions on page load
     });
 
-    // WebSocket connection for real-time timer updates
+    // WebSocket connection
     function initializeWebSocket() {
-        // Only initialize if Socket.IO is available
         if (typeof io === 'undefined') {
-            console.warn('Socket.IO not available - falling back to polling timer updates');
+            console.warn('Socket.IO not available - falling back to polling');
             initializePollingTimerUpdates();
             return;
         }
@@ -628,7 +888,6 @@
         socket.on('connect', () => {
             console.log('Connected to real-time server');
             
-            // Join competition room if we have competition data
             const competitionMeta = window.competitionData;
             if (competitionMeta && competitionMeta.id) {
                 socket.emit('join_competition', {
@@ -639,36 +898,86 @@
         });
 
         socket.on('timer_update', (data) => {
-            // Update timer display when receiving real-time updates
-            if (data.remaining !== undefined && (data.type === 'break' || data.timer_id?.startsWith('attempt_'))) {
-                updateTimerDisplay(data.remaining, data.type, data.state);
+            // Normalize fields from websocket payload to the polling schema
+            const serverTime = (data.remaining !== undefined) ? data.remaining : (data.time !== undefined ? data.time : null);
+            const serverTimerType = data.type || data.timer_type || null;
+
+            // Attempt id may come as attempt_id or encoded in timer_id like 'attempt_123'
+            let serverAttemptId = data.attempt_id || null;
+            if (!serverAttemptId && data.timer_id && typeof data.timer_id === 'string' && data.timer_id.startsWith('attempt_')) {
+                serverAttemptId = data.timer_id.split('_')[1];
+            }
+
+            // If we don't have a usable time/type, fallback to simple display update
+            if (serverTime === null || serverTimerType === null) {
+                if (serverTime !== null && serverTimerType !== null) {
+                    updateTimerDisplay(serverTime, serverTimerType, data.state);
+                }
+                return;
+            }
+
+            // Use similar restart/resync logic as polling handler so websocket-driven changes
+            // (for example: attempt order updates) will start the countdown even when the
+            // client previously showed 'ready' (timerHasExpired = true).
+            checkAndNotify(serverTime, serverTimerType, currentAttemptInfo);
+
+            const noCountdown = !timerCountdownInterval;
+            const differentAttempt = String(currentCountdownAttemptId) !== String(serverAttemptId);
+            const differentType = lastTimerType !== serverTimerType;
+            const significantTimeChange = timerCountdownInterval && lastServerTime !== null && Math.abs(serverTime - lastServerTime) > 30;
+
+            // If the timer had previously expired, allow websocket to restart it.
+            const needRestart = noCountdown || differentAttempt || differentType || significantTimeChange || timerHasExpired;
+
+            if (needRestart) {
+                if (significantTimeChange) {
+                    console.log(`⚡ [WS] Queue changed - restarting timer: old=${lastServerTime}s, new=${serverTime}s, diff=${Math.abs(serverTime - lastServerTime)}s`);
+                } else {
+                    console.log(`🔄 [WS] Timer START: attempt=${serverAttemptId}, type=${serverTimerType}, time=${serverTime}s`);
+                }
+
+                timerHasExpired = false;
+                startLocalCountdown(serverTime, serverTimerType, currentAttemptInfo);
+                currentCountdownAttemptId = serverAttemptId;
+                lastTimerType = serverTimerType;
+                lastServerTime = serverTime;
+            } else {
+                // Lightweight update - don't restart interval but refresh the last server time
+                lastServerTime = serverTime;
+                updateTimerDisplay(serverTime, serverTimerType, data.state);
             }
         });
 
         socket.on('disconnect', () => {
             console.log('Disconnected from real-time server');
-            // Fall back to polling if WebSocket disconnects
             initializePollingTimerUpdates();
         });
 
         socket.on('connect_error', () => {
-            console.warn('WebSocket connection failed - falling back to polling');
+            console.warn('WebSocket failed - falling back to polling');
             initializePollingTimerUpdates();
         });
     }
 
-    // Fallback: Polling-based timer updates (works without WebSocket)
+    // Polling-based timer updates (works without WebSocket)
     function initializePollingTimerUpdates() {
-        console.log('Using polling for timer updates (local network friendly)');
+        console.log('Using polling for timer updates');
         
         let connectionFailures = 0;
         const maxFailures = 3;
         let pollingIntervalId = null;
-        let currentAttemptInfo = null; // Store attempt info for notifications
-        let activeEventId = null; // Track active event context
-        let isInitialized = false; // Flag to prevent showing info before context is ready
+        let activeEventId = null;
+        let isInitialized = false;
         
-        // Get active event context first
+        // Grace period to prevent overwriting restored state
+        const restoredFromStorage = !!timerCountdownInterval;
+        let gracePeriodActive = restoredFromStorage;
+        let gracePeriodEnd = restoredFromStorage ? Date.now() + 5000 : 0; // 5 second grace period
+        
+        if (restoredFromStorage) {
+            console.log('🛡️ Timer restored - activating 5s grace period to prevent restart');
+        }
+        
         async function getActiveEvent() {
             try {
                 const response = await fetch('/athlete/get-active-event');
@@ -679,110 +988,172 @@
                     }
                 }
             } catch (error) {
-                // Silently ignore - will use fallback logic
+                // Silent fail
             }
-            // Mark as initialized once we've attempted to get active event
             isInitialized = true;
         }
         
-        // Get active event on initialization, then start polling
-        getActiveEvent().then(() => {
-            // Start polling after active event is loaded
-            startPolling();
-        }).catch(() => {
-            // Start polling even if getting active event fails
-            startPolling();
-        });
+        getActiveEvent().then(startPolling).catch(startPolling);
         
         function startPolling() {
-            // Poll every 1 second for more responsive timer updates
+            // Poll every 3 seconds (reduced frequency to minimize restarts)
             pollingIntervalId = setInterval(async () => {
-            try {
-                // Include active event context in request if available
-                let url = '/athlete/next-attempt-timer';
-                if (activeEventId) {
-                    url += `?event_id=${activeEventId}`;
-                }
-                
-                const response = await fetch(url);
-                
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}`);
-                }
-                
-                const data = await response.json();
-                
-                // Reset failure count on successful connection
-                connectionFailures = 0;
-                
-                // Periodically refresh active event context (every 5 minutes)
-                if (Date.now() % 300000 < 1000) {
-                    getActiveEvent();
-                }
-                
-                const infoEl = document.querySelector('.next-attempt-info');
-                
-                // Don't display attempt info until we have proper initialization
-                if (!isInitialized) {
-                    // Show loading state while waiting for proper context
-                    updateTimerDisplay(0, 'inactive', 'inactive');
-                    if (infoEl) infoEl.innerHTML = '<p>Loading...</p>';
-                    return;
-                }
-                
-                // Store attempt info for notifications
-                if (data.event && data.lift_type) {
-                    currentAttemptInfo = {
-                        lift_type: data.lift_type,
-                        order: data.order,
-                        weight: data.weight
-                    };
-                }
-                
-                // Handle different timer states
-                if (data.no_attempts) {
-                    currentAttemptInfo = null;
-                    updateTimerDisplay(0, 'inactive', 'inactive');
-                    if (infoEl) infoEl.innerHTML = '<p>' + (data.message || 'No attempt left') + '</p>';
-                } else if (!data.error && data.timer_active && data.time !== null) {
-                    // Check and send notifications based on remaining time
-                    checkAndNotify(data.time, data.timer_type, currentAttemptInfo);
-                    
-                    // Update timer display
-                    updateTimerDisplay(data.time, data.timer_type, '');
-                    
-                    // Update info display
-                    updateTimerInfoDisplay(infoEl, data);
-                } else {
-                    currentAttemptInfo = null;
-                    updateTimerDisplay(0, 'inactive', 'inactive');
-                    if (infoEl) infoEl.innerHTML = '<p>No upcoming attempts</p>';
-                }
-            } catch (error) {
-                connectionFailures++;
-                console.warn(`Polling failed (${connectionFailures}/${maxFailures}):`, error.message);
-                
-                if (connectionFailures >= maxFailures) {
-                    console.log('Max connection failures reached. Stopping polling.');
-                    if (pollingIntervalId) {
-                        clearInterval(pollingIntervalId);
-                        pollingIntervalId = null;
+                try {
+                    // CRITICAL: Check if timer has expired BEFORE making any requests
+                    if (timerHasExpired) {
+                        console.log('🛑 Timer expired - staying at GET READY, skipping poll');
+                        // Still update the info display if we have current attempt info
+                        const infoEl = document.querySelector('.next-attempt-info');
+                        if (infoEl && currentAttemptInfo) {
+                            updateTimerInfoDisplay(infoEl, {
+                                event: currentAttemptInfo.event,
+                                lift_type: currentAttemptInfo.lift_type,
+                                order: currentAttemptInfo.order,
+                                weight: currentAttemptInfo.weight,
+                                no_attempts: false
+                            });
+                        }
+                        return; // Exit without fetching new data
                     }
                     
-                    // Show disconnected state
-                    updateTimerDisplay(0, 'disconnected', 'disconnected');
+                    let url = '/athlete/next-attempt-timer';
+                    if (activeEventId) {
+                        url += `?event_id=${activeEventId}`;
+                    }
+                    
+                    const response = await fetch(url);
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}`);
+                    }
+                    
+                    const data = await response.json();
+                    updateEventStatus(data);
+                    connectionFailures = 0;
+                    
+                    // Refresh event context every 5 minutes
+                    if (Date.now() % 300000 < 3000) {
+                        getActiveEvent();
+                    }
+                    
                     const infoEl = document.querySelector('.next-attempt-info');
-                    if (infoEl) infoEl.innerHTML = '<p>Server disconnected</p>';
-                } else {
-                    // Show error state but keep trying
-                    updateTimerDisplay(0, 'error', 'error');
+                    
+                    if (!isInitialized) {
+                        updateTimerDisplay(0, 'inactive', 'inactive');
+                        if (infoEl) infoEl.innerHTML = '<p>Loading...</p>';
+                        return;
+                    }
+                    
+                    // Store attempt info with full event data for display when expired
+                    if (data.event && data.lift_type) {
+                        currentAttemptInfo = {
+                            event: data.event,
+                            lift_type: data.lift_type,
+                            order: data.order,
+                            weight: data.weight
+                        };
+                    }
+                    
+                    if (data.no_attempts) {
+                        currentAttemptInfo = null;
+                        currentCountdownAttemptId = null;
+                        lastTimerType = null;
+                        timerHasExpired = false; // Reset on no attempts
+                        if (timerCountdownInterval) {
+                            clearInterval(timerCountdownInterval);
+                            timerCountdownInterval = null;
+                        }
+                        updateTimerDisplay(0, 'inactive', 'inactive');
+                        if (infoEl) infoEl.innerHTML = '<p>' + (data.message || 'No attempt left') + '</p>';
+                    } else if (!data.error && data.is_first_in_queue) {
+                        // Athlete is first in queue - show "YOU ARE UP"
+                        currentAttemptInfo = null;
+                        currentCountdownAttemptId = data.attempt_id || null;
+                        lastTimerType = 'you-are-up';
+                        timerHasExpired = false;
+                        
+                        if (timerCountdownInterval) {
+                            clearInterval(timerCountdownInterval);
+                            timerCountdownInterval = null;
+                        }
+                        
+                        updateTimerDisplay(0, 'you-are-up', '');
+                        updateTimerInfoDisplay(infoEl, data);
+                    } else if (!data.error && data.timer_active && data.time !== null) {
+                        checkAndNotify(data.time, data.timer_type, currentAttemptInfo);
+
+                        const serverAttemptId = data.attempt_id || null;
+                        const serverTimerType = data.timer_type || null;
+                        const serverTime = data.time;
+
+                        const noCountdown = !timerCountdownInterval;
+                        const differentAttempt = String(currentCountdownAttemptId) !== String(serverAttemptId);
+                        const differentType = lastTimerType !== serverTimerType;
+                        
+                        // Detect significant time changes (queue changed, attempt order updated, status changed)
+                        // Only check if countdown is running and we have a previous server time
+                        // Increase threshold to 30 seconds to avoid restarts from network delays
+                        const significantTimeChange = timerCountdownInterval && 
+                                                    lastServerTime !== null && 
+                                                    Math.abs(serverTime - lastServerTime) > 30; // 30+ second difference
+
+                        const needRestart = noCountdown || differentAttempt || differentType || significantTimeChange;
+
+                        if (needRestart) {
+                            if (significantTimeChange) {
+                                console.log(`⚡ Queue changed - restarting timer: old=${lastServerTime}s, new=${serverTime}s, diff=${Math.abs(serverTime - lastServerTime)}s`);
+                            } else {
+                                console.log(`🔄 Timer START: attempt=${serverAttemptId}, type=${serverTimerType}, time=${serverTime}s`);
+                            }
+                            
+                            timerHasExpired = false; // Reset expired flag when starting new timer
+                            startLocalCountdown(serverTime, data.timer_type, currentAttemptInfo);
+                            currentCountdownAttemptId = serverAttemptId;
+                            lastTimerType = serverTimerType;
+                            lastServerTime = serverTime; // Track this server time
+                        } else {
+                            // Update lastServerTime for next comparison (but don't restart)
+                            lastServerTime = serverTime;
+                        }
+
+                        updateTimerInfoDisplay(infoEl, data);
+                    } else {
+                        currentAttemptInfo = null;
+                        currentCountdownAttemptId = null;
+                        lastTimerType = null;
+                        timerHasExpired = false; // Reset on inactive
+                        if (timerCountdownInterval) {
+                            clearInterval(timerCountdownInterval);
+                            timerCountdownInterval = null;
+                        }
+                        updateTimerDisplay(0, 'inactive', 'inactive');
+                        if (infoEl) infoEl.innerHTML = '<p>No upcoming attempts</p>';
+                    }
+                } catch (error) {
+                    connectionFailures++;
+                    console.warn(`Polling failed (${connectionFailures}/${maxFailures}):`, error.message);
+                    
+                    if (connectionFailures >= maxFailures) {
+                        console.log('Max failures reached. Stopping polling.');
+                        if (pollingIntervalId) {
+                            clearInterval(pollingIntervalId);
+                            pollingIntervalId = null;
+                        }
+                        
+                        updateTimerDisplay(0, 'disconnected', 'disconnected');
+                        const infoEl = document.querySelector('.next-attempt-info');
+                        if (infoEl) infoEl.innerHTML = '<p>Server disconnected</p>';
+                    } else {
+                        updateTimerDisplay(0, 'error', 'error');
+                    }
                 }
-            }
-        }, 1000); // Update every 1 second for more responsive updates
+            }, 3000); // Poll every 3 seconds
         }
     }
 
-    // Make functions globally available for onclick handlers
+    // Make functions globally available
     window.showEvent = showEvent;
     window.toggleForm = toggleForm;
+
+    
 })();
