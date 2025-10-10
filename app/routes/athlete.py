@@ -13,6 +13,7 @@ from ..models import (
     Attempt,
     AttemptResult,
     AthleteFlight,
+    Score,
     TimerLog
 )
 
@@ -454,8 +455,29 @@ def athlete_dashboard():
                 'description': competition.description,
                 'start_date': competition.start_date.strftime('%Y-%m-%d'),
                 'is_active': competition.is_active,
-                'rankings': []  # Add rankings if needed
+                'rankings': []  # Will populate with per-event ranking and total_score
             }
+
+            # Populate athlete-specific rankings for the competition
+            try:
+                if athlete_row:
+                    rankings = []
+                    # Use athlete_entries loaded earlier if available
+                    for entry in athlete_entries:
+                        # Only consider entries that belong to this competition
+                        if entry.event and entry.event.competition_id == competition.id:
+                            score = Score.query.filter_by(athlete_entry_id=entry.id).first()
+                            # Prefer movement_name or lift_type for display
+                            movement_label = entry.movement_name or entry.lift_type or (entry.event.name if entry.event else 'Event')
+                            rankings.append({
+                                'movement': movement_label,
+                                'rank': score.rank if score and score.rank is not None else None,
+                                'total_score': score.total_score if score and score.total_score is not None else 0
+                            })
+                    competition_meta['rankings'] = rankings
+            except Exception:
+                # Fail gracefully - leave rankings empty
+                competition_meta['rankings'] = competition_meta.get('rankings', [])
 
 
     my_flights = []

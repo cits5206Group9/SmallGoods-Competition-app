@@ -150,13 +150,13 @@
         if (notificationPermission === 'granted') {
             btn.style.display = 'none';
         } else if (notificationPermission === 'denied') {
-            btn.textContent = '🔕 Notifications Blocked';
+            btn.textContent = '🔕';
             btn.style.background = '#f44336';
             btn.style.cursor = 'not-allowed';
             btn.disabled = true;
             btn.style.display = 'block';
         } else {
-            btn.textContent = '🔔 Enable Notifications';
+            btn.textContent = '🔔';
             btn.style.background = '#4CAF50';
             btn.style.cursor = 'pointer';
             btn.disabled = false;
