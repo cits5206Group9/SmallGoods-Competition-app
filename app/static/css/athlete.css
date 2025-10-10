@@ -283,6 +283,13 @@
     border-radius: 4px;
 }
 
+/* Small helper note used across athlete view */
+.note-small {
+    color: #6c757d;
+    font-size: 0.85em;
+    margin-top: 6px;
+}
+
 .weight-form {
     display: none;
     align-items: center;
