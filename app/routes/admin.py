@@ -1178,6 +1178,7 @@ def create_referee():
             position=data.get('position'),
             email=data.get('email'),
             phone=data.get('phone'),
+            competition_id=data.get('competition_id'),  # Added competition_id field
             is_active=data.get('is_active', True),
             notes=data.get('notes')
         )
@@ -1187,7 +1188,8 @@ def create_referee():
         
         return jsonify({
             'message': 'Referee created successfully',
-            'id': referee.id
+            'id': referee.id,
+            'competition_id': referee.competition_id
         })
         
     except Exception as e:
@@ -1214,12 +1216,16 @@ def update_referee(referee_id):
         referee.position = data.get('position', referee.position)
         referee.email = data.get('email', referee.email)
         referee.phone = data.get('phone', referee.phone)
+        referee.competition_id = data.get('competition_id', referee.competition_id)  # Added competition_id update
         referee.is_active = data.get('is_active', referee.is_active)
         referee.notes = data.get('notes', referee.notes)
         
         db.session.commit()
         
-        return jsonify({'message': 'Referee updated successfully'})
+        return jsonify({
+            'message': 'Referee updated successfully',
+            'competition_id': referee.competition_id
+        })
         
     except Exception as e:
         db.session.rollback()
