@@ -863,7 +863,7 @@ def get_average_attempt_duration_from_logs(competition_id: int = None, event_id:
         
         # Calculate average
         avg_duration = sum(durations) / len(durations)
-        return int(avg_duration) + 10  # Add 10s buffer for transitions
+        return int(avg_duration)
         
     except Exception as e:
         print(f"Error calculating average duration: {e}")
@@ -1027,7 +1027,7 @@ def calculate_estimated_time_for_attempt(target_attempt: Attempt, competition_id
     1. Check if there's a current in-progress attempt - add its remaining time
     2. Count all waiting attempts ahead of target in lifting order
     3. Use average durations from TimerLog for each attempt
-    4. Add transition buffer (30s per attempt)
+    4. Add transition buffer (15s per attempt)
     """
     total_seconds = 0
     
@@ -1069,7 +1069,7 @@ def calculate_estimated_time_for_attempt(target_attempt: Attempt, competition_id
         )
         
         # Add attempt duration + transition time
-        total_seconds += avg_duration + 30  # 30s transition buffer
+        total_seconds += avg_duration + 15  # 15s transition buffer
     
     # If no attempts ahead and no current attempt, athlete is next up
     if total_seconds == 0 and found_target:
