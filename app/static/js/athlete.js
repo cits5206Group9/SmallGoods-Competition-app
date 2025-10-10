@@ -20,6 +20,8 @@
 
     let eventStarted = false; // Track if event has started
     let currentAttemptTimeRemaining = null; // Track time until next attempt
+    let readyPollingIntervalId = null;
+    const READY_POLL_INTERVAL_MS = 3000;
     
     // LocalStorage keys for timer persistence
     const TIMER_STATE_KEY = 'athlete_timer_state';
@@ -485,6 +487,9 @@
                     
                     // Save expired state
                     saveTimerState();
+
+                    // Start a ready polling loop so we actively refresh server state
+                    scheduleReadyPolling();
                 }
             }
         }, 1000);
@@ -494,6 +499,63 @@
     // Timer initialization - polling system handles all timer updates
     function startCountdown(el) {
         // No-op: Timer updates are handled by initializePollingTimerUpdates
+    }
+
+    // Fetch the next-attempt timer data from server and apply minimal reconciliation
+    async function refreshNextAttemptFromServer() {
+        try {
+            let url = '/athlete/next-attempt-timer';
+            const response = await fetch(url);
+            if (!response.ok) return null;
+            const data = await response.json();
+
+            // Update event status and return the data for processing by caller
+            try { updateEventStatus(data); } catch (e) { /* ignore */ }
+            return data;
+        } catch (e) {
+            console.warn('refreshNextAttemptFromServer failed:', e);
+            return null;
+        }
+    }
+
+    function stopReadyPolling() {
+        if (readyPollingIntervalId) {
+            clearInterval(readyPollingIntervalId);
+            readyPollingIntervalId = null;
+        }
+    }
+
+    function scheduleReadyPolling() {
+        stopReadyPolling();
+
+        // Immediate try
+        refreshNextAttemptFromServer().then((d) => {
+            if (d && (d.is_first_in_queue || (d.timer_active && d.time !== null))) {
+                // server already transitioned - nothing else to do
+                timerHasExpired = false;
+                stopReadyPolling();
+            }
+        }).catch(() => {});
+
+        readyPollingIntervalId = setInterval(async () => {
+            try {
+                if (!timerHasExpired) {
+                    stopReadyPolling();
+                    return;
+                }
+
+                const d = await refreshNextAttemptFromServer();
+                if (!d) return; // nothing changed / server fail
+
+                if (d.is_first_in_queue || (d.timer_active && d.time !== null)) {
+                    // server moved on - stop ready polling and let normal handlers pick up
+                    timerHasExpired = false;
+                    stopReadyPolling();
+                }
+            } catch (e) {
+                console.warn('ready polling error:', e);
+            }
+        }, READY_POLL_INTERVAL_MS);
     }
 
     async function handleWeightFormSubmit(e) {
@@ -948,13 +1010,52 @@
             }
         });
 
-        socket.on('disconnect', () => {
-            console.log('Disconnected from real-time server');
+        // Listen for attempt_result broadcasts to immediately refresh athlete UI
+        socket.on('attempt_result', (payload) => {
+            try {
+                console.log('[WS] attempt_result received, refreshing next-attempt info', payload);
+                refreshNextAttemptFromServer().then(() => {
+                    if (!timerHasExpired) stopReadyPolling();
+                });
+            } catch (e) {
+                console.warn('Error handling attempt_result:', e);
+            }
+        });
+
+        socket.on('disconnect', (reason) => {
+            console.warn('Socket disconnected:', reason);
+            // Stop any running local countdown - server is gone
+            if (timerCountdownInterval) {
+                clearInterval(timerCountdownInterval);
+                timerCountdownInterval = null;
+            }
+            timerHasExpired = false;
+            currentCountdownAttemptId = null;
+            lastTimerType = null;
+            stopReadyPolling();
+            try { localStorage.removeItem(TIMER_STATE_KEY); } catch (e) {}
+            updateTimerDisplay(0, 'disconnected', 'disconnected');
+            const infoEl = document.querySelector('.next-attempt-info');
+            if (infoEl) infoEl.innerHTML = '<p>Server disconnected</p>';
+            // Fallback to polling which will attempt to reconnect
             initializePollingTimerUpdates();
         });
 
-        socket.on('connect_error', () => {
-            console.warn('WebSocket failed - falling back to polling');
+        socket.on('connect_error', (err) => {
+            console.warn('WebSocket connection error:', err);
+            // Clear local timer to avoid counting against stale server timings
+            if (timerCountdownInterval) {
+                clearInterval(timerCountdownInterval);
+                timerCountdownInterval = null;
+            }
+            timerHasExpired = false;
+            currentCountdownAttemptId = null;
+            lastTimerType = null;
+            stopReadyPolling();
+            try { localStorage.removeItem(TIMER_STATE_KEY); } catch (e) {}
+            updateTimerDisplay(0, 'disconnected', 'disconnected');
+            const infoEl = document.querySelector('.next-attempt-info');
+            if (infoEl) infoEl.innerHTML = '<p>Server disconnected</p>';
             initializePollingTimerUpdates();
         });
     }
@@ -970,8 +1071,8 @@
         let isInitialized = false;
         
         // Grace period to prevent overwriting restored state
-        const restoredFromStorage = !!timerCountdownInterval;
-        let gracePeriodActive = restoredFromStorage;
+    let restoredFromStorage = !!timerCountdownInterval;
+    let gracePeriodActive = restoredFromStorage;
         let gracePeriodEnd = restoredFromStorage ? Date.now() + 5000 : 0; // 5 second grace period
         
         if (restoredFromStorage) {
@@ -999,10 +1100,10 @@
             // Poll every 3 seconds (reduced frequency to minimize restarts)
             pollingIntervalId = setInterval(async () => {
                 try {
-                    // CRITICAL: Check if timer has expired BEFORE making any requests
+                    // Unified fetch flow: if timerHasExpired attempt a ready-refresh first; otherwise fetch normally
+                    let data = null;
                     if (timerHasExpired) {
-                        console.log('🛑 Timer expired - staying at GET READY, skipping poll');
-                        // Still update the info display if we have current attempt info
+                        console.log('🛑 Timer expired - attempting server refresh');
                         const infoEl = document.querySelector('.next-attempt-info');
                         if (infoEl && currentAttemptInfo) {
                             updateTimerInfoDisplay(infoEl, {
@@ -1013,21 +1114,33 @@
                                 no_attempts: false
                             });
                         }
-                        return; // Exit without fetching new data
+
+                        try {
+                            const resp = await fetch('/athlete/next-attempt-timer');
+                            if (!resp.ok) return; // try again next cycle
+                            const d = await resp.json();
+                            if (!d || d.error) {
+                                // nothing usable returned - try again later
+                                return;
+                            }
+                            // Accept any valid response so the UI can refresh attempt details
+                            data = d;
+                        } catch (e) {
+                            console.warn('Ready-refresh failed during polling:', e);
+                            return;
+                        }
+                    } else {
+                        let url = '/athlete/next-attempt-timer';
+                        if (activeEventId) {
+                            url += `?event_id=${activeEventId}`;
+                        }
+
+                        const response = await fetch(url);
+                        if (!response.ok) {
+                            throw new Error(`HTTP ${response.status}`);
+                        }
+                        data = await response.json();
                     }
-                    
-                    let url = '/athlete/next-attempt-timer';
-                    if (activeEventId) {
-                        url += `?event_id=${activeEventId}`;
-                    }
-                    
-                    const response = await fetch(url);
-                    
-                    if (!response.ok) {
-                        throw new Error(`HTTP ${response.status}`);
-                    }
-                    
-                    const data = await response.json();
                     // If we restored state from localStorage, but the server now reports a
                     // different event/attempt, drop the restored state so the UI follows
                     // the live server data. This prevents stale "GET READY" from persisting
@@ -1170,7 +1283,17 @@
                             clearInterval(pollingIntervalId);
                             pollingIntervalId = null;
                         }
-                        
+                        // Clear local countdown/timers and stored state to avoid stale GET READY
+                        if (timerCountdownInterval) {
+                            clearInterval(timerCountdownInterval);
+                            timerCountdownInterval = null;
+                        }
+                        timerHasExpired = false;
+                        currentCountdownAttemptId = null;
+                        lastTimerType = null;
+                        stopReadyPolling();
+                        try { localStorage.removeItem(TIMER_STATE_KEY); } catch (e) {}
+
                         updateTimerDisplay(0, 'disconnected', 'disconnected');
                         const infoEl = document.querySelector('.next-attempt-info');
                         if (infoEl) infoEl.innerHTML = '<p>Server disconnected</p>';
