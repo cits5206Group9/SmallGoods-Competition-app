@@ -53,6 +53,10 @@ class Competition(db.Model):
     is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     config = db.Column(db.JSON)
+    
+    # Break times (in seconds)
+    breaktime_between_events = db.Column(db.Integer, default=300)  # 5 minutes default
+    breaktime_between_flights = db.Column(db.Integer, default=180)  # 3 minutes default
 
     # Relationships
     events = db.relationship("Event", backref="competition", lazy=True, cascade="all, delete-orphan")

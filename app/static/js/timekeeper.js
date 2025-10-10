@@ -1232,6 +1232,9 @@
       flight: flight.name,
       flightId: flight.id
     });
+    
+    // Load competition data for break timers when competition is loaded
+    loadCompetitionBreakTimerData(comp.id);
 
     // Clear previous competition's data when switching flights
     if (typeof clearAllPins === 'function') {
@@ -1817,6 +1820,268 @@
       notification.style.animation = "slideOut 0.3s ease-out";
       setTimeout(() => notification.remove(), 300);
     }, 3000);
+  }
+
+  // ============================================
+  // Break Timer Feature (Event/Flight Breaks)
+  // ============================================
+  
+  const breakTimerCard = document.getElementById("breakTimerCard");
+  const breakTimerTitle = document.getElementById("breakTimerTitle");
+  const breakTimerMessage = document.getElementById("breakTimerMessage");
+  const breakTimerClock = document.getElementById("breakTimerClock");
+  const breakTimerSubtext = document.getElementById("breakTimerSubtext");
+  const btnBreakStart = document.getElementById("btnBreakStart");
+  const btnBreakPause = document.getElementById("btnBreakPause");
+  const btnBreakReset = document.getElementById("btnBreakReset");
+  const btnBreakDismiss = document.getElementById("btnBreakDismiss");
+  
+  let breakTimerInterval = null;
+  let breakTimerSeconds = 0;
+  let breakTimerRunning = false;
+  let currentCompetitionData = null;
+  
+  // Listen for attempt status updates to detect when to start break timers
+  if (typeof window.updateAttemptStatus !== 'undefined') {
+    const originalUpdateAttemptStatus = window.updateAttemptStatus;
+    window.updateAttemptStatus = async function(athleteId, attemptNumber, flightId, status) {
+      const result = await originalUpdateAttemptStatus(athleteId, attemptNumber, flightId, status);
+      
+      // Check if this was marking an attempt as finished
+      if (status === 'finished') {
+        await checkForBreakTrigger(flightId);
+      }
+      
+      return result;
+    };
+  }
+  
+  async function checkForBreakTrigger(flightId) {
+    try {
+      // Get all attempts for this flight
+      const attemptsResponse = await fetch(`/admin/flights/${flightId}/attempts/order`, {
+        headers: { "X-Requested-With": "XMLHttpRequest" }
+      });
+      
+      if (!attemptsResponse.ok) return;
+      
+      const attemptsData = await attemptsResponse.json();
+      const attempts = attemptsData.attempts || [];
+      
+      // Check if all attempts in the flight are finished
+      const allFinished = attempts.every(att => 
+        ['finished', 'success', 'failed'].includes(att.status?.toLowerCase() || '')
+      );
+      
+      if (!allFinished) return; // Not all attempts finished yet
+      
+      // Get flight and event information
+      const flightResponse = await fetch(`/admin/flights/${flightId}/athletes`, {
+        headers: { "X-Requested-With": "XMLHttpRequest" }
+      });
+      
+      if (!flightResponse.ok) return;
+      
+      const flightData = await flightResponse.json();
+      const flight = flightData.flight;
+      const eventId = flight.event_id;
+      const competitionId = flight.competition_id;
+      
+      // Get competition data for break times
+      const compResponse = await fetch(`/admin/api/competitions/${competitionId}`, {
+        headers: { "X-Requested-With": "XMLHttpRequest" }
+      });
+      
+      if (!compResponse.ok) return;
+      
+      currentCompetitionData = await compResponse.json();
+      
+      // Get all flights for this event to check if it's the last flight
+      const eventsResponse = await fetch(`/admin/events/${eventId}/flights`, {
+        headers: { "X-Requested-With": "XMLHttpRequest" }
+      });
+      
+      if (!eventsResponse.ok) {
+        // Trigger flight break if we can't determine event status
+        triggerFlightBreak();
+        return;
+      }
+      
+      const flights = await eventsResponse.json();
+      const sortedFlights = flights.sort((a, b) => (a.order || 0) - (b.order || 0));
+      const lastFlightInEvent = sortedFlights[sortedFlights.length - 1];
+      
+      if (lastFlightInEvent && lastFlightInEvent.id === flightId) {
+        // This is the last flight in the event - trigger EVENT break
+        triggerEventBreak();
+      } else {
+        // Not the last flight - trigger FLIGHT break
+        triggerFlightBreak();
+      }
+      
+    } catch (error) {
+      console.error('Error checking for break trigger:', error);
+    }
+  }
+  
+  function triggerFlightBreak() {
+    const breakSeconds = currentCompetitionData?.breaktime_between_flights || 180;
+    startBreakTimer('Flight Break', 'Flight has finished. Break time before next flight.', breakSeconds);
+  }
+  
+  function triggerEventBreak() {
+    const breakSeconds = currentCompetitionData?.breaktime_between_events || 300;
+    startBreakTimer('Event Break', 'Event has finished. Break time before next event.', breakSeconds);
+  }
+  
+  function startBreakTimer(title, message, seconds) {
+    breakTimerTitle.textContent = title;
+    breakTimerMessage.textContent = message;
+    breakTimerSeconds = seconds;
+    breakTimerSubtext.textContent = `Break duration: ${formatTime(seconds)}`;
+    updateBreakTimerDisplay();
+    
+    // Show the break timer card
+    if (breakTimerCard) {
+      breakTimerCard.style.display = 'block';
+      breakTimerCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+    
+    // Auto-start the timer
+    startBreakCountdown();
+  }
+  
+  function startBreakCountdown() {
+    if (breakTimerRunning) return;
+    
+    breakTimerRunning = true;
+    btnBreakStart.disabled = true;
+    btnBreakPause.disabled = false;
+    
+    breakTimerInterval = setInterval(() => {
+      if (breakTimerSeconds > 0) {
+        breakTimerSeconds--;
+        updateBreakTimerDisplay();
+      } else {
+        // Timer finished
+        stopBreakCountdown();
+        breakTimerClock.style.color = '#48bb78';
+        breakTimerMessage.textContent = '✓ Break time is over!';
+        showNotification('Break time has ended!', 'success');
+      }
+    }, 1000);
+  }
+  
+  function pauseBreakCountdown() {
+    if (!breakTimerRunning) return;
+    
+    breakTimerRunning = false;
+    clearInterval(breakTimerInterval);
+    breakTimerInterval = null;
+    btnBreakStart.disabled = false;
+    btnBreakPause.disabled = true;
+  }
+  
+  function stopBreakCountdown() {
+    breakTimerRunning = false;
+    if (breakTimerInterval) {
+      clearInterval(breakTimerInterval);
+      breakTimerInterval = null;
+    }
+    btnBreakStart.disabled = true;
+    btnBreakPause.disabled = true;
+  }
+  
+  function resetBreakTimer() {
+    stopBreakCountdown();
+    const originalSeconds = currentCompetitionData?.breaktime_between_flights || 180;
+    breakTimerSeconds = originalSeconds;
+    breakTimerClock.style.color = '#2d3748';
+    updateBreakTimerDisplay();
+    btnBreakStart.disabled = false;
+    btnBreakPause.disabled = true;
+  }
+  
+  function dismissBreakTimer() {
+    stopBreakCountdown();
+    if (breakTimerCard) {
+      breakTimerCard.style.display = 'none';
+    }
+  }
+  
+  function updateBreakTimerDisplay() {
+    if (breakTimerClock) {
+      breakTimerClock.textContent = formatTime(breakTimerSeconds);
+    }
+  }
+  
+  function formatTime(totalSeconds) {
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  }
+  
+  // Load competition data and show break timer controls
+  async function loadCompetitionBreakTimerData(competitionId) {
+    if (!competitionId) return;
+    
+    try {
+      const response = await fetch(`/admin/api/competitions/${competitionId}`, {
+        headers: { "X-Requested-With": "XMLHttpRequest" }
+      });
+      
+      if (!response.ok) {
+        console.warn('Failed to load competition data for break timers');
+        return;
+      }
+      
+      currentCompetitionData = await response.json();
+      
+      // Show the break timer card with controls visible (but don't start timer yet)
+      if (breakTimerCard) {
+        breakTimerCard.style.display = 'block';
+        breakTimerTitle.textContent = 'Flight/Event Break Timer';
+        breakTimerMessage.textContent = 'Break timer controls are ready. Timer will auto-start when a flight or event finishes.';
+        
+        // Set default times based on competition settings
+        const flightBreakTime = currentCompetitionData?.breaktime_between_flights || 180;
+        const eventBreakTime = currentCompetitionData?.breaktime_between_events || 300;
+        
+        breakTimerSubtext.innerHTML = `
+          <div>Flight break: ${formatTime(flightBreakTime)}</div>
+          <div>Event break: ${formatTime(eventBreakTime)}</div>
+        `;
+        
+        // Initialize display with flight break time as default
+        breakTimerSeconds = flightBreakTime;
+        updateBreakTimerDisplay();
+        
+        // Enable manual start button
+        btnBreakStart.disabled = false;
+        btnBreakPause.disabled = true;
+      }
+      
+    } catch (error) {
+      console.error('Error loading competition break timer data:', error);
+    }
+  }
+  
+  // Break timer button event listeners
+  if (btnBreakStart) {
+    btnBreakStart.addEventListener('click', startBreakCountdown);
+  }
+  
+  if (btnBreakPause) {
+    btnBreakPause.addEventListener('click', pauseBreakCountdown);
+  }
+  
+  if (btnBreakReset) {
+    btnBreakReset.addEventListener('click', resetBreakTimer);
+  }
+  
+  if (btnBreakDismiss) {
+    btnBreakDismiss.addEventListener('click', dismissBreakTimer);
   }
 
 })();
