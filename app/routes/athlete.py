@@ -260,7 +260,6 @@ def ensure_athlete_entries_for_event(athlete_id: int, event_id: int, flight_id: 
         
         timer = mv.get("timer") or {}
         attempt_seconds = int(timer.get("attempt_seconds", 60))
-        break_seconds = int(timer.get("break_seconds", 120))
         
         reps_data = mv.get("reps")
 
@@ -271,7 +270,6 @@ def ensure_athlete_entries_for_event(athlete_id: int, event_id: int, flight_id: 
             entry_order=entry_order,
             lift_type=mv_name,
             attempt_time_limit=attempt_seconds,
-            break_time=break_seconds,
             default_reps=reps_data,  # Store default reps directly
             reps=reps_data,
             entry_config=mv,
@@ -400,8 +398,7 @@ def athlete_dashboard():
                 'lift_type': entry.lift_type,
                 'movement_name': entry.movement_name,
                 'time_limits': {
-                    'attempt': entry.attempt_time_limit,
-                    'break': entry.break_time
+                    'attempt': entry.attempt_time_limit
                 },
                 'opening_weights': entry.opening_weights or 0,
                 # Use default_reps as maximum and reps as current athlete preference
