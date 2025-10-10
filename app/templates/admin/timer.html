@@ -3,6 +3,46 @@
 
 {% block content %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/timekeeper.css') }}">
+<style>
+  /* Sortable Drag-and-Drop Styles */
+  .sortable-ghost {
+    opacity: 0.4;
+    background: #e2e8f0 !important;
+  }
+  
+  .sortable-chosen {
+    transform: rotate(2deg);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  }
+  
+  .attempt-item:hover {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    transition: box-shadow 0.2s;
+  }
+  
+  /* Notification Animations */
+  @keyframes slideIn {
+    from {
+      transform: translateX(400px);
+      opacity: 0;
+    }
+    to {
+      transform: translateX(0);
+      opacity: 1;
+    }
+  }
+  
+  @keyframes slideOut {
+    from {
+      transform: translateX(0);
+      opacity: 1;
+    }
+    to {
+      transform: translateX(400px);
+      opacity: 0;
+    }
+  }
+</style>
 
 <!-- Fixed Mobile Control Dock (proxied buttons) -->
 <div class="control-dock" aria-label="Timer controls">
@@ -81,10 +121,53 @@
 
               <button class="btn" id="btnReloadAthletes" type="button">Reload</button>
               <button class="btn" id="btnAthleteApply" type="button">Apply</button>
+              <button class="btn btn-success" id="btnNextAthlete" type="button" style="background: #28a745; color: white;">Next</button>
               <span id="athleteApplied" class="text-muted" style="margin-left:.5rem"></span>
 
               <!-- TEMP compat input (hidden) -->
               <input id="athleteName" type="text" value="" style="display:none">
+            </div>
+          </div>
+
+          <!-- Attempt Order Management Section -->
+          <div id="tk-attempt-order-section" style="margin-top:2rem; display:none">
+            <h4 style="margin-bottom:1rem; color:#2c5282">Attempt Order Management</h4>
+            <p style="color:#718096; margin-bottom:1rem; padding:.75rem; background:#ebf8ff; border-left:4px solid #4299e1; border-radius:4px">
+              <strong>ℹ️ Info:</strong> Drag athlete boxes to reorder, or use the buttons below to sort automatically. All changes are saved automatically.
+            </p>
+            
+            <!-- Attempt Filter Controls -->
+            <div style="display:flex; gap:1rem; margin-bottom:1rem; flex-wrap:wrap; align-items:center">
+              <div>
+                <label style="font-weight:600; margin-right:.5rem">Filter by Athlete:</label>
+                <input type="text" id="tk-athlete-name-filter" placeholder="Search athlete name..." 
+                       style="padding:.35rem 1rem; border:1px solid #cfe0ff; border-radius:8px; min-width:200px">
+              </div>
+              <div>
+                <label style="font-weight:600; margin-right:.5rem">Filter by Status:</label>
+                <select id="tk-attempt-status-filter" style="padding:.35rem 1rem; border:1px solid #cfe0ff; border-radius:8px">
+                  <option value="">All Status</option>
+                  <option value="waiting">Waiting</option>
+                  <option value="in-progress">In Progress</option>
+                  <option value="finished">Finished</option>
+                </select>
+              </div>
+              <button class="btn" id="tk-clear-filters" type="button" style="background:#718096; color:white">Clear Filters</button>
+            </div>
+            
+            <!-- Attempt Control Buttons -->
+            <div style="display:flex; gap:.5rem; margin-bottom:1rem; flex-wrap:wrap">
+              <button class="btn" id="tk-sort-by-weight" type="button" style="background:#4a5568; color:white">Sort by Weight</button>
+              <button class="btn" id="tk-sort-by-name" type="button" style="background:#4a5568; color:white">Sort by Name</button>
+              <button class="btn" id="tk-randomize-order" type="button" style="background:#4a5568; color:white">Randomize Order</button>
+              <button class="btn" id="tk-generate-test-attempts" type="button" style="background:#3182ce; color:white">Generate Test Attempts</button>
+              <button class="btn" id="tk-mark-first-completed" type="button" style="background:#d69e2e; color:white">Mark First as Completed</button>
+              <button class="btn" id="tk-refresh-attempts" type="button" style="background:#38b2ac; color:white">Refresh</button>
+            </div>
+            
+            <!-- Attempt Order List -->
+            <div id="tk-attempt-order-list" style="margin-top:1rem">
+              <!-- Attempt order will be displayed here -->
             </div>
           </div>
 
@@ -140,6 +223,7 @@
 
           <div class="attempt-controls">
             <button id="btnAttemptToggle" class="btn" type="button">Countdown: Off</button>
+            <button id="btnAttemptEdit" class="btn" type="button" style="margin-left:.5rem">✎ Edit Time</button>
             <div class="timer-set attempt-set" id="attemptSetRow" style="display:none">
               <label for="attemptHMS"><strong>Set</strong></label>
               <input id="attemptHMS" class="input-hms" type="text" inputmode="numeric"
@@ -152,19 +236,27 @@
         </div>
       </div>
 
-      <!-- Pinned Timers (per-athlete rest) -->
-      <div class="card mt-4" id="pinnedTimersCard" style="display:none">
+      <!-- Break Timer (Event/Flight Breaks) -->
+      <div class="card mt-4" id="breakTimerCard" style="display:none">
         <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
-          <h5>Rest/Break Timers</h5>
-          <div class="btn-row" style="display:flex;gap:.5rem;">
-            <button class="btn" id="btnPinsStartAll" type="button">Start All</button>
-            <button class="btn" id="btnPinsPauseAll" type="button">Pause All</button>
-            <button class="btn danger" id="btnPinsResetAll" type="button">Reset All</button>
+          <h5 id="breakTimerTitle">Break Timer</h5>
+          <div style="display:flex;gap:.5rem;">
+            <button class="btn" id="btnBreakEdit" type="button">✎ Edit</button>
+            <button class="btn" id="btnBreakStart" type="button">Start</button>
+            <button class="btn" id="btnBreakPause" type="button">Pause</button>
+            <button class="btn danger" id="btnBreakReset" type="button">Reset</button>
+            <button class="btn" id="btnBreakDismiss" type="button">✕ Dismiss</button>
           </div>
         </div>
-        <div class="card-body">
-          <div id="pinnedTimers" class="pinned-grid"><!-- cards injected here --></div>
-          <div id="pinnedEmpty" class="text-muted" style="display:none">No pinned timers yet.</div>
+        <div class="card-body" style="text-align:center">
+          <div id="breakTimerMessage" style="font-size:1.25rem; color:#2c5282; margin-bottom:1rem; font-weight:600"></div>
+          <div id="breakTimerClock" style="font-size:4rem; font-weight:700; color:#2d3748; padding:2rem; background:#ebf8ff; border-radius:12px; margin-bottom:1rem">00:00:00</div>
+          <div id="breakTimerSubtext" style="color:#718096; font-size:1rem"></div>
+          <div id="breakTimerEditRow" style="display:none; margin-top:1rem; padding:1rem; background:#f7fafc; border-radius:8px;">
+            <label style="font-weight:600; margin-right:.5rem">Set Time:</label>
+            <input id="breakTimerHMS" type="text" placeholder="HH:MM:SS" style="padding:.5rem; border:1px solid #cbd5e0; border-radius:4px; margin-right:.5rem">
+            <button class="btn" id="btnBreakApply" type="button">Apply</button>
+          </div>
         </div>
       </div>
 
@@ -204,5 +296,6 @@
   </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
 <script src="{{ url_for('static', filename='js/timekeeper.js') }}"></script>
 {% endblock %}
