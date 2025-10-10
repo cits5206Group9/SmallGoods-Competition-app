@@ -51,6 +51,8 @@ window.CompetitionUtils = (function() {
         const comp = {
             name: $('#comp-name').value.trim(),
             comp_date: $('#comp-date').value,
+            breaktime_between_events: Number($('#breaktime-events').value) || 600,
+            breaktime_between_flights: Number($('#breaktime-flights').value) || 180,
             features: {
                 allowAthleteInput: !!$('#allow-athlete-input').checked,
                 allowCoachAssignment: !!$('#allow-coach-assignment').checked,
@@ -89,8 +91,7 @@ window.CompetitionUtils = (function() {
                         metric: $('.scoring-metric', mCard)?.value.trim() || ''
                     },
                     timer: {
-                        attempt_seconds: Number($('.attempt-time', mCard)?.value || 0) || null,
-                        break_seconds: Number($('.break-time', mCard)?.value || 0) || null
+                        attempt_seconds: Number($('.attempt-time', mCard)?.value || 0) || null
                     },
                     metrics: []
                 };
