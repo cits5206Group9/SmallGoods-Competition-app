@@ -235,19 +235,21 @@
         </div>
       </div>
 
-      <!-- Pinned Timers (per-athlete rest) -->
-      <div class="card mt-4" id="pinnedTimersCard" style="display:none">
+      <!-- Break Timer (Event/Flight Breaks) -->
+      <div class="card mt-4" id="breakTimerCard" style="display:none">
         <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
-          <h5>Rest/Break Timers</h5>
-          <div class="btn-row" style="display:flex;gap:.5rem;">
-            <button class="btn" id="btnPinsStartAll" type="button">Start All</button>
-            <button class="btn" id="btnPinsPauseAll" type="button">Pause All</button>
-            <button class="btn danger" id="btnPinsResetAll" type="button">Reset All</button>
+          <h5 id="breakTimerTitle">Break Timer</h5>
+          <div style="display:flex;gap:.5rem;">
+            <button class="btn" id="btnBreakStart" type="button">Start</button>
+            <button class="btn" id="btnBreakPause" type="button">Pause</button>
+            <button class="btn danger" id="btnBreakReset" type="button">Reset</button>
+            <button class="btn" id="btnBreakDismiss" type="button">✕ Dismiss</button>
           </div>
         </div>
-        <div class="card-body">
-          <div id="pinnedTimers" class="pinned-grid"><!-- cards injected here --></div>
-          <div id="pinnedEmpty" class="text-muted" style="display:none">No pinned timers yet.</div>
+        <div class="card-body" style="text-align:center">
+          <div id="breakTimerMessage" style="font-size:1.25rem; color:#2c5282; margin-bottom:1rem; font-weight:600"></div>
+          <div id="breakTimerClock" style="font-size:4rem; font-weight:700; color:#2d3748; padding:2rem; background:#ebf8ff; border-radius:12px; margin-bottom:1rem">00:00:00</div>
+          <div id="breakTimerSubtext" style="color:#718096; font-size:1rem"></div>
         </div>
       </div>
 
