@@ -1028,6 +1028,37 @@
                     }
                     
                     const data = await response.json();
+                    // If we restored state from localStorage, but the server now reports a
+                    // different event/attempt, drop the restored state so the UI follows
+                    // the live server data. This prevents stale "GET READY" from persisting
+                    // across event/flight changes.
+                    if (typeof restoredFromStorage !== 'undefined' && restoredFromStorage) {
+                        try {
+                            const restoredEventId = currentAttemptInfo && currentAttemptInfo.event && currentAttemptInfo.event.id;
+                            const serverEventId = data.event && data.event.id;
+                            const restoredAttemptId = currentCountdownAttemptId;
+                            const serverAttemptId = data.attempt_id || null;
+
+                            // If server reports a different event or a different attempt id,
+                            // clear any restored countdown so polling logic can start fresh.
+                            if ((restoredEventId && serverEventId && String(restoredEventId) !== String(serverEventId)) ||
+                                (restoredAttemptId && serverAttemptId && String(restoredAttemptId) !== String(serverAttemptId))) {
+                                console.log('🧹 Discarding restored timer state because server reports a different event/attempt');
+                                if (timerCountdownInterval) {
+                                    clearInterval(timerCountdownInterval);
+                                    timerCountdownInterval = null;
+                                }
+                                timerHasExpired = false;
+                                currentAttemptInfo = null;
+                                currentCountdownAttemptId = null;
+                                lastTimerType = null;
+                                restoredFromStorage = false;
+                            }
+                        } catch (e) {
+                            console.warn('Error reconciling restored state with server data:', e);
+                        }
+                    }
+
                     updateEventStatus(data);
                     connectionFailures = 0;
                     
