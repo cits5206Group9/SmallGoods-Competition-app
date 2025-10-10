@@ -12,7 +12,8 @@ from ..models import (
     Flight,
     Attempt,
     AttemptResult,
-    AthleteFlight
+    AthleteFlight,
+    TimerLog
 )
 
 from .admin import (
@@ -539,6 +540,32 @@ def update_opening_weight():
                 404,
             )
 
+        # Server-side restriction: cannot update opening weight after any attempt in this event has been completed
+        try:
+            event = Event.query.get(event_id)
+            if event:
+                has_completed = (
+                    db.session.query(Attempt)
+                    .join(AthleteEntry, Attempt.athlete_entry_id == AthleteEntry.id)
+                    .filter(
+                        AthleteEntry.event_id == event_id,
+                        Attempt.status.in_(['in-progress', 'finished'])
+                    )
+                    .first() is not None
+                )
+
+                if has_completed:
+                    return (
+                        jsonify({
+                            'success': False,
+                            'error': 'Cannot update opening weight after event has started'
+                        }),
+                        403,
+                    )
+        except Exception:
+            # On any error, allow the update to proceed (fail-open)
+            pass
+
         entry.opening_weights = int(weight) if weight is not None else 0
 
         # Update the first attempt's requested weight if not yet completed
@@ -579,100 +606,7 @@ def update_opening_weight():
         return jsonify({"success": False, "error": str(e)}), 400
 
 
-@athlete_bp.route("/update-reps", methods=["POST"])
-def update_reps():
-    """
-    Update reps preference for the athlete for a given lift/exercise.
-    Expected form/body: event_id, lift_key, reps (as JSON array string like '[1,1,1]')
-    """
-    try:
-        import json
-        
-        event_id = int(request.form.get("event_id"))
-        lift_key = (request.form.get("lift_key") or "").strip()
-        reps_input = (request.form.get("reps") or "").strip()
-
-        # Input validation
-        if not lift_key:
-            return jsonify({"success": False, "error": "Lift key is required"}), 400
-        if not reps_input:
-            return jsonify({"success": False, "error": "Reps input is required"}), 400
-
-        # Parse reps array from string input
-        try:
-            # Handle both array format [1,1,1] and comma-separated format 1,1,1
-            if reps_input.startswith('[') and reps_input.endswith(']'):
-                reps_array = json.loads(reps_input)
-            else:
-                # Parse comma-separated values
-                reps_array = [int(x.strip()) for x in reps_input.split(',')]
-        except (json.JSONDecodeError, ValueError) as e:
-            return jsonify({"success": False, "error": "Invalid reps format. Use [1,1,1] or 1,1,1"}), 400
-
-        # Validate reps array
-        if not isinstance(reps_array, list) or len(reps_array) == 0:
-            return jsonify({"success": False, "error": "Reps must be a non-empty array"}), 400
-        
-        if not all(isinstance(x, int) and x > 0 for x in reps_array):
-            return jsonify({"success": False, "error": "All reps must be positive integers"}), 400
-
-        athlete = resolve_current_athlete()
-        if not athlete:
-            return jsonify({"success": False, "error": "Athlete not found"}), 404
-
-        # Find entry by event_id and lift_type (which should match lift_key)
-        entry = AthleteEntry.query.filter_by(
-            athlete_id=athlete.id,
-            event_id=event_id,
-            lift_type=lift_key
-        ).first()
-
-        if not entry:
-            return (
-                jsonify(
-                    {
-                        "success": False,
-                        "error": f"Athlete is not entered in this event for lift type '{lift_key}'",
-                    }
-                ),
-                404,
-            )
-
-        # Get maximum reps from the default_reps field (from competition config)
-        max_reps = entry.default_reps
-        
-        # Validate against the pre-defined reps structure
-        if len(reps_array) != len(max_reps):
-            return jsonify({
-                "success": False, 
-                "error": f"Must specify {len(max_reps)} attempts"
-            }), 400
-            
-        # Validate each attempt doesn't exceed the pre-defined maximum
-        for i, (requested, max_allowed) in enumerate(zip(reps_array, max_reps)):
-            if requested > max_allowed:
-                return jsonify({
-                    "success": False,
-                    "error": f"Attempt {i+1}: requested {requested} reps exceeds maximum {max_allowed}"
-                }), 400
-
-        entry.reps = reps_array
-        db.session.commit()
-
-        # Return updated entry configuration
-        entry_config = {
-            'id': entry.id,
-            'reps': entry.reps,
-            'reps_display': str(entry.reps).replace(' ', ''),
-        }
-
-        return jsonify({
-            "success": True, 
-            "entry": entry_config
-        })
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({"success": False, "error": str(e)}), 400
+# Reps update endpoint removed: reps are view-only from athlete dashboard
 
 
 @athlete_bp.route("/update-attempt-weight", methods=["POST"])
@@ -727,6 +661,60 @@ def update_attempt_weight():
                     }
                 ),
                 400,
+            )
+
+        # Server-side timing validation: disallow updates when the attempt is imminent or expired
+        try:
+            # 1) Check TimerManager / started_at remaining directly
+            remaining = attempt_time_remaining(attempt)
+            if remaining is not None:
+                # If timer already expired or under 3 minutes, block
+                if remaining <= 180:
+                    minutes = remaining // 60
+                    seconds = remaining % 60
+                    return (
+                        jsonify({
+                            'success': False,
+                            'error': f'Cannot update weight with less than 3 minutes remaining. Time remaining: {minutes}:{seconds:02d}'
+                        }),
+                        403
+                    )
+
+            # 2) Fallback: use estimator to compute time until this attempt
+            event = attempt.athlete_entry.event if attempt.athlete_entry else None
+            competition_id = event.competition_id if event else None
+            sport_type = event.sport_type if event else None
+
+            est = calculate_estimated_time_for_attempt(attempt, competition_id, sport_type)
+            if est is None:
+                # Unable to compute estimate - block to be safe
+                return (
+                    jsonify({
+                        'success': False,
+                        'error': 'Cannot validate attempt timing - update disallowed'
+                    }),
+                    403
+                )
+
+            if est <= 180:
+                minutes = est // 60
+                seconds = est % 60
+                return (
+                    jsonify({
+                        'success': False,
+                        'error': f'Cannot update weight with less than 3 minutes remaining. Time remaining: {minutes}:{seconds:02d}'
+                    }),
+                    403
+                )
+        except Exception as e:
+            # Fail-closed for safety if any unexpected error occurs
+            print(f"Error validating attempt timing: {e}")
+            return (
+                jsonify({
+                    'success': False,
+                    'error': 'Cannot validate attempt timing - update disallowed'
+                }),
+                403
             )
 
         # Update weight
@@ -788,14 +776,299 @@ def get_active_event():
     
     return jsonify({"active_event": None})
 
+
+def get_average_attempt_duration_from_logs(competition_id: int = None, event_id: int = None, movement_type: str = None) -> int:
+    """
+    Calculate average attempt duration from TimerLog entries.
+    Uses the most recent log entry per attempt_id.
+    Falls back to 60 seconds if no data available.
+    
+    Priority: movement_type > event_id > competition_id
+    """
+    try:
+        # Build query for attempt logs
+        query = TimerLog.query.filter(
+            TimerLog.action == 'Attempt',
+            TimerLog.duration_sec.isnot(None),
+            TimerLog.duration_sec > 0  # Valid durations only
+        )
+        
+        # Apply filters in order of specificity
+        if competition_id:
+            query = query.filter(TimerLog.competition_id == competition_id)
+        if event_id:
+            query = query.filter(TimerLog.event_id == event_id)
+        
+        logs = query.all()
+        
+        if not logs:
+            return 60  # Default fallback
+        
+        # Group by attempt_id and take the latest entry for each
+        by_attempt = {}
+        by_athlete_attempt = {}  # For movement type filtering
+        
+        for log in logs:
+            meta = log.meta_json or {}
+            attempt_id = meta.get('attempt_id')
+            
+            if attempt_id:
+                # Keep only the most recent log per attempt
+                if attempt_id not in by_attempt or log.id > by_attempt[attempt_id].id:
+                    by_attempt[attempt_id] = log
+            else:
+                # No attempt_id - use athlete + attempt_no as key
+                athlete_name = log.athlete or 'unknown'
+                attempt_no = meta.get('attempt_no', '1')
+                key = f"{athlete_name}_{attempt_no}"
+                
+                if key not in by_athlete_attempt or log.id > by_athlete_attempt[key].id:
+                    by_athlete_attempt[key] = log
+        
+        # Collect durations
+        durations = []
+        
+        # Add durations from attempt_id-based logs
+        for log in by_attempt.values():
+            durations.append(log.duration_sec)
+        
+        # Add durations from athlete+attempt-based logs
+        for log in by_athlete_attempt.values():
+            durations.append(log.duration_sec)
+        
+        if not durations:
+            return 60
+        
+        # Calculate average
+        avg_duration = sum(durations) / len(durations)
+        return int(avg_duration) + 10  # Add 10s buffer for transitions
+        
+    except Exception as e:
+        print(f"Error calculating average duration: {e}")
+        return 60  # Fallback on error
+
+
+def get_current_in_progress_attempt(competition_id: int, sport_type=None):
+    """
+    Find the currently in-progress attempt for the competition.
+    Optionally filter by sport_type.
+    """
+    query = (
+        Attempt.query
+        .join(AthleteEntry, Attempt.athlete_entry_id == AthleteEntry.id)
+        .join(Event, AthleteEntry.event_id == Event.id)
+        .filter(
+            Event.competition_id == competition_id,
+            Attempt.status == 'in-progress'
+        )
+    )
+    
+    if sport_type:
+        query = query.filter(Event.sport_type == sport_type)
+    
+    return query.first()
+
+
+def get_waiting_attempts_in_order(competition_id: int, sport_type=None, movement_type: str = None):
+    """
+    Get all waiting attempts for a competition in lifting order.
+    Optionally filter by sport_type and/or movement_type.
+    """
+    query = (
+        Attempt.query
+        .options(
+            joinedload(Attempt.athlete_entry).joinedload(AthleteEntry.event),
+            joinedload(Attempt.athlete)
+        )
+        .join(AthleteEntry, Attempt.athlete_entry_id == AthleteEntry.id)
+        .join(Event, AthleteEntry.event_id == Event.id)
+        .filter(
+            Event.competition_id == competition_id,
+            Attempt.status == 'waiting'
+        )
+    )
+    
+    if sport_type:
+        query = query.filter(Event.sport_type == sport_type)
+    
+    if movement_type:
+        query = query.filter(Attempt.movement_type == movement_type)
+    
+    # Order by lifting_order (weight-based), then attempt number
+    return query.order_by(
+        Attempt.lifting_order.asc().nullslast(),
+        Attempt.requested_weight.asc(),
+        Attempt.attempt_number.asc()
+    ).all()
+
+
+def is_athlete_first_in_queue(attempt_id: int, athlete_id: int) -> bool:
+    """Return True if the given attempt is currently first in the remaining queue for its event."""
+    try:
+        attempt = Attempt.query.options(joinedload(Attempt.athlete_entry)).get(attempt_id)
+        if not attempt or not attempt.athlete_entry:
+            return False
+
+        event_id = attempt.athlete_entry.event_id
+
+        # Remaining attempts in this event (waiting or in-progress)
+        remaining = (
+            Attempt.query
+            .join(AthleteEntry, Attempt.athlete_entry_id == AthleteEntry.id)
+            .filter(
+                AthleteEntry.event_id == event_id,
+                Attempt.status.in_(['waiting', 'in-progress'])
+            )
+            .order_by(
+                Attempt.lifting_order.asc().nullslast(),
+                Attempt.requested_weight.asc(),
+                Attempt.attempt_number.asc()
+            ).all()
+        )
+
+        if not remaining:
+            return False
+
+        return remaining[0].id == attempt_id
+    except Exception:
+        return False
+
+
+def find_next_attempt_for_athlete(athlete_id: int, sport_type=None, prefer_movement: str = None):
+    """
+    Find the next pending attempt for this athlete.
+    Priority:
+    1. In-progress attempt (return immediately - "You are up")
+    2. Next waiting attempt in preferred_movement
+    3. Next waiting attempt in any movement (same sport_type)
+    """
+    # Check for in-progress attempt first
+    in_progress = (
+        Attempt.query
+        .options(
+            joinedload(Attempt.athlete_entry).joinedload(AthleteEntry.event)
+        )
+        .join(AthleteEntry, Attempt.athlete_entry_id == AthleteEntry.id)
+        .join(Event, AthleteEntry.event_id == Event.id)
+        .filter(
+            AthleteEntry.athlete_id == athlete_id,
+            Attempt.status == 'in-progress'
+        )
+    )
+    
+    if sport_type:
+        in_progress = in_progress.filter(Event.sport_type == sport_type)
+    
+    attempt = in_progress.first()
+    if attempt:
+        return attempt, 'in-progress'
+    
+    # Look for waiting attempts
+    waiting_query = (
+        Attempt.query
+        .options(
+            joinedload(Attempt.athlete_entry).joinedload(AthleteEntry.event)
+        )
+        .join(AthleteEntry, Attempt.athlete_entry_id == AthleteEntry.id)
+        .join(Event, AthleteEntry.event_id == Event.id)
+        .filter(
+            AthleteEntry.athlete_id == athlete_id,
+            Attempt.status == 'waiting'
+        )
+    )
+    
+    if sport_type:
+        waiting_query = waiting_query.filter(Event.sport_type == sport_type)
+    
+    # Try preferred movement first
+    if prefer_movement:
+        same_movement = waiting_query.filter(
+            Attempt.movement_type == prefer_movement
+        ).order_by(Attempt.attempt_number.asc()).first()
+        
+        if same_movement:
+            return same_movement, 'waiting-same-movement'
+    
+    # Fallback to any waiting attempt
+    any_waiting = waiting_query.order_by(Attempt.attempt_number.asc()).first()
+    if any_waiting:
+        return any_waiting, 'waiting-other-movement'
+    
+    return None, 'none'
+
+
+def calculate_estimated_time_for_attempt(target_attempt: Attempt, competition_id: int, sport_type=None) -> int:
+    """
+    Calculate estimated time until target_attempt is up.
+    
+    Logic:
+    1. Check if there's a current in-progress attempt - add its remaining time
+    2. Count all waiting attempts ahead of target in lifting order
+    3. Use average durations from TimerLog for each attempt
+    4. Add transition buffer (30s per attempt)
+    """
+    total_seconds = 0
+    
+    # 1. Check for in-progress attempt
+    current_attempt = get_current_in_progress_attempt(competition_id, sport_type)
+    if current_attempt:
+        # Get remaining time from timer or estimate
+        remaining = attempt_time_remaining(current_attempt)
+        if remaining and remaining > 0:
+            total_seconds += remaining
+        else:
+            # Estimate remaining time if not available
+            event_id = current_attempt.athlete_entry.event.id
+            movement = current_attempt.movement_type
+            avg = get_average_attempt_duration_from_logs(competition_id, event_id, movement)
+            total_seconds += avg // 2  # Assume halfway through
+    
+    # 2. Get all waiting attempts in order
+    waiting_attempts = get_waiting_attempts_in_order(competition_id, sport_type)
+    
+    # 3. Count attempts ahead of target
+    attempts_ahead = []
+    found_target = False
+    
+    for attempt in waiting_attempts:
+        if attempt.id == target_attempt.id:
+            found_target = True
+            break
+        attempts_ahead.append(attempt)
+    
+    # 4. Sum durations for attempts ahead
+    for attempt in attempts_ahead:
+        event_id = attempt.athlete_entry.event.id if attempt.athlete_entry else None
+        movement = attempt.movement_type
+        
+        # Get average duration for this movement/event
+        avg_duration = get_average_attempt_duration_from_logs(
+            competition_id, event_id, movement
+        )
+        
+        # Add attempt duration + transition time
+        total_seconds += avg_duration + 30  # 30s transition buffer
+    
+    # If no attempts ahead and no current attempt, athlete is next up
+    if total_seconds == 0 and found_target:
+        return 0  # Ready now
+    
+    return max(0, int(total_seconds))
+
+
 @athlete_bp.route("/next-attempt-timer")
 def get_next_attempt_timer():
     """
-    Return the timer information for the athlete's next pending attempt.
-    Integrates with TimerManager for real-time timer synchronization.
+    Return timer information for athlete's next attempt.
+    Calculates estimated time based on:
+    - Current in-progress attempt
+    - Queue of waiting attempts ahead
+    - Historical attempt durations from TimerLog
     
-    Shows timer for current attempt with break timer, but displays details for the NEXT attempt.
-    Sport-type aware: Only shows attempts within the same sport type, never crosses sport boundaries.
+    Response states:
+    - "you-are-up": Athlete's attempt is in progress OR is first in queue (time=0)
+    - "estimate": Calculated time until athlete's turn
+    - "no-attempts": No more attempts for athlete
     """
     try:
         athlete = resolve_current_athlete()
@@ -809,81 +1082,56 @@ def get_next_attempt_timer():
                 "timer_type": "inactive"
             }), 404
 
-        # Get the current event being managed (from timekeeper context or active timer)
+        # Get current context (event/sport type)
         current_event_id = request.args.get('event_id', type=int)
         current_sport_type = None
+        competition_id = None
         
-        # If no event_id provided, try to use global active event first, then determine from active timers
+        # Resolve sport type and competition from context
         if not current_event_id:
             global _current_active_event_id
             current_event_id = _current_active_event_id
         
-        if not current_event_id:
-            # Find the most recent attempt that has an active timer
-            active_attempt = (
-                Attempt.query.options(
-                    joinedload(Attempt.athlete_entry).joinedload(AthleteEntry.event)
-                )
-                .join(AthleteEntry, Attempt.athlete_entry_id == AthleteEntry.id)
-                .filter(
-                    AthleteEntry.athlete_id == athlete.id,
-                    Attempt.status.in_(['in-progress', 'finished'])  # Recent activity
-                )
-                .order_by(Attempt.started_at.desc().nullslast(), Attempt.id.desc())
-                .first()
-            )
-            
-            if active_attempt and active_attempt.athlete_entry.event:
-                current_event_id = active_attempt.athlete_entry.event.id
-                current_sport_type = active_attempt.athlete_entry.event.sport_type
-
-        # If we have an event context, filter by sport type
         if current_event_id:
             current_event = Event.query.get(current_event_id)
             if current_event:
                 current_sport_type = current_event.sport_type
-
-        # First, try to find any in-progress attempt
-        in_progress_attempt = (
-            Attempt.query.options(
-                joinedload(Attempt.athlete_entry).joinedload(AthleteEntry.event)
-            )
+                competition_id = current_event.competition_id
+        
+        # If no event context, use athlete's competition
+        if not competition_id and athlete.competition_id:
+            competition_id = athlete.competition_id
+        
+        # Determine preferred movement from most recent activity
+        prefer_movement = None
+        most_recent = (
+            Attempt.query
             .join(AthleteEntry, Attempt.athlete_entry_id == AthleteEntry.id)
             .filter(
                 AthleteEntry.athlete_id == athlete.id,
-                Attempt.status == 'in-progress'
+                Attempt.status.in_(['in-progress', 'finished'])
+            )
+            .order_by(
+                Attempt.started_at.desc().nullslast(),
+                Attempt.completed_at.desc().nullslast(),
+                Attempt.id.desc()
             )
             .first()
         )
         
-        # If we have an in-progress attempt, use it
-        if in_progress_attempt:
-            na = in_progress_attempt
-            current_event_id = na.athlete_entry.event.id
-            current_sport_type = na.athlete_entry.event.sport_type
-        else:
-            # Find next pending attempt within the current sport type
-            na_query = (
-                Attempt.query.options(
-                    joinedload(Attempt.athlete_entry).joinedload(AthleteEntry.event)
-                )
-                .join(AthleteEntry, Attempt.athlete_entry_id == AthleteEntry.id)
-                .join(Event, AthleteEntry.event_id == Event.id)
-                .filter(
-                    AthleteEntry.athlete_id == athlete.id,
-                    Attempt.status == 'waiting'
-                )
-            )
-            
-            # Filter by sport type if we have one
-            if current_sport_type:
-                na_query = na_query.filter(Event.sport_type == current_sport_type)
-                
-            na = na_query.order_by(Attempt.attempt_number.asc()).first()
+        if most_recent:
+            prefer_movement = most_recent.movement_type
         
-        if not na:
-            # No attempts found within current sport type
-            message = f"No attempt left for {current_sport_type.value}" if current_sport_type else "No attempt left"
+        # Find athlete's next attempt
+        next_attempt, attempt_status = find_next_attempt_for_athlete(
+            athlete.id, current_sport_type, prefer_movement
+        )
+        
+        if not next_attempt:
+            message = f"No attempts left"
+            if current_sport_type:
+                message += f" for {current_sport_type.value}"
+            
             return jsonify({
                 "no_attempts": True,
                 "message": message,
@@ -892,186 +1140,119 @@ def get_next_attempt_timer():
                 "timer_type": "inactive",
                 "sport_type": current_sport_type.value if current_sport_type else None
             })
-
-        # Get event and lift information from the athlete entry
+        
+        # Get event and movement info
+        event = next_attempt.athlete_entry.event
+        movement_name = next_attempt.athlete_entry.movement_name
+        
+        # Determine queue/completion flags
         try:
-            event = na.athlete_entry.event
-            movement_name = na.athlete_entry.movement_name
+            is_first = is_athlete_first_in_queue(next_attempt.id, athlete.id)
         except Exception:
-            event = None
-            movement_name = 'Unknown'
+            is_first = False
 
-        # Get time remaining (may be None if no active timer)
-        time_remaining = attempt_time_remaining(na)
-        
-        # Determine timer status and type
-        timer_active = time_remaining is not None
-        timer_type = "inactive"
-        display_attempt = na  # Default to showing current attempt details
-        
-        if timer_active:
-            competition_id = event.competition_id if event else None
-            athlete_id = athlete.id
-            
-            if competition_id:
-                # Check which timer is active
-                attempt_timer_id = f"attempt_{na.id}"
-                break_timer_id = f"break_athlete_{athlete_id}"
-                
-                # Check attempt timer first
-                attempt_timer_data = timer_manager.get_timer_data(competition_id, attempt_timer_id)
-                if attempt_timer_data and attempt_timer_data.state.value in ['running', 'paused']:
-                    timer_type = "attempt"
-                    time_remaining = attempt_timer_data.remaining
-                else:
-                    # Check break timer
-                    break_timer_data = timer_manager.get_timer_data(competition_id, break_timer_id)
-                    if break_timer_data and break_timer_data.state.value in ['running', 'paused']:
-                        timer_type = "break"
-                        time_remaining = break_timer_data.remaining
-                        # For break timer, show the next attempt details
-                        next_attempt = (
-                            Attempt.query.options(
-                                joinedload(Attempt.athlete_entry).joinedload(AthleteEntry.event)
-                            )
-                            .join(AthleteEntry, Attempt.athlete_entry_id == AthleteEntry.id)
-                            .filter(
-                                AthleteEntry.athlete_id == athlete.id,
-                                Attempt.status == 'waiting',
-                                Attempt.attempt_number > na.attempt_number if na.status == 'finished' else True
-                            )
-                            .order_by(Attempt.attempt_number.asc())
-                            .first()
-                        )
-                        if next_attempt:
-                            display_attempt = next_attempt
-                    else:
-                        timer_active = False
-                        timer_type = "inactive"
-                attempt_timer = timer_manager.get_timer_data(competition_id, f"attempt_{na.id}")
-                break_timer = timer_manager.get_timer_data(competition_id, f"break_athlete_{athlete_id}")
-                
-                if attempt_timer and attempt_timer.state.value in ['running', 'paused']:
-                    timer_type = "attempt"
-                    # During attempt timer, show current attempt details
-                    display_attempt = na
-                elif break_timer and break_timer.state.value in ['running', 'paused']:
-                    timer_type = "break"
-                    # During break timer, find the next attempt within the same sport type
-                    
-                    # Find the most recent attempt that triggered this break (within current sport type)
-                    most_recent_query = (
-                        Attempt.query.options(
-                            joinedload(Attempt.athlete_entry).joinedload(AthleteEntry.event)
-                        )
-                        .join(AthleteEntry, Attempt.athlete_entry_id == AthleteEntry.id)
-                        .join(Event, AthleteEntry.event_id == Event.id)
-                        .filter(
-                            AthleteEntry.athlete_id == athlete_id,
-                            Attempt.status != 'waiting'  # in-progress or finished
-                        )
-                    )
-                    
-                    # Filter by current sport type
-                    if current_sport_type:
-                        most_recent_query = most_recent_query.filter(Event.sport_type == current_sport_type)
-                    
-                    most_recent_attempt = most_recent_query.order_by(Attempt.attempt_number.desc()).first()
-                    
-                    # Use the most recent attempt's info, or fall back to na's info
-                    current_movement = most_recent_attempt.movement_type if most_recent_attempt else na.movement_type
-                    current_attempt_number = most_recent_attempt.attempt_number if most_recent_attempt else 0
-                    current_event_from_attempt = most_recent_attempt.athlete_entry.event if most_recent_attempt else event
-                    
-                    # Priority 1: Same movement, same sport type, higher attempt number
-                    next_attempt_query = (
-                        Attempt.query.options(
-                            joinedload(Attempt.athlete_entry).joinedload(AthleteEntry.event)
-                        )
-                        .join(AthleteEntry, Attempt.athlete_entry_id == AthleteEntry.id)
-                        .join(Event, AthleteEntry.event_id == Event.id)
-                        .filter(
-                            AthleteEntry.athlete_id == athlete_id,
-                            Attempt.status == 'waiting',
-                            Attempt.movement_type == current_movement,
-                            Attempt.attempt_number > current_attempt_number
-                        )
-                    )
-                    
-                    # Filter by current sport type
-                    if current_sport_type:
-                        next_attempt_query = next_attempt_query.filter(Event.sport_type == current_sport_type)
-                    
-                    next_attempt = next_attempt_query.order_by(Attempt.attempt_number.asc()).first()
-                    
-                    # Priority 2: Different movement, same sport type
-                    if not next_attempt:
-                        different_movement_query = (
-                            Attempt.query.options(
-                                joinedload(Attempt.athlete_entry).joinedload(AthleteEntry.event)
-                            )
-                            .join(AthleteEntry, Attempt.athlete_entry_id == AthleteEntry.id)
-                            .join(Event, AthleteEntry.event_id == Event.id)
-                            .filter(
-                                AthleteEntry.athlete_id == athlete_id,
-                                Attempt.status == 'waiting',
-                                Attempt.movement_type != current_movement
-                            )
-                        )
-                        
-                        # Filter by current sport type
-                        if current_sport_type:
-                            different_movement_query = different_movement_query.filter(Event.sport_type == current_sport_type)
-                        
-                        next_attempt = different_movement_query.order_by(Attempt.attempt_number.asc()).first()
-                    
-                    if next_attempt:
-                        display_attempt = next_attempt
-                        # Update movement name for next attempt
-                        movement_name = next_attempt.athlete_entry.movement_name
-                    else:
-                        # No attempts left within current sport type
-                        sport_type_name = current_sport_type.value if current_sport_type else "current sport"
-                        return jsonify({
-                            "no_attempts": True,
-                            "message": f"No attempt left for {sport_type_name}",
-                            "time": time_remaining,
-                            "timer_active": timer_active,
-                            "timer_type": timer_type,
-                            "sport_type": current_sport_type.value if current_sport_type else None
-                        })
+        try:
+            has_completed = (
+                db.session.query(Attempt)
+                .join(AthleteEntry, Attempt.athlete_entry_id == AthleteEntry.id)
+                .filter(
+                    AthleteEntry.event_id == (event.id if event else None),
+                    Attempt.status == 'finished'
+                )
+                .first() is not None
+            )
+        except Exception:
+            has_completed = False
 
-        # Use display_attempt for details shown to athlete
+        # Calculate time based on status
+        if attempt_status == 'in-progress':
+            # Athlete is currently lifting
+            return jsonify({
+                "attempt_id": next_attempt.id,
+                "time": 0,
+                "timer_active": True,
+                "timer_type": "you-are-up",
+                "status": "in-progress",
+                "event": {
+                    "id": event.id,
+                    "name": event.name,
+                    "sport_type": event.sport_type.value if event.sport_type else None,
+                    "category": event.weight_category,
+                    "gender": event.gender
+                },
+                "lift_type": movement_name,
+                "order": next_attempt.attempt_number,
+                "weight": next_attempt.requested_weight,
+                "sport_type": current_sport_type.value if current_sport_type else None,
+                "is_first_in_queue": is_first,
+                "has_completed_attempts": has_completed,
+                "no_attempts": False
+            })
+        
+        # Calculate estimated time for waiting attempt
+        estimated_seconds = calculate_estimated_time_for_attempt(
+            next_attempt, competition_id, current_sport_type
+        )
+        
+        # If estimated time is 0, athlete is up next (no attempts ahead)
+        if estimated_seconds == 0:
+            return jsonify({
+                "attempt_id": next_attempt.id,
+                "time": 0,
+                "timer_active": True,
+                "timer_type": "you-are-up",
+                "status": "waiting",
+                "event": {
+                    "id": event.id,
+                    "name": event.name,
+                    "sport_type": event.sport_type.value if event.sport_type else None,
+                    "category": event.weight_category,
+                    "gender": event.gender
+                },
+                "lift_type": movement_name,
+                "order": next_attempt.attempt_number,
+                "weight": next_attempt.requested_weight,
+                "sport_type": current_sport_type.value if current_sport_type else None,
+                "is_first_in_queue": is_first,
+                "has_completed_attempts": has_completed,
+                "no_attempts": False
+            })
+        
         return jsonify({
-            "attempt_id": display_attempt.id,
-            "time": time_remaining,
-            "timer_active": timer_active,
-            "timer_type": timer_type,
-            "status": display_attempt.status,
+            "attempt_id": next_attempt.id,
+            "time": estimated_seconds,
+            "timer_active": estimated_seconds > 0,
+            "timer_type": "estimate",
+            "status": "waiting",
             "event": {
                 "id": event.id,
                 "name": event.name,
                 "sport_type": event.sport_type.value if event.sport_type else None,
                 "category": event.weight_category,
                 "gender": event.gender
-            } if event else None,
+            },
             "lift_type": movement_name,
-            "order": display_attempt.attempt_number,
-            "weight": display_attempt.requested_weight,
+            "order": next_attempt.attempt_number,
+            "weight": next_attempt.requested_weight,
             "sport_type": current_sport_type.value if current_sport_type else None,
-            "no_attempts": False
+            "is_first_in_queue": is_first,
+            "has_completed_attempts": has_completed,
+            "no_attempts": False,
+            "attempts_ahead": len(get_waiting_attempts_in_order(competition_id, current_sport_type)) - 1
         })
+        
     except Exception as e:
         print(f"Error in next_attempt_timer: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return jsonify({
             "error": str(e),
             "no_attempts": True,
             "message": "Error fetching attempt details",
             "time": None,
             "timer_active": False,
-            "timer_type": "inactive"
+            "timer_type": "error"
         }), 500
-
 
 @athlete_bp.route("/timer/start-attempt/<int:attempt_id>", methods=["POST"])
 def start_attempt_timer(attempt_id):
