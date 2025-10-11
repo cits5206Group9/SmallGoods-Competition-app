@@ -1020,7 +1020,9 @@ def get_competition_details(competition_id):
             'is_active': competition.is_active,
             'start_date': competition.start_date.isoformat() if competition.start_date else None,
             'events': events,
-            'config': competition.config
+            'config': competition.config,
+            'breaktime_between_flights': competition.breaktime_between_flights,
+            'breaktime_between_events': competition.breaktime_between_events
         })
     except Exception as e:
         print("Error fetching competition details:", str(e))
