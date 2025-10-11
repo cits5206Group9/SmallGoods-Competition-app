@@ -57,6 +57,7 @@ class TimerSynchronizer {
                 throw new Error(`HTTP ${response.status}`);
             }
             const state = await response.json();
+            console.log('[Timer] Fetched state:', state);
             this.applyState(state);
         } catch (error) {
             console.warn('Timer sync fetch failed:', error);
@@ -128,6 +129,9 @@ class TimerSynchronizer {
         const formatted = this.formatSeconds(seconds);
         if (force || this.timerDisplay.textContent !== formatted) {
             this.timerDisplay.textContent = formatted;
+            if (force) {
+                console.log('[Timer] Rendered:', formatted, 'seconds:', seconds.toFixed(2), 'running:', this.isRunning);
+            }
         }
 
         let status = 'paused';
