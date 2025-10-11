@@ -502,14 +502,19 @@
     function handleExpiredTimer() {
         timerHasExpired = true;
         
+        // Check if this was a first-of-flight countdown
+        // In that case, we should transition to YOU ARE UP instead of GET READY
+        const currentData = currentAttemptInfo;
+        
+        // For now, show GET READY as default
+        // The polling will detect is_first_of_flight and transition appropriately
         updateTimerDisplay(0, 'ready', '');
-        console.log('⏱️ Timer expired - showing GET READY (persists until in-progress)');
+        console.log('â±ï¸ Timer expired - showing GET READY (will check for first-of-flight status)');
         
         updateWeightInputAvailability();
         saveTimerState();
         scheduleReadyPolling();
     }
-
     function scheduleReadyPolling() {
         stopReadyPolling();
         checkServerForUpdate();
@@ -534,9 +539,11 @@
             const data = await refreshNextAttemptFromServer();
             if (!data) return;
             
-            // Transition ONLY when status is in-progress
+            // Transition to YOU ARE UP when:
+            // 1. Status is in-progress, OR
+            // 2. First in queue (regardless of first-of-flight status after timer expires)
             if (data.status === 'in-progress') {
-                console.log('✅ Attempt in-progress - transitioning to YOU ARE UP');
+                console.log('âœ… Attempt in-progress - transitioning to YOU ARE UP');
                 timerHasExpired = false;
                 stopReadyPolling();
                 
@@ -548,7 +555,7 @@
                 if (infoEl) updateTimerInfoDisplay(infoEl, data);
             }
             else if (data.is_first_in_queue) {
-                console.log('✅ First in queue - showing YOU ARE UP');
+                console.log('âœ… First in queue after timer expiry - showing YOU ARE UP');
                 timerHasExpired = false;
                 stopReadyPolling();
                 
@@ -560,7 +567,7 @@
                 if (infoEl) updateTimerInfoDisplay(infoEl, data);
             }
             else if (data.attempt_id && String(data.attempt_id) !== String(currentCountdownAttemptId)) {
-                console.log('✅ New attempt loaded - restarting countdown');
+                console.log('âœ… New attempt loaded - restarting countdown');
                 timerHasExpired = false;
                 stopReadyPolling();
                 
@@ -571,7 +578,7 @@
                     weight: data.weight
                 };
             }
-            // IMPORTANT: Keep showing attempt info during GET READY
+            // Keep showing attempt info during GET READY
             else {
                 const infoEl = document.querySelector('.next-attempt-info');
                 if (infoEl && data.lift_type) {
@@ -589,7 +596,6 @@
             console.warn('Server check failed:', e);
         }
     }
-
     // Only restart when attempt/details change
     function shouldRestartTimer(serverData) {
         // Never restart during grace period
@@ -1277,12 +1283,46 @@
         
         function handleActiveTimer(data, infoEl) {
             const serverTime = data.time;
+            const isFirstOfFlight = data.is_first_of_flight;
+            const isFirstInQueue = data.is_first_in_queue;
+            
+            console.log(`ðŸ"µ Active timer: time=${serverTime}s, first_in_queue=${isFirstInQueue}, first_of_flight=${isFirstOfFlight}`);
             
             checkAndNotify(serverTime, data.timer_type, currentAttemptInfo);
             
-            // Check if restart is needed (ONLY if attempt/details changed)
+            // Special handling for first attempt of flight
+            if (isFirstOfFlight && isFirstInQueue) {
+                // This is the first attempt of the flight AND athlete is first in queue
+                // Show countdown timer until it expires, then transition to YOU ARE UP
+                
+                if (serverTime <= 0) {
+                    // Timer has expired - transition to YOU ARE UP
+                    console.log('â° First attempt timer expired - transitioning to YOU ARE UP');
+                    handleYouAreUp(data, infoEl);
+                    return;
+                }
+                
+                // Continue countdown
+                if (shouldRestartTimer(data)) {
+                    console.log(`ðŸ"„ Restarting first-attempt countdown: time=${serverTime}s`);
+                    
+                    timerHasExpired = false;
+                    readyStateStartTime = null;
+                    startLocalCountdown(serverTime, data.timer_type, currentAttemptInfo);
+                    currentCountdownAttemptId = data.attempt_id;
+                    lastTimerType = data.timer_type;
+                    lastServerTime = serverTime;
+                } else {
+                    lastServerTime = serverTime;
+                }
+                
+                updateTimerInfoDisplay(infoEl, data);
+                return;
+            }
+            
+            // Normal timer handling for non-first attempts
             if (shouldRestartTimer(data)) {
-                console.log(`🔄 Restarting timer: attempt=${data.attempt_id}, time=${serverTime}s`);
+                console.log(`ðŸ"„ Restarting timer: attempt=${data.attempt_id}, time=${serverTime}s`);
                 
                 timerHasExpired = false;
                 readyStateStartTime = null;
@@ -1291,14 +1331,11 @@
                 lastTimerType = data.timer_type;
                 lastServerTime = serverTime;
             } else {
-                // No restart needed - just continue current countdown
-                // Update lastServerTime for future comparisons
                 lastServerTime = serverTime;
             }
             
             updateTimerInfoDisplay(infoEl, data);
-        }
-        
+        }        
         function handleInactive(infoEl) {
             console.log('💤 Inactive state');
             clearTimerState();
