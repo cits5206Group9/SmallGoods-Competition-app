@@ -246,10 +246,12 @@
 
   bindClick("btnStart", () => {
     attemptClock.start();
+
     if (!attemptSessionStartTime) {
       attemptSessionStartTime = new Date();
       attemptSessionStartRemOrElapsed = attemptClock.currentSeconds();
     }
+
     saveTimerState();
   });
   bindClick("btnPause",  () => { attemptClock.pause();
