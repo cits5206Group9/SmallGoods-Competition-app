@@ -4,10 +4,35 @@
 # This script now runs the Python file directly, which correctly
 # initializes the Socket.IO server.
 # Usage examples:
-#   ./run_socketio.sh        # No debug, no custom logging
-#   ./run_socketio.sh INFO   # Custom logging with INFO level
-#   ./run_socketio.sh DEBUG  # Custom logging with DEBUG level
+#   ./run.sh                 # No debug, no custom logging
+#   ./run.sh INFO            # Custom logging with INFO level
+#   ./run.sh DEBUG           # Custom logging with DEBUG level
+#   ./run.sh format          # Run ruff format --fix
+#   ./run.sh check           # Run ruff check --fix
 
+MODE=${1}
+
+# Check if first argument is a command
+if [ "$MODE" = "format" ]; then
+    echo "Running ruff format --fix..."
+    # Use local venv if available
+    if [ -d "venv" ]; then
+        source venv/bin/activate
+    fi
+    ruff format .
+    exit 0
+fi
+
+if [ "$MODE" = "check" ]; then
+    echo "Running ruff check --fix..."
+    if [ -d "venv" ]; then
+        source venv/bin/activate
+    fi
+    ruff check --fix .
+    exit 0
+fi
+
+# Otherwise treat first argument as log level
 LOG_LEVEL=${1}
 
 echo "Starting Flask-SocketIO server with log level: ${LOG_LEVEL:-'NONE'}"

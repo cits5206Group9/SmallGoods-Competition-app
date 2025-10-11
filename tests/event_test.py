@@ -1,18 +1,20 @@
 """
 Test WebSocket event handlers functionality
 """
+
 import pytest
 import sys
 import os
 
 # Add the parent directory to sys.path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 
 def test_event_handlers_import():
     """Test that event handlers can be imported"""
     try:
         from app.real_time.event_handlers import register_all_handlers
+
         assert register_all_handlers is not None
         assert callable(register_all_handlers)
     except ImportError as e:
@@ -26,14 +28,14 @@ def test_handler_functions_exist():
 
         # Check that handler functions are defined
         handler_functions = [
-            'handle_timer_start',
-            'handle_timer_stop',
-            'handle_timer_reset',
-            'handle_referee_decision',
-            'handle_attempt_result',
-            'handle_competition_status_update',
-            'handle_athlete_queue_update',
-            'handle_ping'
+            "handle_timer_start",
+            "handle_timer_stop",
+            "handle_timer_reset",
+            "handle_referee_decision",
+            "handle_attempt_result",
+            "handle_competition_status_update",
+            "handle_athlete_queue_update",
+            "handle_ping",
         ]
 
         for func_name in handler_functions:
@@ -54,14 +56,14 @@ def test_register_functions_exist():
             register_all_handlers,
             register_timer_handlers,
             register_referee_handlers,
-            register_competition_handlers
+            register_competition_handlers,
         )
 
         register_functions = [
             register_all_handlers,
             register_timer_handlers,
             register_referee_handlers,
-            register_competition_handlers
+            register_competition_handlers,
         ]
 
         for func in register_functions:
@@ -79,7 +81,7 @@ def test_websocket_integration():
 
         # Test that competition_realtime instance exists
         assert competition_realtime is not None
-        assert hasattr(competition_realtime, 'register_handlers')
+        assert hasattr(competition_realtime, "register_handlers")
 
         # Test that register_all_handlers can be called
         # Note: This won't actually register in testing environment

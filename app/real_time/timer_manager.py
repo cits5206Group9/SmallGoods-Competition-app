@@ -1,6 +1,7 @@
 """
 Server-side timer management for real-time competition synchronization
 """
+
 import time
 import threading
 from typing import Dict, Optional, Callable
@@ -13,6 +14,7 @@ logger = logging.getLogger(__name__)
 
 class TimerState(Enum):
     """Timer state enumeration"""
+
     STOPPED = "stopped"
     RUNNING = "running"
     PAUSED = "paused"
@@ -22,6 +24,7 @@ class TimerState(Enum):
 @dataclass
 class TimerData:
     """Timer data structure"""
+
     competition_id: int
     timer_id: str
     duration: int  # seconds
@@ -37,8 +40,14 @@ class CompetitionTimer:
     Individual timer instance for competition events
     """
 
-    def __init__(self, competition_id: int, timer_id: str, duration: int,
-                 timer_type: str = "attempt", callback: Optional[Callable] = None):
+    def __init__(
+        self,
+        competition_id: int,
+        timer_id: str,
+        duration: int,
+        timer_type: str = "attempt",
+        callback: Optional[Callable] = None,
+    ):
         self.competition_id = competition_id
         self.timer_id = timer_id
         self.duration = duration
@@ -76,7 +85,9 @@ class CompetitionTimer:
         self._thread.daemon = True
         self._thread.start()
 
-        logger.info(f"Timer {self.timer_id} started for competition {self.competition_id}")
+        logger.info(
+            f"Timer {self.timer_id} started for competition {self.competition_id}"
+        )
         return True
 
     def pause(self) -> bool:
@@ -93,7 +104,9 @@ class CompetitionTimer:
             elapsed = self.pause_time - self.start_time
             self.remaining = max(0, self.duration - int(elapsed))
 
-        logger.info(f"Timer {self.timer_id} paused for competition {self.competition_id}")
+        logger.info(
+            f"Timer {self.timer_id} paused for competition {self.competition_id}"
+        )
         return True
 
     def stop(self) -> bool:
@@ -107,7 +120,9 @@ class CompetitionTimer:
         self.pause_time = None
         self._stop_event.set()
 
-        logger.info(f"Timer {self.timer_id} stopped for competition {self.competition_id}")
+        logger.info(
+            f"Timer {self.timer_id} stopped for competition {self.competition_id}"
+        )
         return True
 
     def reset(self, new_duration: Optional[int] = None) -> bool:
@@ -118,7 +133,9 @@ class CompetitionTimer:
             self.duration = new_duration
 
         self.remaining = self.duration
-        logger.info(f"Timer {self.timer_id} reset for competition {self.competition_id}")
+        logger.info(
+            f"Timer {self.timer_id} reset for competition {self.competition_id}"
+        )
         return True
 
     def get_data(self) -> TimerData:
@@ -139,7 +156,7 @@ class CompetitionTimer:
             state=self.state,
             start_time=self.start_time,
             pause_time=self.pause_time,
-            type=self.type
+            type=self.type,
         )
 
     def _countdown_loop(self):
@@ -171,8 +188,14 @@ class TimerManager:
         self.timers: Dict[str, CompetitionTimer] = {}
         self._lock = threading.Lock()
 
-    def create_timer(self, competition_id: int, timer_id: str, duration: int,
-                    timer_type: str = "attempt", callback: Optional[Callable] = None) -> str:
+    def create_timer(
+        self,
+        competition_id: int,
+        timer_id: str,
+        duration: int,
+        timer_type: str = "attempt",
+        callback: Optional[Callable] = None,
+    ) -> str:
         """Create a new timer"""
         full_timer_id = f"{competition_id}_{timer_id}"
 
@@ -221,7 +244,9 @@ class TimerManager:
         logger.warning(f"Timer {full_timer_id} not found")
         return False
 
-    def reset_timer(self, competition_id: int, timer_id: str, new_duration: Optional[int] = None) -> bool:
+    def reset_timer(
+        self, competition_id: int, timer_id: str, new_duration: Optional[int] = None
+    ) -> bool:
         """Reset a timer"""
         full_timer_id = f"{competition_id}_{timer_id}"
 
@@ -266,7 +291,9 @@ class TimerManager:
             for timer_id in to_remove:
                 del self.timers[timer_id]
 
-        logger.info(f"Cleaned up {len(to_remove)} timers for competition {competition_id}")
+        logger.info(
+            f"Cleaned up {len(to_remove)} timers for competition {competition_id}"
+        )
 
 
 # Global timer manager instance

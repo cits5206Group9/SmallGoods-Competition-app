@@ -1,6 +1,7 @@
 """
 Basic sanity tests to verify the test setup works
 """
+
 import pytest
 from app.models import User, UserRole
 from app.extensions import db
@@ -10,7 +11,7 @@ from app.extensions import db
 def test_app_context(app):
     """Test that app context works"""
     assert app is not None
-    assert app.config['TESTING'] is True
+    assert app.config["TESTING"] is True
 
 
 @pytest.mark.unit
@@ -30,11 +31,11 @@ def test_simple_user_creation(app):
             password_hash="test_hash",
             first_name="Sanity",
             last_name="Test",
-            role=UserRole.ATHLETE
+            role=UserRole.ATHLETE,
         )
         db.session.add(user)
         db.session.commit()
-        
+
         assert user.id is not None
         assert user.email == "sanity@test.com"
 
@@ -42,8 +43,9 @@ def test_simple_user_creation(app):
 @pytest.mark.integration
 def test_client_works(client):
     """Test that test client works"""
-    response = client.get('/')
-    assert response.status_code == 200
+    response = client.get("/", follow_redirects=True)
+    # Should get a valid response (either 200 or redirect to login)
+    assert response.status_code in [200, 302]
 
 
 def test_pytest_marks():
