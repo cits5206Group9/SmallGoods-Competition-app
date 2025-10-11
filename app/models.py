@@ -54,8 +54,8 @@ class Competition(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     config = db.Column(db.JSON)
     
-    # Break times in seconds
-    breaktime_between_events = db.Column(db.Integer, default=600)  # 10 minutes default
+    # Break times (in seconds)
+    breaktime_between_events = db.Column(db.Integer, default=300)  # 5 minutes default
     breaktime_between_flights = db.Column(db.Integer, default=180)  # 3 minutes default
 
     # Relationships
