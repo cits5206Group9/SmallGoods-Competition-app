@@ -346,7 +346,7 @@ body {
     display: flex;
     justify-content: flex-start;
     align-items: center;
-    background-color: #000;
+    background-color: #ffffff;
     padding: 24px 64px;
     border-radius: 4px;
 }
@@ -355,7 +355,7 @@ body {
     font-size: 4rem;
     font-weight: bold;
     font-family: 'Inter', 'Arial', sans-serif;
-    color: #ffffff;
+    color: #000000;
     line-height: normal;
 }
 
