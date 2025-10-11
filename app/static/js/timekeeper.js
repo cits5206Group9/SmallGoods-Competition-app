@@ -1050,7 +1050,6 @@
       if (id) localStorage.setItem(ATHLETE_ID_KEY, id); else localStorage.removeItem(ATHLETE_ID_KEY);
       localStorage.setItem(ATHLETE_KEY, name);
       
-      // Do NOT update attempt status when athlete is applied.
       // The attempt will be marked 'in-progress' when the timekeeper presses Start.
       updateAthleteApplied();
     });
