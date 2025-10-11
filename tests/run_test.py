@@ -1,12 +1,13 @@
 """
 Test run.py WebSocket server configuration
 """
+
 import pytest
 import sys
 import os
 
 # Add the parent directory to sys.path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 
 def test_run_imports():
@@ -28,9 +29,9 @@ def test_app_creation():
     try:
         from app import create_app
 
-        app = create_app('testing')
+        app = create_app("testing")
         assert app is not None
-        assert hasattr(app, 'config')
+        assert hasattr(app, "config")
 
     except Exception as e:
         pytest.fail(f"Failed to create app: {e}")
@@ -42,11 +43,11 @@ def test_socketio_integration():
         from app import create_app
         from app.extensions import socketio
 
-        app = create_app('testing')
+        app = create_app("testing")
 
         # Check that SocketIO is properly integrated
-        assert hasattr(app, 'extensions')
-        assert 'socketio' in app.extensions
+        assert hasattr(app, "extensions")
+        assert "socketio" in app.extensions
 
         # Check that SocketIO has the app reference
         assert socketio.server is not None
@@ -61,7 +62,7 @@ def test_websocket_methods():
         from app.extensions import socketio
 
         # Check required methods for WebSocket server
-        required_methods = ['run', 'emit', 'init_app']
+        required_methods = ["run", "emit", "init_app"]
 
         for method_name in required_methods:
             assert hasattr(socketio, method_name)
