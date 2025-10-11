@@ -1,6 +1,8 @@
-from flask import Blueprint, render_template, request, jsonify
+import json
+from pathlib import Path
+from flask import Blueprint, render_template, request, jsonify, current_app
 from ..extensions import db
-from ..models import Competition, Event, Athlete, AthleteFlight, Flight, Attempt, AthleteEntry, Score
+from ..models import Competition, Event, Athlete, AthleteFlight, Flight, Attempt, AthleteEntry, Score, AttemptResult
 from sqlalchemy.orm import joinedload
 
 display_bp = Blueprint('display', __name__, url_prefix='/display' )
@@ -65,6 +67,62 @@ def display_competition():
 @display_bp.route('/datatable')
 def display_datatable():
     return render_template('display/datatable.html')
+
+@display_bp.route('/public-stage')
+def display_public_stage():
+    """Public stage display for competition"""
+    competition_id = request.args.get('competition_id', 1, type=int)
+    return render_template('display/public_stage.html', competition_id=competition_id)
+
+
+@display_bp.route('/api/timer-state')
+def get_public_timer_state():
+    """
+    Expose the shared timer state for public displays.
+    Mirrors /admin/api/timer-state GET without requiring admin session.
+    """
+    try:
+        state_file = Path(current_app.instance_path) / 'timer_state.json'
+        if state_file.exists():
+            with state_file.open('r') as f:
+                state = json.load(f)
+        else:
+            state = {
+                'athlete_name': '',
+                'athlete_id': '',
+                'attempt_number': '',
+                'timer_seconds': 60,
+                'timer_running': False,
+                'timer_mode': 'attempt',
+                'competition': '',
+                'event': '',
+                'flight': '',
+                'flight_id': '',
+                'team': '',
+                'current_lift': '',
+                'attempt_weight': '',
+                'timestamp': 0
+            }
+        return jsonify(state)
+    except Exception as exc:
+        current_app.logger.warning(f"Failed to load timer state for public display: {exc}")
+        return jsonify({
+            'athlete_name': '',
+            'athlete_id': '',
+            'attempt_number': '',
+            'timer_seconds': 0,
+            'timer_running': False,
+            'timer_mode': 'attempt',
+            'competition': '',
+            'event': '',
+            'flight': '',
+            'flight_id': '',
+            'team': '',
+            'current_lift': '',
+            'attempt_weight': '',
+            'timestamp': 0,
+            'error': 'unavailable'
+        }), 500
 
 @display_bp.route('/debug')
 def debug_report():
@@ -296,4 +354,177 @@ def get_competition_rankings(competition_id):
         return jsonify({
             'success': False,
             'error': f'Failed to get rankings: {str(e)}'
+        }), 500
+
+
+@display_bp.route('/api/competition/<int:competition_id>/flights-data')
+def get_flights_data(competition_id):
+    """
+    API endpoint to get complete flights table data for public stage display.
+    Returns nested structure: competition > events > flights > athletes > attempts
+    """
+    try:
+        competition = Competition.query.get(competition_id)
+        if not competition:
+            return jsonify({
+                'success': False,
+                'error': 'Competition not found'
+            }), 404
+
+        # Get all flights for this competition
+        flights = Flight.query.filter_by(competition_id=competition_id).order_by(Flight.id).all()
+
+        events_dict = {}
+
+        for flight in flights:
+            # Get all athlete entries in this flight
+            entries = AthleteEntry.query.filter_by(flight_id=flight.id).order_by(AthleteEntry.id).all()
+
+            # Group by movement type to create events
+            event_key = f"{flight.movement_type}"
+
+            if event_key not in events_dict:
+                events_dict[event_key] = {
+                    'name': flight.movement_type,
+                    'flights': []
+                }
+
+            athletes_data = []
+            for entry in entries:
+                athlete = entry.athlete
+
+                # Get all attempts for this entry
+                attempts = Attempt.query.filter_by(athlete_entry_id=entry.id).order_by(Attempt.attempt_number).all()
+
+                # Build attempts array
+                attempts_data = []
+                best_weight = 0
+                for attempt in attempts:
+                    # Convert AttemptResult enum to 'success'/'fail' string
+                    result_str = None
+                    if attempt.final_result:
+                        if attempt.final_result == AttemptResult.GOOD_LIFT:
+                            result_str = 'success'
+                        elif attempt.final_result in [AttemptResult.NO_LIFT, AttemptResult.NOT_TO_DEPTH, AttemptResult.MISSED, AttemptResult.DNF]:
+                            result_str = 'fail'
+                    
+                    attempt_info = {
+                        'number': attempt.attempt_number,
+                        'weight': attempt.requested_weight,
+                        'result': result_str,  # 'success', 'fail', or None
+                        'reps': None
+                    }
+
+                    # Update best weight if successful
+                    if result_str == 'success' and attempt.requested_weight > best_weight:
+                        best_weight = attempt.requested_weight
+
+                    attempts_data.append(attempt_info)
+
+                # Ensure we have 3 attempts (pad with null if needed)
+                while len(attempts_data) < 3:
+                    attempts_data.append({
+                        'number': len(attempts_data) + 1,
+                        'weight': None,
+                        'result': None,
+                        'reps': None
+                    })
+
+                # Get reps from entry if available
+                reps_value = None
+                if entry.reps:
+                    import json
+                    try:
+                        reps_data = json.loads(entry.reps) if isinstance(entry.reps, str) else entry.reps
+                        reps_value = reps_data.get('value') if isinstance(reps_data, dict) else reps_data
+                    except:
+                        reps_value = entry.reps
+
+                # Determine category (gender + weight class approximation)
+                weight_class = ""
+                if athlete.bodyweight:
+                    # Simple weight class approximation
+                    if athlete.gender == 'M':
+                        if athlete.bodyweight <= 61:
+                            weight_class = "61kg"
+                        elif athlete.bodyweight <= 67:
+                            weight_class = "67kg"
+                        elif athlete.bodyweight <= 73:
+                            weight_class = "73kg"
+                        elif athlete.bodyweight <= 81:
+                            weight_class = "81kg"
+                        elif athlete.bodyweight <= 89:
+                            weight_class = "89kg"
+                        elif athlete.bodyweight <= 96:
+                            weight_class = "96kg"
+                        elif athlete.bodyweight <= 102:
+                            weight_class = "102kg"
+                        else:
+                            weight_class = "102+kg"
+                    else:
+                        if athlete.bodyweight <= 49:
+                            weight_class = "49kg"
+                        elif athlete.bodyweight <= 55:
+                            weight_class = "55kg"
+                        elif athlete.bodyweight <= 59:
+                            weight_class = "59kg"
+                        elif athlete.bodyweight <= 64:
+                            weight_class = "64kg"
+                        elif athlete.bodyweight <= 71:
+                            weight_class = "71kg"
+                        elif athlete.bodyweight <= 76:
+                            weight_class = "76kg"
+                        elif athlete.bodyweight <= 81:
+                            weight_class = "81kg"
+                        else:
+                            weight_class = "81+kg"
+
+                category = f"{athlete.gender}'s {weight_class}" if weight_class else athlete.gender
+
+                # Check if this athlete is currently lifting
+                is_current = False
+                if hasattr(competition, 'current_athlete_entry_id'):
+                    is_current = (entry.id == competition.current_athlete_entry_id)
+
+                athlete_info = {
+                    'id': athlete.id,
+                    'name': f"{athlete.first_name} {athlete.last_name}",
+                    'class': weight_class,
+                    'category': category,
+                    'gender': athlete.gender,
+                    'attempts': attempts_data,
+                    'best': best_weight if best_weight > 0 else None,
+                    'reps': reps_value,
+                    'total': best_weight if best_weight > 0 else 0,
+                    'is_current': is_current
+                }
+
+                athletes_data.append(athlete_info)
+
+            flight_info = {
+                'id': flight.id,
+                'name': flight.name,
+                'athletes': athletes_data
+            }
+
+            events_dict[event_key]['flights'].append(flight_info)
+
+        # Convert events dict to list
+        events_list = list(events_dict.values())
+
+        response = {
+            'success': True,
+            'competition': {
+                'id': competition.id,
+                'name': competition.name
+            },
+            'events': events_list
+        }
+
+        return jsonify(response)
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'Failed to get flights data: {str(e)}'
         }), 500
