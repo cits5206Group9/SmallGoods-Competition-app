@@ -53,6 +53,10 @@ class Competition(db.Model):
     is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     config = db.Column(db.JSON)
+    
+    # Break times in seconds
+    breaktime_between_events = db.Column(db.Integer, default=600)  # 10 minutes default
+    breaktime_between_flights = db.Column(db.Integer, default=180)  # 3 minutes default
 
     # Relationships
     events = db.relationship("Event", backref="competition", lazy=True, cascade="all, delete-orphan")
@@ -125,7 +129,6 @@ class AthleteEntry(db.Model):
     is_active = db.Column(db.Boolean, default=True)
     lift_type = db.Column(db.String(50), nullable=False) # e.g., "snatch", "clean_jerk"
     attempt_time_limit = db.Column(db.Integer, default=60)  # seconds
-    break_time = db.Column(db.Integer, default=120)  # seconds
     default_reps = db.Column(db.JSON)
     reps = db.Column(db.JSON)
 

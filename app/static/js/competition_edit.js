@@ -59,6 +59,8 @@
         // Load basic fields
         $('#comp-name').value = data.name || '';
         $('#comp-date').value = data.start_date || '';
+        $('#breaktime-events').value = data.breaktime_between_events !== undefined && data.breaktime_between_events !== null ? data.breaktime_between_events : '';
+        $('#breaktime-flights').value = data.breaktime_between_flights !== undefined && data.breaktime_between_flights !== null ? data.breaktime_between_flights : '';
         $('#allow-athlete-input').checked = !!(config.features?.allowAthleteInput);
         $('#allow-coach-assignment').checked = !!(config.features?.allowCoachAssignment);
         $('#enable-attempt-ordering').checked = !!(config.features?.enableAttemptOrdering);
@@ -98,7 +100,6 @@
                 $('.scoring-type', lastMovement).value = mov.scoring?.type || 'max';
                 $('.scoring-metric', lastMovement).value = mov.scoring?.metric || '';
                 $('.attempt-time', lastMovement).value = mov.timer?.attempt_seconds || '';
-                $('.break-time', lastMovement).value = mov.timer?.break_seconds || '';
 
                 // Add metrics
                 (mov.metrics || []).forEach(metric => {

@@ -110,7 +110,6 @@ def setup_test_data(app):
             entry_order=athlete_flight.order,
             lift_type="Squat",
             attempt_time_limit=60,
-            break_time=120,
             opening_weights=100,
             default_reps=[1,1,1],
             reps=[1,1,1],
