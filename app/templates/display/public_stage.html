@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Small Goods Throwdown - Public Display</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/public_stage.css') }}">
+</head>
+<body>
+    <!-- Top Header with Event Tabs -->
+    <header class="top-header">
+        <h1 class="competition-title" id="competitionTitle">Small Goods Throwdown</h1>
+        <nav class="event-tabs" id="eventTabs">
+            <!-- Event tabs will be dynamically inserted -->
+        </nav>
+    </header>
+
+    <!-- Main Content - 3 Flight Cards Stacked Vertically -->
+    <main class="flights-container" id="flightsContainer">
+        <!-- Flight cards will be dynamically inserted -->
+    </main>
+
+    <!-- Bottom Status Bar -->
+    <footer class="status-bar">
+        <div class="timer-section">
+            <span class="timer-display" id="timerDisplay">01:30</span>
+        </div>
+        <div class="athlete-section">
+            <span class="current-athlete" id="currentAthlete">Athlete C</span>
+        </div>
+        <div class="weight-section">
+            <span class="current-weight" id="currentWeight">63</span>
+            <span class="weight-unit">KG</span>
+            <span class="gender-icon" id="genderIcon"></span>
+            <div class="audio-visualizer">
+                <span class="bar"></span>
+                <span class="bar"></span>
+                <span class="bar"></span>
+                <span class="bar"></span>
+                <span class="bar"></span>
+                <span class="bar"></span>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Hidden Competition ID -->
+    <input type="hidden" id="competitionId" value="{{ competition_id }}">
+
+    <script src="{{ url_for('static', filename='js/public_stage.js') }}"></script>
+</body>
+</html>
