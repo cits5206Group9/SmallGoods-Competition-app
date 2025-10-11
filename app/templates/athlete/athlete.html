@@ -67,6 +67,7 @@
                     <p><strong>Lift:</strong> <span class="lift-type">{{ next_attempt.lift_type }}</span></p>
                     <p><strong>Weight:</strong> <span class="weight">{{ next_attempt.requested_weight }}</span>kg</p>
                     <p><strong>Attempt:</strong> <span class="attempt-order">{{ next_attempt.attempt_number }}</span></p>
+                    <p class="note-small">NOTE: This is an estimated time and may change as the competition progresses.</p>
                     {% else %}
                     <p>No upcoming attempts</p>
                     {% endif %}
@@ -81,8 +82,8 @@
                     {% if competition.rankings %}
                     {% for event_rank in competition.rankings %}
                     <div class="ranking-item">
-                        <h3>{{ event_rank.event_name }}</h3>
-                        <p><strong>Current Rank:</strong> {{ event_rank.rank }}th</p>
+                        <h3>{{ event_rank.movement }}</h3>
+                        <p><strong>Current Rank:</strong> {{ event_rank.rank if event_rank.rank is not none else '—' }}</p>
                         <p><strong>Total:</strong> {{ event_rank.total_score }}kg</p>
                     </div>
                     {% endfor %}
@@ -149,25 +150,13 @@
                                         <div class="reps-section">
                                             <div class="reps-header">
                                                 <h5>Reps per Attempt</h5>
-                                                <small class="reps-desc">Choose your reps ([1,1,1]: 3 attempts with 1 rep each)</small>
                                             </div>
 
-                                            {% set lift_key = entry.lift_type %}
-                                            {% set reps_value = entry.reps or [1,1,1] %}
                                             {% set reps_display = entry.reps_display or '[1,1,1]' %}
                                             <div class="reps-display">
                                                 <span class="reps-value">
                                                     {{ reps_display }}
                                                 </span>
-                                                <small class="reps-max">Max: {{ entry.reps_max_display or '[1,1,1]' }}</small>
-                                                <form class="reps-form" style="display: none;" 
-                                                    action="{{ url_for('athlete.update_reps') }}" method="POST">
-                                                    <input type="hidden" name="event_id" value="{{ entry.event.id }}">
-                                                    <input type="hidden" name="lift_key" value="{{ lift_key }}">
-                                                    <input type="text" name="reps" value="{{ reps_display }}" 
-                                                        placeholder="[1,1,1]" pattern="\[[\d,\s]+\]" title="Format: [1,1,1]" required>
-                                                    <button type="submit" class="submit-reps">Save</button>
-                                                </form>
                                             </div>
                                         </div>
 
@@ -175,6 +164,7 @@
                                         <div class="opening-weights-section">
                                             <div class="opening-weights-header">
                                                 <h5>Opening Weight</h5>
+                                                <p class="note-small">Please set your opening weight before the event begins.</p>
                                             </div>
                                             {% set lift_key = entry.lift_type %}
                                             {% set weight = entry.opening_weights or 0 %}
@@ -197,6 +187,7 @@
                                     <!-- Attempts for this movement -->
                                     <div class="attempts-section">
                                         <h5>Attempts</h5>
+                                        <span class="note-small">You will not be able to update weights if you have less than 3 minutes before your attempt.</span>
                                         <div class="attempts-list">
                                             {% for attempt in entry.attempts|sort(attribute='attempt_number') %}
                                             <div class="attempt {% if attempt.status != 'finished' %}next-attempt{% endif %}" 
