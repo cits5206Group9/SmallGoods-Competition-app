@@ -40,6 +40,17 @@
                 </div>
             </div>
 
+            <div class="grid grid-2">
+              <div class="form-field">
+                <label for="breaktime-events">Break Time Between Events (seconds)</label>
+                <input type="number" id="breaktime-events" min="0" placeholder="e.g., 600 (10 minutes)">
+              </div>
+              <div class="form-field">
+                <label for="breaktime-flights">Break Time Between Flights (seconds)</label>
+                <input type="number" id="breaktime-flights" min="0" placeholder="e.g., 180 (3 minutes)">
+              </div>
+            </div>
+
             <div class="settings-row">
                 <label class="checkbox">
                     <input type="checkbox" id="allow-athlete-input" checked>
@@ -189,15 +200,9 @@
         </div>
       </div>
 
-      <div class="grid grid-2">
-        <div class="form-field">
-          <label>Attempt Time (sec)</label>
-          <input type="number" min="1" class="attempt-time" placeholder="e.g., 60">
-        </div>
-        <div class="form-field">
-          <label>Break Time (sec)</label>
-          <input type="number" min="0" class="break-time" placeholder="e.g., 120">
-        </div>
+      <div class="form-field">
+        <label>Attempt Time (sec)</label>
+        <input type="number" min="1" class="attempt-time" placeholder="e.g., 60">
       </div>
 
       <div class="metrics-section">
