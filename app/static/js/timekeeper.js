@@ -244,27 +244,12 @@
   const bindClick = (sel, handler) =>
     document.querySelectorAll(`#${CSS.escape(sel)}`).forEach((n) => (n.onclick = handler));
 
-  bindClick("btnStart", async () => {
-    console.debug('Timekeeper: btnStart clicked');
+  bindClick("btnStart", () => {
     attemptClock.start();
 
-    // On first Start press for this attempt session, mark attempt 'in-progress'
     if (!attemptSessionStartTime) {
       attemptSessionStartTime = new Date();
       attemptSessionStartRemOrElapsed = attemptClock.currentSeconds();
-
-      try {
-        const athleteId = (document.getElementById('athleteSelect') && document.getElementById('athleteSelect').value) || localStorage.getItem('TK_ATHLETE_ID');
-        const attemptNum = (document.getElementById('attemptSelect') && document.getElementById('attemptSelect').value) || '';
-        console.debug('Timekeeper: attempting to mark in-progress', { athleteId, attemptNum, flightId: CURRENT_FLIGHT_ID });
-        if (athleteId && attemptNum) {
-          // Use CURRENT_FLIGHT_ID (top-level) rather than lastFlightId which lives in TKSelector scope
-          const ok = await window.updateAttemptStatus(athleteId, attemptNum, CURRENT_FLIGHT_ID, 'in-progress');
-          if (!ok) console.warn('Failed to mark attempt as in-progress on server');
-        }
-      } catch (err) {
-        console.warn('Error marking attempt in-progress:', err);
-      }
     }
 
     saveTimerState();
@@ -1125,7 +1110,12 @@
       if (id) localStorage.setItem(ATHLETE_ID_KEY, id); else localStorage.removeItem(ATHLETE_ID_KEY);
       localStorage.setItem(ATHLETE_KEY, name);
       
-      // The attempt will be marked 'in-progress' when the timekeeper presses Start.
+      // Update attempt status to 'in-progress' when athlete is applied
+      const attemptNumber = attemptSelect?.value;
+      if (id && attemptNumber) {
+        await window.updateAttemptStatus(id, attemptNumber, lastFlightId, 'in-progress');
+      }
+      
       updateAthleteApplied();
     });
   }

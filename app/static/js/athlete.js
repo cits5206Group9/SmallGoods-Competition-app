@@ -621,6 +621,7 @@
         if (currentAttemptInfo) {
             const weightChanged = currentAttemptInfo.weight !== serverData.weight;
             const orderChanged = currentAttemptInfo.order !== serverData.order;
+            const liftTypeChanged = currentAttemptInfo.lift_type !== serverData.lift_type;
             
             if (weightChanged) {
                 console.log(`🔄 Weight changed: ${currentAttemptInfo.weight} → ${serverData.weight}`);
@@ -631,10 +632,83 @@
                 console.log(`🔄 Order changed: ${currentAttemptInfo.order} → ${serverData.order}`);
                 return true;
             }
+
+            if (liftTypeChanged) {
+            console.log(`🔄 Lift type changed: ${currentAttemptInfo.lift_type} → ${serverData.lift_type}`);
+            return true;
+        }
+        }
+        // Check if the estimated time has changed significantly (more than 10 seconds)
+        if (serverData.time && lastServerTime) {
+            const timeDiff = Math.abs(serverData.time - lastServerTime);
+            // If server time differs by more than 10 seconds from what we expect, restart
+            if (timeDiff > 10) {
+                console.log(`🔄 Time jumped significantly: ${lastServerTime}s → ${serverData.time}s (diff: ${timeDiff}s)`);
+                return true;
+            }
         }
         
         // No restart needed - continue current countdown
         return false;
+    }
+    function handleActiveTimer(data, infoEl) {
+    const serverTime = data.time;
+    const isFirstOfFlight = data.is_first_of_flight;
+    const isFirstInQueue = data.is_first_in_queue;
+    
+    console.log(`🔵 Active timer: time=${serverTime}s, first_in_queue=${isFirstInQueue}, first_of_flight=${isFirstOfFlight}`);
+    
+    checkAndNotify(serverTime, data.timer_type, currentAttemptInfo);
+    
+    // ALWAYS update currentAttemptInfo with latest data from server
+    if (data.event && data.lift_type) {
+        currentAttemptInfo = {
+            event: data.event,
+            lift_type: data.lift_type,
+            order: data.order,
+            weight: data.weight
+        };
+    }
+    
+    // Special handling for first attempt of flight
+    if (isFirstOfFlight && isFirstInQueue) {
+        if (serverTime <= 0) {
+            console.log('⏰ First attempt timer expired - transitioning to YOU ARE UP');
+            handleYouAreUp(data, infoEl);
+            return;
+        }
+        
+        if (shouldRestartTimer(data)) {
+            console.log(`🔄 Restarting first-attempt countdown: time=${serverTime}s`);
+            
+            timerHasExpired = false;
+            startLocalCountdown(serverTime, data.timer_type, currentAttemptInfo);
+            currentCountdownAttemptId = data.attempt_id;
+            lastTimerType = data.timer_type;
+            lastServerTime = serverTime;
+        } else {
+            lastServerTime = serverTime;
+        }
+        
+        updateTimerInfoDisplay(infoEl, data);
+        return;
+    }
+    
+    // Normal timer handling for non-first attempts
+    if (shouldRestartTimer(data)) {
+        console.log(`🔄 Restarting timer: attempt=${data.attempt_id}, time=${serverTime}s`);
+        
+        timerHasExpired = false;
+        startLocalCountdown(serverTime, data.timer_type, currentAttemptInfo);
+        currentCountdownAttemptId = data.attempt_id;
+        lastTimerType = data.timer_type;
+        lastServerTime = serverTime;
+    } else {
+        lastServerTime = serverTime;
+    }
+    
+    // ALWAYS update the display with latest data
+    updateTimerInfoDisplay(infoEl, data);
     }
 
     async function handleWeightFormSubmit(e) {
