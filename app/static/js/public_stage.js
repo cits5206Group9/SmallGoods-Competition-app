@@ -82,6 +82,15 @@ class TimerSynchronizer {
         const rawMode = typeof state.timer_mode === 'string' ? state.timer_mode.toLowerCase() : '';
         this.mode = (rawMode === 'countup' || rawMode === 'countdown') ? rawMode : 'countdown';
         this.isRunning = Boolean(state.timer_running);
+
+        // Debug log
+        console.log('[Timer] State updated:', {
+            seconds: this.lastKnownSeconds,
+            running: this.isRunning,
+            mode: this.mode,
+            timestamp: new Date(state.timestamp).toLocaleTimeString()
+        });
+
         this.render(true);
     }
 
