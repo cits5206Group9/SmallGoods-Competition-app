@@ -110,7 +110,7 @@ class TimerSynchronizer {
         const seconds = this.computeSeconds();
         if (seconds === null) {
             if (force) {
-                this.timerDisplay.textContent = '--:--';
+                this.timerDisplay.textContent = '00:00';
                 this.updateClasses('idle');
             }
             return;
@@ -122,7 +122,7 @@ class TimerSynchronizer {
         }
 
         let status = 'paused';
-        if (seconds <= 0.5) {
+        if (seconds <= 0.5 && this.mode === 'countdown') {
             status = 'expired';
         } else if (this.isRunning) {
             status = 'running';
