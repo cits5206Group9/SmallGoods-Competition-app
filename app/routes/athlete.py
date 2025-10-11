@@ -624,10 +624,6 @@ def update_opening_weight():
         db.session.rollback()
         return jsonify({"success": False, "error": str(e)}), 400
 
-
-# Reps update endpoint removed: reps are view-only from athlete dashboard
-
-
 @athlete_bp.route("/update-attempt-weight", methods=["POST"])
 def update_attempt_weight():
     """
@@ -682,59 +678,15 @@ def update_attempt_weight():
                 400,
             )
 
-        # Server-side timing validation: disallow updates when the attempt is imminent or expired
-        try:
-            # 1) Check TimerManager / started_at remaining directly
-            remaining = attempt_time_remaining(attempt)
-            if remaining is not None:
-                # If timer already expired or under 3 minutes, block
-                if remaining <= 180:
-                    minutes = remaining // 60
-                    seconds = remaining % 60
-                    return (
-                        jsonify({
-                            'success': False,
-                            'error': f'Cannot update weight with less than 3 minutes remaining. Time remaining: {minutes}:{seconds:02d}'
-                        }),
-                        403
-                    )
-
-            # 2) Fallback: use estimator to compute time until this attempt
-            event = attempt.athlete_entry.event if attempt.athlete_entry else None
-            competition_id = event.competition_id if event else None
-            sport_type = event.sport_type if event else None
-
-            est = calculate_estimated_time_for_attempt(attempt, competition_id, sport_type)
-            if est is None:
-                # Unable to compute estimate - block to be safe
-                return (
-                    jsonify({
-                        'success': False,
-                        'error': 'Cannot validate attempt timing - update disallowed'
-                    }),
-                    403
-                )
-
-            if est <= 180:
-                minutes = est // 60
-                seconds = est % 60
-                return (
-                    jsonify({
-                        'success': False,
-                        'error': f'Cannot update weight with less than 3 minutes remaining. Time remaining: {minutes}:{seconds:02d}'
-                    }),
-                    403
-                )
-        except Exception as e:
-            # Fail-closed for safety if any unexpected error occurs
-            print(f"Error validating attempt timing: {e}")
-            return (
-                jsonify({
-                    'success': False,
-                    'error': 'Cannot validate attempt timing - update disallowed'
-                }),
-                403
-            )
+        # Server-side timing validation
+        remaining = attempt_time_remaining(attempt)
+        if remaining is not None and remaining <= 180:
+            minutes = remaining // 60
+            seconds = remaining % 60
+            return jsonify({
+                'success': False,
+                'error': f'Cannot update weight with less than 3 minutes remaining. Time remaining: {minutes}:{seconds:02d}'
+            }), 403
 
         # Update weight
         attempt.requested_weight = new_weight
@@ -795,77 +747,109 @@ def get_active_event():
     
     return jsonify({"active_event": None})
 
-
-def get_average_attempt_duration_from_logs(competition_id: int = None, event_id: int = None, movement_type: str = None) -> int:
-    """
-    Calculate average attempt duration from TimerLog entries.
-    Uses the most recent log entry per attempt_id.
-    Falls back to 60 seconds if no data available.
-    
-    Priority: movement_type > event_id > competition_id
-    """
+def check_event_has_in_progress_attempts(event_id: int) -> bool:
+    """Check if any attempt in the event is currently in-progress"""
     try:
-        # Build query for attempt logs
-        query = TimerLog.query.filter(
-            TimerLog.action == 'Attempt',
-            TimerLog.duration_sec.isnot(None),
-            TimerLog.duration_sec > 0  # Valid durations only
+        return (
+            db.session.query(Attempt)
+            .join(AthleteEntry, Attempt.athlete_entry_id == AthleteEntry.id)
+            .filter(
+                AthleteEntry.event_id == event_id,
+                Attempt.status == 'in-progress'
+            )
+            .first() is not None
         )
-        
-        # Apply filters in order of specificity
-        if competition_id:
-            query = query.filter(TimerLog.competition_id == competition_id)
-        if event_id:
-            query = query.filter(TimerLog.event_id == event_id)
-        
-        logs = query.all()
-        
-        if not logs:
-            return 60  # Default fallback
-        
-        # Group by attempt_id and take the latest entry for each
-        by_attempt = {}
-        by_athlete_attempt = {}  # For movement type filtering
-        
-        for log in logs:
-            meta = log.meta_json or {}
-            attempt_id = meta.get('attempt_id')
-            
-            if attempt_id:
-                # Keep only the most recent log per attempt
-                if attempt_id not in by_attempt or log.id > by_attempt[attempt_id].id:
-                    by_attempt[attempt_id] = log
-            else:
-                # No attempt_id - use athlete + attempt_no as key
-                athlete_name = log.athlete or 'unknown'
-                attempt_no = meta.get('attempt_no', '1')
-                key = f"{athlete_name}_{attempt_no}"
-                
-                if key not in by_athlete_attempt or log.id > by_athlete_attempt[key].id:
-                    by_athlete_attempt[key] = log
-        
-        # Collect durations
-        durations = []
-        
-        # Add durations from attempt_id-based logs
-        for log in by_attempt.values():
-            durations.append(log.duration_sec)
-        
-        # Add durations from athlete+attempt-based logs
-        for log in by_athlete_attempt.values():
-            durations.append(log.duration_sec)
-        
-        if not durations:
-            return 60
-        
-        # Calculate average
-        avg_duration = sum(durations) / len(durations)
-        return int(avg_duration)
-        
-    except Exception as e:
-        print(f"Error calculating average duration: {e}")
-        return 60  # Fallback on error
+    except Exception:
+        return False
 
+
+_simple_estimate_cache = {}
+
+def calculate_estimated_time(target_attempt: Attempt, competition_id: int, sport_type=None) -> int:
+    """
+    Calculate a simple estimate (in seconds) of how long until the target_attempt is up next.
+    Formula:
+    - Current in-progress: Use ACTUAL remaining time from TimerManager
+    - Each athlete ahead: attempt_time_limit + 15s buffer
+    - Adjusts for early finishes (if attempt finishes in 30s, saves 30s)
+    """
+    cache_key = f"{competition_id}_{target_attempt.id}"
+    now = datetime.utcnow()
+    
+    # Check cache (5 second TTL)
+    if cache_key in _simple_estimate_cache:
+        cached_value, cached_time = _simple_estimate_cache[cache_key]
+        if (now - cached_time).total_seconds() < 5:
+            elapsed = int((now - cached_time).total_seconds())
+            return max(0, cached_value - elapsed)
+    
+    total_seconds = 0
+    
+    # 1. CURRENT IN-PROGRESS ATTEMPT - Use actual remaining time
+    current_attempt = get_current_in_progress_attempt(competition_id, sport_type)
+    if current_attempt:
+        remaining = attempt_time_remaining(current_attempt)
+        if remaining and remaining > 0:
+            # Use actual remaining time (most accurate)
+            total_seconds += remaining
+            print(f"[ESTIMATE] Current in-progress: {remaining}s remaining")
+        else:
+            # Fallback if timer not active: use full time limit
+            time_limit = current_attempt.athlete_entry.attempt_time_limit or 60
+            total_seconds += time_limit
+            print(f"[ESTIMATE] Current in-progress (no timer): assuming {time_limit}s")
+    
+    # 2. GET ALL WAITING ATTEMPTS IN ORDER
+    waiting_attempts = get_waiting_attempts_in_order(competition_id, sport_type)
+    
+    # 3. COUNT ONLY NEXT ATTEMPT PER ATHLETE
+    attempts_ahead = []
+    athletes_counted = set()
+    found_target = False
+    
+    for attempt in waiting_attempts:
+        # Stop when we reach the target attempt
+        if attempt.id == target_attempt.id:
+            found_target = True
+            break
+        
+        athlete_id = attempt.athlete_entry.athlete_id
+        
+        # Only count the FIRST (next) attempt per athlete
+        if athlete_id not in athletes_counted:
+            attempts_ahead.append(attempt)
+            athletes_counted.add(athlete_id)
+    
+    print(f"[ESTIMATE] Target: Athlete {target_attempt.athlete_entry.athlete_id}, Attempt {target_attempt.attempt_number}")
+    print(f"[ESTIMATE] Attempts ahead: {len(attempts_ahead)} athletes")
+    
+    # If target not found or already first, return 0
+    if not found_target and not current_attempt:
+        print(f"[ESTIMATE] Target is first in queue -> 0s")
+        return 0
+    
+    # 4. SUM TIME FOR ATTEMPTS AHEAD
+    for attempt in attempts_ahead:
+        time_limit = attempt.athlete_entry.attempt_time_limit or 60
+        buffer = 15  # Transition buffer
+        attempt_time = time_limit + buffer
+        total_seconds += attempt_time
+        
+        print(f"[ESTIMATE]   - Athlete {attempt.athlete_entry.athlete_id}: {time_limit}s + {buffer}s = {attempt_time}s")
+    
+    result = max(0, int(total_seconds))
+    print(f"[ESTIMATE] Total: {result}s = {result//60}:{result%60:02d}")
+    
+    # Cache result
+    _simple_estimate_cache[cache_key] = (result, now)
+    
+    # Clean old cache entries
+    for key in list(_simple_estimate_cache.keys()):
+        _, cache_time = _simple_estimate_cache[key]
+        if (now - cache_time).total_seconds() > 10:
+            del _simple_estimate_cache[key]
+    
+    return result
 
 def get_current_in_progress_attempt(competition_id: int, sport_type=None):
     """
@@ -922,20 +906,24 @@ def get_waiting_attempts_in_order(competition_id: int, sport_type=None, movement
 
 
 def is_athlete_first_in_queue(attempt_id: int, athlete_id: int) -> bool:
-    """Return True if the given attempt is currently first in the remaining queue for its event."""
+    """
+    Return True if the given attempt is currently first in the remaining queue.
+    """
     try:
         attempt = Attempt.query.options(joinedload(Attempt.athlete_entry)).get(attempt_id)
         if not attempt or not attempt.athlete_entry:
             return False
 
         event_id = attempt.athlete_entry.event_id
+        flight_id = attempt.athlete_entry.flight_id
 
-        # Remaining attempts in this event (waiting or in-progress)
+        # Get remaining attempts in THIS FLIGHT (waiting or in-progress)
         remaining = (
             Attempt.query
             .join(AthleteEntry, Attempt.athlete_entry_id == AthleteEntry.id)
             .filter(
                 AthleteEntry.event_id == event_id,
+                AthleteEntry.flight_id == flight_id,  # Same flight only
                 Attempt.status.in_(['waiting', 'in-progress'])
             )
             .order_by(
@@ -948,10 +936,19 @@ def is_athlete_first_in_queue(attempt_id: int, athlete_id: int) -> bool:
         if not remaining:
             return False
 
-        return remaining[0].id == attempt_id
-    except Exception:
+        # First attempt in the queue
+        first_attempt = remaining[0]
+        
+        # If there's an in-progress attempt, target must be it
+        if first_attempt.status == 'in-progress':
+            return first_attempt.id == attempt_id
+        
+        # Otherwise, target must be the first waiting attempt
+        return first_attempt.id == attempt_id
+        
+    except Exception as e:
+        print(f"[ERROR] is_athlete_first_in_queue: {e}")
         return False
-
 
 def find_next_attempt_for_athlete(athlete_id: int, sport_type=None, prefer_movement: str = None):
     """
@@ -1015,79 +1012,14 @@ def find_next_attempt_for_athlete(athlete_id: int, sport_type=None, prefer_movem
     
     return None, 'none'
 
-
-def calculate_estimated_time_for_attempt(target_attempt: Attempt, competition_id: int, sport_type=None) -> int:
-    """
-    Calculate estimated time until target_attempt is up.
-    
-    Logic:
-    1. Check if there's a current in-progress attempt - add its remaining time
-    2. Count all waiting attempts ahead of target in lifting order
-    3. Use average durations from TimerLog for each attempt
-    4. Add transition buffer (15s per attempt)
-    """
-    total_seconds = 0
-    
-    # 1. Check for in-progress attempt
-    current_attempt = get_current_in_progress_attempt(competition_id, sport_type)
-    if current_attempt:
-        # Get remaining time from timer or estimate
-        remaining = attempt_time_remaining(current_attempt)
-        if remaining and remaining > 0:
-            total_seconds += remaining
-        else:
-            # Estimate remaining time if not available
-            event_id = current_attempt.athlete_entry.event.id
-            movement = current_attempt.movement_type
-            avg = get_average_attempt_duration_from_logs(competition_id, event_id, movement)
-            total_seconds += avg // 2  # Assume halfway through
-    
-    # 2. Get all waiting attempts in order
-    waiting_attempts = get_waiting_attempts_in_order(competition_id, sport_type)
-    
-    # 3. Count attempts ahead of target
-    attempts_ahead = []
-    found_target = False
-    
-    for attempt in waiting_attempts:
-        if attempt.id == target_attempt.id:
-            found_target = True
-            break
-        attempts_ahead.append(attempt)
-    
-    # 4. Sum durations for attempts ahead
-    for attempt in attempts_ahead:
-        event_id = attempt.athlete_entry.event.id if attempt.athlete_entry else None
-        movement = attempt.movement_type
-        
-        # Get average duration for this movement/event
-        avg_duration = get_average_attempt_duration_from_logs(
-            competition_id, event_id, movement
-        )
-        
-        # Add attempt duration + transition time
-        total_seconds += avg_duration + 15  # 15s transition buffer
-    
-    # If no attempts ahead and no current attempt, athlete is next up
-    if total_seconds == 0 and found_target:
-        return 0  # Ready now
-    
-    return max(0, int(total_seconds))
-
-
 @athlete_bp.route("/next-attempt-timer")
 def get_next_attempt_timer():
     """
     Return timer information for athlete's next attempt.
-    Calculates estimated time based on:
-    - Current in-progress attempt
-    - Queue of waiting attempts ahead
-    - Historical attempt durations from TimerLog
     
-    Response states:
-    - "you-are-up": Athlete's attempt is in progress OR is first in queue (time=0)
-    - "estimate": Calculated time until athlete's turn
-    - "no-attempts": No more attempts for athlete
+    - Checks if athlete is first in flight queue (not just event)
+    - Shows "YOU ARE UP" if first in queue OR in-progress
+    - Uses improved estimation
     """
     try:
         athlete = resolve_current_athlete()
@@ -1101,12 +1033,11 @@ def get_next_attempt_timer():
                 "timer_type": "inactive"
             }), 404
 
-        # Get current context (event/sport type)
+        # Get current context
         current_event_id = request.args.get('event_id', type=int)
         current_sport_type = None
         competition_id = None
         
-        # Resolve sport type and competition from context
         if not current_event_id:
             global _current_active_event_id
             current_event_id = _current_active_event_id
@@ -1117,11 +1048,10 @@ def get_next_attempt_timer():
                 current_sport_type = current_event.sport_type
                 competition_id = current_event.competition_id
         
-        # If no event context, use athlete's competition
         if not competition_id and athlete.competition_id:
             competition_id = athlete.competition_id
         
-        # Determine preferred movement from most recent activity
+        # Determine preferred movement
         prefer_movement = None
         most_recent = (
             Attempt.query
@@ -1164,85 +1094,35 @@ def get_next_attempt_timer():
         event = next_attempt.athlete_entry.event
         movement_name = next_attempt.athlete_entry.movement_name
         
-        # Determine queue/completion flags
+        # Check if first in FLIGHT queue
         try:
             is_first = is_athlete_first_in_queue(next_attempt.id, athlete.id)
         except Exception:
             is_first = False
 
+        # Check for completed/in-progress attempts
         try:
             has_completed = (
                 db.session.query(Attempt)
                 .join(AthleteEntry, Attempt.athlete_entry_id == AthleteEntry.id)
                 .filter(
-                    AthleteEntry.event_id == (event.id if event else None),
+                    AthleteEntry.event_id == event.id,
                     Attempt.status == 'finished'
                 )
                 .first() is not None
             )
         except Exception:
             has_completed = False
+        
+        try:
+            has_in_progress = check_event_has_in_progress_attempts(event.id)
+        except Exception:
+            has_in_progress = False
 
-        # Calculate time based on status
-        if attempt_status == 'in-progress':
-            # Athlete is currently lifting
-            return jsonify({
-                "attempt_id": next_attempt.id,
-                "time": 0,
-                "timer_active": True,
-                "timer_type": "you-are-up",
-                "status": "in-progress",
-                "event": {
-                    "id": event.id,
-                    "name": event.name,
-                    "sport_type": event.sport_type.value if event.sport_type else None,
-                    "category": event.weight_category,
-                    "gender": event.gender
-                },
-                "lift_type": movement_name,
-                "order": next_attempt.attempt_number,
-                "weight": next_attempt.requested_weight,
-                "sport_type": current_sport_type.value if current_sport_type else None,
-                "is_first_in_queue": is_first,
-                "has_completed_attempts": has_completed,
-                "no_attempts": False
-            })
-        
-        # Calculate estimated time for waiting attempt
-        estimated_seconds = calculate_estimated_time_for_attempt(
-            next_attempt, competition_id, current_sport_type
-        )
-        
-        # If estimated time is 0, athlete is up next (no attempts ahead)
-        if estimated_seconds == 0:
-            return jsonify({
-                "attempt_id": next_attempt.id,
-                "time": 0,
-                "timer_active": True,
-                "timer_type": "you-are-up",
-                "status": "waiting",
-                "event": {
-                    "id": event.id,
-                    "name": event.name,
-                    "sport_type": event.sport_type.value if event.sport_type else None,
-                    "category": event.weight_category,
-                    "gender": event.gender
-                },
-                "lift_type": movement_name,
-                "order": next_attempt.attempt_number,
-                "weight": next_attempt.requested_weight,
-                "sport_type": current_sport_type.value if current_sport_type else None,
-                "is_first_in_queue": is_first,
-                "has_completed_attempts": has_completed,
-                "no_attempts": False
-            })
-        
-        return jsonify({
+        # Build base response
+        base_response = {
             "attempt_id": next_attempt.id,
-            "time": estimated_seconds,
-            "timer_active": estimated_seconds > 0,
-            "timer_type": "estimate",
-            "status": "waiting",
+            "status": attempt_status,
             "event": {
                 "id": event.id,
                 "name": event.name,
@@ -1256,12 +1136,56 @@ def get_next_attempt_timer():
             "sport_type": current_sport_type.value if current_sport_type else None,
             "is_first_in_queue": is_first,
             "has_completed_attempts": has_completed,
-            "no_attempts": False,
-            "attempts_ahead": len(get_waiting_attempts_in_order(competition_id, current_sport_type)) - 1
+            "has_in_progress_attempts": has_in_progress,
+            "no_attempts": False
+        }
+
+        # PRIORITY 1: In-progress attempt -> YOU ARE UP
+        if attempt_status == 'in-progress':
+            base_response.update({
+                "time": 0,
+                "timer_active": True,
+                "timer_type": "you-are-up"
+            })
+            return jsonify(base_response)
+        
+
+        # PRIORITY 2: First in queue -> YOU ARE UP
+        if is_first:
+            base_response.update({
+                "time": 0,
+                "timer_active": True,
+                "timer_type": "you-are-up"
+            })
+            print(f"[TIMER] Athlete {athlete.id} is FIRST IN QUEUE -> YOU ARE UP")
+            return jsonify(base_response)
+        
+        # PRIORITY 3: Calculate estimate for waiting attempt
+        estimated_seconds = calculate_estimated_time(
+            next_attempt, competition_id, current_sport_type
+        )
+        
+        # If estimate is 0, athlete is up next
+        if estimated_seconds == 0:
+            base_response.update({
+                "time": 0,
+                "timer_active": True,
+                "timer_type": "you-are-up"
+            })
+            print(f"[TIMER] Athlete {athlete.id} estimate is 0s -> YOU ARE UP")
+            return jsonify(base_response)
+        
+        # Return countdown estimate
+        base_response.update({
+            "time": estimated_seconds,
+            "timer_active": True,
+            "timer_type": "estimate"
         })
+        print(f"[TIMER] Athlete {athlete.id} estimate: {estimated_seconds}s")
+        return jsonify(base_response)
         
     except Exception as e:
-        print(f"Error in next_attempt_timer: {str(e)}")
+        print(f"[ERROR] next_attempt_timer: {str(e)}")
         import traceback
         traceback.print_exc()
         return jsonify({
@@ -1312,40 +1236,6 @@ def start_attempt_timer(attempt_id):
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
 
-
-@athlete_bp.route("/timer/start-break/<int:competition_id>", methods=["POST"])
-def start_break_timer(competition_id):
-    """
-    Start a break timer for a specific athlete (called by timekeeper)
-    """
-    try:
-        data = request.get_json() or {}
-        duration = data.get('duration', 120)  # default 2 minutes
-        athlete_id = data.get('athlete_id')  # athlete ID for athlete-specific timer
-        
-        if not athlete_id:
-            return jsonify({"error": "athlete_id is required"}), 400
-        
-        timer_id = f"break_athlete_{athlete_id}"
-        
-        def timer_callback(timer_data):
-            from ..real_time.websocket import competition_realtime
-            competition_realtime.broadcast_timer_update(competition_id, {
-                'timer_id': timer_data.timer_id,
-                'remaining': timer_data.remaining,
-                'state': timer_data.state.value,
-                'type': timer_data.type,
-                'athlete_id': athlete_id
-            })
-        
-        timer_manager.create_timer(
-            competition_id, timer_id, duration, "break", timer_callback
-        )
-        timer_manager.start_timer(competition_id, timer_id)
-        
-        return jsonify({"success": True, "timer_id": timer_id, "duration": duration, "athlete_id": athlete_id})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
 
 
 @athlete_bp.route("/timer/control/<int:competition_id>/<timer_id>", methods=["POST"])

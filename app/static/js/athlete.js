@@ -14,14 +14,18 @@
     let timerHasExpired = false;
     let currentCountdownAttemptId = null;
     let lastTimerType = null;
-    let lastServerTime = null; // Track last server time to detect significant changes
-    let timerWasRestored = false; // Track if timer was restored from localStorage
+    let lastServerTime = null;
     let currentAttemptInfo = null;
 
     let eventStarted = false; // Track if event has started
     let currentAttemptTimeRemaining = null; // Track time until next attempt
     let readyPollingIntervalId = null;
     const READY_POLL_INTERVAL_MS = 3000;
+    
+    // NEW: Grace period and GET READY timeout
+    let gracePeriodActive = false;
+    let gracePeriodEnd = 0;
+    const GRACE_PERIOD_DURATION = 5000; // 5 seconds after restore
     
     // LocalStorage keys for timer persistence
     const TIMER_STATE_KEY = 'athlete_timer_state';
@@ -36,7 +40,7 @@
                 currentCountdownAttemptId,
                 lastTimerType,
                 lastServerTime,
-                currentAttemptInfo, // Save attempt info for display
+                currentAttemptInfo,
                 hasInterval: !!timerCountdownInterval,
                 savedAt: Date.now()
             };
@@ -46,7 +50,7 @@
         }
     }
     
-    // Restore timer state from localStorage
+    // UPDATED: Restore timer state from localStorage - never restore expired states
     function restoreTimerState() {
         try {
             const stored = localStorage.getItem(TIMER_STATE_KEY);
@@ -54,88 +58,71 @@
             
             const state = JSON.parse(stored);
             
-            // Don't restore if state is too old (> 1 hour)
-            if (Date.now() - state.savedAt > 60 * 60 * 1000) {
+            // Don't restore if state is too old (15 minutes)
+            const stateAge = Date.now() - state.savedAt;
+            if (stateAge > 15 * 60 * 1000) {
+                console.log('🧹 Stored state too old (>15min) - discarding');
+                localStorage.removeItem(TIMER_STATE_KEY);
+                return false;
+            }
+            
+            // NEVER restore expired states
+            if (state.timerHasExpired) {
+                console.log('🧹 Not restoring expired state');
+                localStorage.removeItem(TIMER_STATE_KEY);
+                return false;
+            }
+            
+            // Only restore if countdown was actually running
+            if (!state.hasInterval || !state.timerTargetSeconds || state.timerTargetSeconds <= 0) {
+                console.log('🧹 No valid countdown to restore');
+                localStorage.removeItem(TIMER_STATE_KEY);
+                return false;
+            }
+            
+            // Calculate current remaining time
+            const elapsedSinceLastUpdate = Math.floor((Date.now() - state.timerLastUpdate) / 1000);
+            timerTargetSeconds = Math.max(0, state.timerTargetSeconds - elapsedSinceLastUpdate);
+            
+            // Don't restore if time has expired
+            if (timerTargetSeconds <= 0) {
+                console.log('🧹 Timer would be expired - not restoring');
                 localStorage.removeItem(TIMER_STATE_KEY);
                 return false;
             }
             
             // Restore state
-            timerHasExpired = state.timerHasExpired || false;
+            timerHasExpired = false;
             currentCountdownAttemptId = state.currentCountdownAttemptId;
             lastTimerType = state.lastTimerType;
             lastServerTime = state.lastServerTime;
+            currentAttemptInfo = state.currentAttemptInfo;
+            timerLastUpdate = Date.now();
             
-            // Restore attempt info for display
-            if (state.currentAttemptInfo) {
-                currentAttemptInfo = state.currentAttemptInfo;
+            console.log(`🔄 Restored timer: ${timerTargetSeconds}s remaining (was ${state.timerTargetSeconds}s, ${elapsedSinceLastUpdate}s ago)`);
+            
+            // Activate grace period to prevent immediate restart
+            gracePeriodActive = true;
+            gracePeriodEnd = Date.now() + GRACE_PERIOD_DURATION;
+            console.log(`🛡️ Grace period activated for ${GRACE_PERIOD_DURATION/1000}s`);
+            
+            // Restart countdown
+            startLocalCountdown(timerTargetSeconds, state.lastTimerType, currentAttemptInfo);
+            
+            // Restore UI
+            const infoEl = document.querySelector('.next-attempt-info');
+            if (infoEl && currentAttemptInfo) {
+                updateTimerInfoDisplay(infoEl, {
+                    event: currentAttemptInfo.event,
+                    lift_type: currentAttemptInfo.lift_type,
+                    order: currentAttemptInfo.order,
+                    weight: currentAttemptInfo.weight,
+                    no_attempts: false
+                });
             }
             
-            // If timer was running, calculate current time
-            if (state.hasInterval && !state.timerHasExpired) {
-                const elapsedSinceLastUpdate = Math.floor((Date.now() - state.timerLastUpdate) / 1000);
-                timerTargetSeconds = Math.max(0, state.timerTargetSeconds - elapsedSinceLastUpdate);
-                
-                if (timerTargetSeconds > 0) {
-                    timerLastUpdate = Date.now();
-                    console.log(`🔄 Restored timer: ${timerTargetSeconds}s remaining`);
-                    // Restart the countdown from where it left off
-                    startLocalCountdown(timerTargetSeconds, state.lastTimerType, currentAttemptInfo);
-                    
-                    // Restore attempt info display
-                    const infoEl = document.querySelector('.next-attempt-info');
-                    if (infoEl && currentAttemptInfo) {
-                        updateTimerInfoDisplay(infoEl, {
-                            event: currentAttemptInfo.event,
-                            lift_type: currentAttemptInfo.lift_type,
-                            order: currentAttemptInfo.order,
-                            weight: currentAttemptInfo.weight,
-                            no_attempts: false
-                        });
-                    }
-                    
-                    return true;
-                } else {
-                    // Timer expired while page was closed
-                    timerHasExpired = true;
-                    updateTimerDisplay(0, 'ready', '');
-                    
-                    // Restore attempt info display
-                    const infoEl = document.querySelector('.next-attempt-info');
-                    if (infoEl && currentAttemptInfo) {
-                        updateTimerInfoDisplay(infoEl, {
-                            event: currentAttemptInfo.event,
-                            lift_type: currentAttemptInfo.lift_type,
-                            order: currentAttemptInfo.order,
-                            weight: currentAttemptInfo.weight,
-                            no_attempts: false
-                        });
-                    }
-                    
-                    console.log('⏱️ Timer expired while page was closed - showing GET READY');
-                    return true;
-                }
-            } else if (state.timerHasExpired) {
-                // Timer was already expired
-                updateTimerDisplay(0, 'ready', '');
-                
-                // Restore attempt info display
-                const infoEl = document.querySelector('.next-attempt-info');
-                if (infoEl && currentAttemptInfo) {
-                    updateTimerInfoDisplay(infoEl, {
-                        event: currentAttemptInfo.event,
-                        lift_type: currentAttemptInfo.lift_type,
-                        order: currentAttemptInfo.order,
-                        weight: currentAttemptInfo.weight,
-                        no_attempts: false
-                    });
-                }
-                
-                console.log('⏱️ Restored expired timer - showing GET READY');
-                return true;
-            }
+            return true;
             
-            return false;
         } catch (e) {
             console.warn('Failed to restore timer state:', e);
             localStorage.removeItem(TIMER_STATE_KEY);
@@ -420,7 +407,7 @@
         if (attemptOrderEl) attemptOrderEl.textContent = data.order || 1;
     }
 
-    // Start local countdown timer
+    // UPDATED: Start local countdown timer
     function startLocalCountdown(initialSeconds, timerType, attemptInfo) {
         console.log('🎬 startLocalCountdown called:', { initialSeconds, timerType });
         
@@ -435,7 +422,7 @@
         if (timerType === 'you-are-up') {
             updateTimerDisplay(0, 'you-are-up', '');
             currentAttemptTimeRemaining = 0;
-            updateWeightInputAvailability(); // Update restrictions
+            updateWeightInputAvailability();
             return;
         }
         
@@ -446,7 +433,7 @@
         // Update immediately
         updateTimerDisplay(timerTargetSeconds, timerType, '');
         checkAndNotify(timerTargetSeconds, timerType, attemptInfo);
-        updateWeightInputAvailability(); // Update restrictions
+        updateWeightInputAvailability();
         
         // Save initial state
         saveTimerState();
@@ -463,7 +450,7 @@
                 
                 updateTimerDisplay(timerTargetSeconds, timerType, '');
                 checkAndNotify(timerTargetSeconds, timerType, attemptInfo);
-                updateWeightInputAvailability(); // Update restrictions every second
+                updateWeightInputAvailability();
                 
                 // Save state every second
                 saveTimerState();
@@ -475,33 +462,21 @@
                     timerCountdownInterval = null;
                     currentAttemptTimeRemaining = 0;
                     
-                    // Mark timer as expired
-                    timerHasExpired = true;
-                    console.log('✅ Timer expired flag SET - timerHasExpired =', timerHasExpired);
-                    
-                    // Show "Ready!" message at 0
-                    updateTimerDisplay(0, 'ready', '');
-                    console.log('⏱️ Timer now at READY state');
-                    
-                    updateWeightInputAvailability(); // Final update
-                    
-                    // Save expired state
-                    saveTimerState();
-
-                    // Start a ready polling loop so we actively refresh server state
-                    scheduleReadyPolling();
+                    // Handle expiry
+                    handleExpiredTimer();
                 }
             }
         }, 1000);
         
         console.log('✅ Countdown interval started');
     }
+
     // Timer initialization - polling system handles all timer updates
     function startCountdown(el) {
         // No-op: Timer updates are handled by initializePollingTimerUpdates
     }
 
-    // Fetch the next-attempt timer data from server and apply minimal reconciliation
+    // Fetch the next-attempt timer data from server
     async function refreshNextAttemptFromServer() {
         try {
             let url = '/athlete/next-attempt-timer';
@@ -509,7 +484,6 @@
             if (!response.ok) return null;
             const data = await response.json();
 
-            // Update event status and return the data for processing by caller
             try { updateEventStatus(data); } catch (e) { /* ignore */ }
             return data;
         } catch (e) {
@@ -525,37 +499,136 @@
         }
     }
 
+    function handleExpiredTimer() {
+        timerHasExpired = true;
+        
+        updateTimerDisplay(0, 'ready', '');
+        console.log('⏱️ Timer expired - showing GET READY (persists until in-progress)');
+        
+        updateWeightInputAvailability();
+        saveTimerState();
+        scheduleReadyPolling();
+    }
+
     function scheduleReadyPolling() {
         stopReadyPolling();
-
-        // Immediate try
-        refreshNextAttemptFromServer().then((d) => {
-            if (d && (d.is_first_in_queue || (d.timer_active && d.time !== null))) {
-                // server already transitioned - nothing else to do
-                timerHasExpired = false;
-                stopReadyPolling();
-            }
-        }).catch(() => {});
-
+        checkServerForUpdate();
+        
+        // Poll every 3 seconds - NO timeout
         readyPollingIntervalId = setInterval(async () => {
             try {
                 if (!timerHasExpired) {
                     stopReadyPolling();
                     return;
                 }
-
-                const d = await refreshNextAttemptFromServer();
-                if (!d) return; // nothing changed / server fail
-
-                if (d.is_first_in_queue || (d.timer_active && d.time !== null)) {
-                    // server moved on - stop ready polling and let normal handlers pick up
-                    timerHasExpired = false;
-                    stopReadyPolling();
-                }
+                await checkServerForUpdate();
             } catch (e) {
-                console.warn('ready polling error:', e);
+                console.warn('Ready polling error:', e);
             }
         }, READY_POLL_INTERVAL_MS);
+    }
+
+    // Check server for state changes during GET READY
+    async function checkServerForUpdate() {
+        try {
+            const data = await refreshNextAttemptFromServer();
+            if (!data) return;
+            
+            // Transition ONLY when status is in-progress
+            if (data.status === 'in-progress') {
+                console.log('✅ Attempt in-progress - transitioning to YOU ARE UP');
+                timerHasExpired = false;
+                stopReadyPolling();
+                
+                currentCountdownAttemptId = data.attempt_id;
+                lastTimerType = 'you-are-up';
+                updateTimerDisplay(0, 'you-are-up', '');
+                
+                const infoEl = document.querySelector('.next-attempt-info');
+                if (infoEl) updateTimerInfoDisplay(infoEl, data);
+            }
+            else if (data.is_first_in_queue) {
+                console.log('✅ First in queue - showing YOU ARE UP');
+                timerHasExpired = false;
+                stopReadyPolling();
+                
+                currentCountdownAttemptId = data.attempt_id;
+                lastTimerType = 'you-are-up';
+                updateTimerDisplay(0, 'you-are-up', '');
+                
+                const infoEl = document.querySelector('.next-attempt-info');
+                if (infoEl) updateTimerInfoDisplay(infoEl, data);
+            }
+            else if (data.attempt_id && String(data.attempt_id) !== String(currentCountdownAttemptId)) {
+                console.log('✅ New attempt loaded - restarting countdown');
+                timerHasExpired = false;
+                stopReadyPolling();
+                
+                currentAttemptInfo = {
+                    event: data.event,
+                    lift_type: data.lift_type,
+                    order: data.order,
+                    weight: data.weight
+                };
+            }
+            // IMPORTANT: Keep showing attempt info during GET READY
+            else {
+                const infoEl = document.querySelector('.next-attempt-info');
+                if (infoEl && data.lift_type) {
+                    updateTimerInfoDisplay(infoEl, {
+                        event: data.event,
+                        lift_type: data.lift_type,
+                        order: data.order,
+                        weight: data.weight,
+                        no_attempts: false
+                    });
+                }
+            }
+            
+        } catch (e) {
+            console.warn('Server check failed:', e);
+        }
+    }
+
+    // Only restart when attempt/details change
+    function shouldRestartTimer(serverData) {
+        // Never restart during grace period
+        if (gracePeriodActive && Date.now() < gracePeriodEnd) {
+            console.log('🛡️ Grace period active - preventing restart');
+            return false;
+        }
+        
+        // Always restart if no countdown is running
+        if (!timerCountdownInterval) {
+            console.log('🔄 No countdown running - restart needed');
+            return true;
+        }
+        
+        // Check if attempt ID changed (queue order changed)
+        const serverAttemptId = serverData.attempt_id;
+        if (String(currentCountdownAttemptId) !== String(serverAttemptId)) {
+            console.log(`🔄 Attempt ID changed: ${currentCountdownAttemptId} → ${serverAttemptId}`);
+            return true;
+        }
+        
+        // Check if attempt details changed (weight or order updated)
+        if (currentAttemptInfo) {
+            const weightChanged = currentAttemptInfo.weight !== serverData.weight;
+            const orderChanged = currentAttemptInfo.order !== serverData.order;
+            
+            if (weightChanged) {
+                console.log(`🔄 Weight changed: ${currentAttemptInfo.weight} → ${serverData.weight}`);
+                return true;
+            }
+            
+            if (orderChanged) {
+                console.log(`🔄 Order changed: ${currentAttemptInfo.order} → ${serverData.order}`);
+                return true;
+            }
+        }
+        
+        // No restart needed - continue current countdown
+        return false;
     }
 
     async function handleWeightFormSubmit(e) {
@@ -753,34 +826,33 @@
         return { isValid: true };
     }
 
-        // Check if weight can be updated
+    // UPDATED: Check if weight can be updated - separate logic for opening vs attempt weights
     function canUpdateWeight(isOpeningWeight, attemptId = null) {
         if (isOpeningWeight) {
-            // Opening weights can only be updated before event starts
+            // Opening weights blocked ONLY when event has actually started
+            // (when ANY attempt goes to in-progress status)
+            // NOT affected by timer countdowns or "YOU ARE UP" states
             if (eventStarted) {
                 return {
                     allowed: false,
-                    message: 'Opening weights cannot be changed after the event has started.'
+                    message: 'Opening weights cannot be changed after the first attempt has started.'
                 };
             }
             return { allowed: true };
         }
         
-        // For attempt weights
-        if (currentAttemptTimeRemaining !== null) {
-            // Check if this is the next attempt
-            const isNextAttempt = attemptId && String(attemptId) === String(currentCountdownAttemptId);
+        // For attempt weights - check 3-minute rule for THIS specific attempt
+        if (attemptId && currentAttemptTimeRemaining !== null) {
+            // Only restrict if this IS the next attempt
+            const isNextAttempt = String(attemptId) === String(currentCountdownAttemptId);
             
-            if (isNextAttempt) {
-                // Cannot update if less than 3 minutes (180 seconds) remaining
-                if (currentAttemptTimeRemaining < 180) {
-                    const minutes = Math.floor(currentAttemptTimeRemaining / 60);
-                    const seconds = currentAttemptTimeRemaining % 60;
-                    return {
-                        allowed: false,
-                        message: `Cannot update weight with less than 3 minutes remaining. Current time: ${minutes}:${seconds.toString().padStart(2, '0')}`
-                    };
-                }
+            if (isNextAttempt && currentAttemptTimeRemaining < 180) {
+                const minutes = Math.floor(currentAttemptTimeRemaining / 60);
+                const seconds = currentAttemptTimeRemaining % 60;
+                return {
+                    allowed: false,
+                    message: `Cannot update weight with less than 3 minutes remaining. Current time: ${minutes}:${seconds.toString().padStart(2, '0')}`
+                };
             }
         }
         
@@ -874,17 +946,19 @@
         });
     }
 
-    // Detect event start from server data
+    // UPDATED: Detect event start from server data - only in-progress sets eventStarted
     function updateEventStatus(data) {
-        // Event is considered started if there's any timer activity or completed attempts
-        if (data.timer_active || data.has_completed_attempts) {
+        // Event is started ONLY when has_in_progress_attempts flag is true
+        // Timer countdowns do NOT affect opening weight availability
+        if (data.has_in_progress_attempts) {
             if (!eventStarted) {
                 eventStarted = true;
-                console.log('🏁 Event has started - opening weights now locked');
+                console.log('🏁 Event has started (in-progress attempts detected) - opening weights now locked');
                 updateWeightInputAvailability();
             }
         }
     }
+
     // Form initialization
     function initializeForms(container = document) {
         container.querySelectorAll('.weight-display').forEach(display => {
@@ -937,7 +1011,7 @@
         updateWeightInputAvailability(); // Initialize restrictions on page load
     });
 
-    // WebSocket connection
+    // UPDATED: WebSocket connection with simplified restart logic
     function initializeWebSocket() {
         if (typeof io === 'undefined') {
             console.warn('Socket.IO not available - falling back to polling');
@@ -948,7 +1022,7 @@
         const socket = io();
         
         socket.on('connect', () => {
-            console.log('Connected to real-time server');
+            console.log('🔌 Connected to real-time server');
             
             const competitionMeta = window.competitionData;
             if (competitionMeta && competitionMeta.id) {
@@ -960,124 +1034,122 @@
         });
 
         socket.on('timer_update', (data) => {
-            // Normalize fields from websocket payload to the polling schema
-            const serverTime = (data.remaining !== undefined) ? data.remaining : (data.time !== undefined ? data.time : null);
-            const serverTimerType = data.type || data.timer_type || null;
-
-            // Attempt id may come as attempt_id or encoded in timer_id like 'attempt_123'
-            let serverAttemptId = data.attempt_id || null;
-            if (!serverAttemptId && data.timer_id && typeof data.timer_id === 'string' && data.timer_id.startsWith('attempt_')) {
-                serverAttemptId = data.timer_id.split('_')[1];
-            }
-
-            // If we don't have a usable time/type, fallback to simple display update
-            if (serverTime === null || serverTimerType === null) {
-                if (serverTime !== null && serverTimerType !== null) {
-                    updateTimerDisplay(serverTime, serverTimerType, data.state);
+            console.log('📨 WebSocket timer update:', data);
+            
+            // Normalize websocket data to match polling format
+            const serverTime = data.remaining !== undefined ? data.remaining : data.time;
+            const serverTimerType = data.type || data.timer_type;
+            const serverAttemptId = data.attempt_id;
+            
+            // Handle paused state
+            if (data.state === 'paused' && data.source === 'timekeeper') {
+                console.log('⏸️ Timer paused by timekeeper');
+                if (timerCountdownInterval) {
+                    clearInterval(timerCountdownInterval);
+                    timerCountdownInterval = null;
                 }
+                updateTimerDisplay(serverTime, 'paused', 'paused');
                 return;
             }
-
-            // Use similar restart/resync logic as polling handler so websocket-driven changes
-            // (for example: attempt order updates) will start the countdown even when the
-            // client previously showed 'ready' (timerHasExpired = true).
-            checkAndNotify(serverTime, serverTimerType, currentAttemptInfo);
-
-            const noCountdown = !timerCountdownInterval;
-            const differentAttempt = String(currentCountdownAttemptId) !== String(serverAttemptId);
-            const differentType = lastTimerType !== serverTimerType;
-            const significantTimeChange = timerCountdownInterval && lastServerTime !== null && Math.abs(serverTime - lastServerTime) > 30;
-
-            // If the timer had previously expired, allow websocket to restart it.
-            const needRestart = noCountdown || differentAttempt || differentType || significantTimeChange || timerHasExpired;
-
-            if (needRestart) {
-                if (significantTimeChange) {
-                    console.log(`⚡ [WS] Queue changed - restarting timer: old=${lastServerTime}s, new=${serverTime}s, diff=${Math.abs(serverTime - lastServerTime)}s`);
-                } else {
-                    console.log(`🔄 [WS] Timer START: attempt=${serverAttemptId}, type=${serverTimerType}, time=${serverTime}s`);
-                }
-
+            
+            // Build normalized data object
+            const normalizedData = {
+                attempt_id: serverAttemptId,
+                time: serverTime,
+                timer_type: serverTimerType,
+                timer_active: serverTime > 0,
+                is_first_in_queue: serverTimerType === 'you-are-up',
+                status: data.status || 'waiting',
+                weight: data.weight || (currentAttemptInfo ? currentAttemptInfo.weight : 0),
+                order: data.order || (currentAttemptInfo ? currentAttemptInfo.order : 1),
+                lift_type: data.lift_type || (currentAttemptInfo ? currentAttemptInfo.lift_type : ''),
+                event: currentAttemptInfo ? currentAttemptInfo.event : null
+            };
+            
+            // Use same restart logic as polling
+            if (normalizedData.is_first_in_queue) {
+                handleYouAreUp(normalizedData, document.querySelector('.next-attempt-info'));
+            } else if (shouldRestartTimer(normalizedData)) {
+                console.log('🔄 [WebSocket] Restarting timer');
                 timerHasExpired = false;
+                readyStateStartTime = null;
                 startLocalCountdown(serverTime, serverTimerType, currentAttemptInfo);
                 currentCountdownAttemptId = serverAttemptId;
                 lastTimerType = serverTimerType;
                 lastServerTime = serverTime;
             } else {
-                // Lightweight update - don't restart interval but refresh the last server time
                 lastServerTime = serverTime;
-                updateTimerDisplay(serverTime, serverTimerType, data.state);
             }
         });
 
-        // Listen for attempt_result broadcasts to immediately refresh athlete UI
         socket.on('attempt_result', (payload) => {
-            try {
-                console.log('[WS] attempt_result received, refreshing next-attempt info', payload);
-                refreshNextAttemptFromServer().then(() => {
-                    if (!timerHasExpired) stopReadyPolling();
-                });
-            } catch (e) {
-                console.warn('Error handling attempt_result:', e);
-            }
+            console.log('📊 [WebSocket] Attempt result received', payload);
+            // Refresh next-attempt info when an attempt completes
+            refreshNextAttemptFromServer().then(() => {
+                if (!timerHasExpired) stopReadyPolling();
+            });
         });
 
         socket.on('disconnect', (reason) => {
-            console.warn('Socket disconnected:', reason);
-            // Stop any running local countdown - server is gone
-            if (timerCountdownInterval) {
-                clearInterval(timerCountdownInterval);
-                timerCountdownInterval = null;
-            }
-            timerHasExpired = false;
-            currentCountdownAttemptId = null;
-            lastTimerType = null;
-            stopReadyPolling();
-            try { localStorage.removeItem(TIMER_STATE_KEY); } catch (e) {}
+            console.warn('🔌 Socket disconnected:', reason);
+            clearTimerStateForDisconnect();
             updateTimerDisplay(0, 'disconnected', 'disconnected');
             const infoEl = document.querySelector('.next-attempt-info');
             if (infoEl) infoEl.innerHTML = '<p>Server disconnected</p>';
-            // Fallback to polling which will attempt to reconnect
+            
+            // Fallback to polling
             initializePollingTimerUpdates();
         });
 
         socket.on('connect_error', (err) => {
-            console.warn('WebSocket connection error:', err);
-            // Clear local timer to avoid counting against stale server timings
+            console.warn('🔌 WebSocket connection error:', err);
+            clearTimerStateForDisconnect();
+            updateTimerDisplay(0, 'disconnected', 'disconnected');
+            const infoEl = document.querySelector('.next-attempt-info');
+            if (infoEl) infoEl.innerHTML = '<p>Server disconnected</p>';
+            
+            initializePollingTimerUpdates();
+        });
+        
+        function clearTimerStateForDisconnect() {
             if (timerCountdownInterval) {
                 clearInterval(timerCountdownInterval);
                 timerCountdownInterval = null;
             }
             timerHasExpired = false;
+            readyStateStartTime = null;
             currentCountdownAttemptId = null;
             lastTimerType = null;
             stopReadyPolling();
             try { localStorage.removeItem(TIMER_STATE_KEY); } catch (e) {}
-            updateTimerDisplay(0, 'disconnected', 'disconnected');
-            const infoEl = document.querySelector('.next-attempt-info');
-            if (infoEl) infoEl.innerHTML = '<p>Server disconnected</p>';
-            initializePollingTimerUpdates();
-        });
+        }
+        
+        function handleYouAreUp(data, infoEl) {
+            if (timerCountdownInterval) {
+                clearInterval(timerCountdownInterval);
+                timerCountdownInterval = null;
+            }
+            
+            currentCountdownAttemptId = data.attempt_id || null;
+            lastTimerType = 'you-are-up';
+            timerHasExpired = false;
+            readyStateStartTime = null;
+            
+            updateTimerDisplay(0, 'you-are-up', '');
+            updateTimerInfoDisplay(infoEl, data);
+            updateWeightInputAvailability();
+        }
     }
 
-    // Polling-based timer updates (works without WebSocket)
+    // UPDATED: Polling-based timer updates with simplified restart logic
     function initializePollingTimerUpdates() {
-        console.log('Using polling for timer updates');
+        console.log('📡 Using polling for timer updates');
         
         let connectionFailures = 0;
         const maxFailures = 3;
         let pollingIntervalId = null;
         let activeEventId = null;
         let isInitialized = false;
-        
-        // Grace period to prevent overwriting restored state
-    let restoredFromStorage = !!timerCountdownInterval;
-    let gracePeriodActive = restoredFromStorage;
-        let gracePeriodEnd = restoredFromStorage ? Date.now() + 5000 : 0; // 5 second grace period
-        
-        if (restoredFromStorage) {
-            console.log('🛡️ Timer restored - activating 5s grace period to prevent restart');
-        }
         
         async function getActiveEvent() {
             try {
@@ -1097,88 +1169,36 @@
         getActiveEvent().then(startPolling).catch(startPolling);
         
         function startPolling() {
-            // Poll every 3 seconds (reduced frequency to minimize restarts)
+            // Poll every 3 seconds
             pollingIntervalId = setInterval(async () => {
                 try {
-                    // Unified fetch flow: if timerHasExpired attempt a ready-refresh first; otherwise fetch normally
-                    let data = null;
+                    // End grace period if expired
+                    if (gracePeriodActive && Date.now() >= gracePeriodEnd) {
+                        gracePeriodActive = false;
+                        console.log('🛡️ Grace period ended');
+                    }
+                    
+                    // If in expired state, let ready polling handle it
                     if (timerHasExpired) {
-                        console.log('🛑 Timer expired - attempting server refresh');
-                        const infoEl = document.querySelector('.next-attempt-info');
-                        if (infoEl && currentAttemptInfo) {
-                            updateTimerInfoDisplay(infoEl, {
-                                event: currentAttemptInfo.event,
-                                lift_type: currentAttemptInfo.lift_type,
-                                order: currentAttemptInfo.order,
-                                weight: currentAttemptInfo.weight,
-                                no_attempts: false
-                            });
-                        }
-
-                        try {
-                            const resp = await fetch('/athlete/next-attempt-timer');
-                            if (!resp.ok) return; // try again next cycle
-                            const d = await resp.json();
-                            if (!d || d.error) {
-                                // nothing usable returned - try again later
-                                return;
-                            }
-                            // Accept any valid response so the UI can refresh attempt details
-                            data = d;
-                        } catch (e) {
-                            console.warn('Ready-refresh failed during polling:', e);
-                            return;
-                        }
-                    } else {
-                        let url = '/athlete/next-attempt-timer';
-                        if (activeEventId) {
-                            url += `?event_id=${activeEventId}`;
-                        }
-
-                        const response = await fetch(url);
-                        if (!response.ok) {
-                            throw new Error(`HTTP ${response.status}`);
-                        }
-                        data = await response.json();
+                        return;
                     }
-                    // If we restored state from localStorage, but the server now reports a
-                    // different event/attempt, drop the restored state so the UI follows
-                    // the live server data. This prevents stale "GET READY" from persisting
-                    // across event/flight changes.
-                    if (typeof restoredFromStorage !== 'undefined' && restoredFromStorage) {
-                        try {
-                            const restoredEventId = currentAttemptInfo && currentAttemptInfo.event && currentAttemptInfo.event.id;
-                            const serverEventId = data.event && data.event.id;
-                            const restoredAttemptId = currentCountdownAttemptId;
-                            const serverAttemptId = data.attempt_id || null;
-
-                            // If server reports a different event or a different attempt id,
-                            // clear any restored countdown so polling logic can start fresh.
-                            if ((restoredEventId && serverEventId && String(restoredEventId) !== String(serverEventId)) ||
-                                (restoredAttemptId && serverAttemptId && String(restoredAttemptId) !== String(serverAttemptId))) {
-                                console.log('🧹 Discarding restored timer state because server reports a different event/attempt');
-                                if (timerCountdownInterval) {
-                                    clearInterval(timerCountdownInterval);
-                                    timerCountdownInterval = null;
-                                }
-                                timerHasExpired = false;
-                                currentAttemptInfo = null;
-                                currentCountdownAttemptId = null;
-                                lastTimerType = null;
-                                restoredFromStorage = false;
-                            }
-                        } catch (e) {
-                            console.warn('Error reconciling restored state with server data:', e);
-                        }
+                    
+                    // Fetch server data
+                    let url = '/athlete/next-attempt-timer';
+                    if (activeEventId) {
+                        url += `?event_id=${activeEventId}`;
                     }
-
+                    
+                    const response = await fetch(url);
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}`);
+                    }
+                    
+                    const data = await response.json();
+                    
+                    // Update event status (for opening weight restrictions)
                     updateEventStatus(data);
                     connectionFailures = 0;
-                    
-                    // Refresh event context every 5 minutes
-                    if (Date.now() % 300000 < 3000) {
-                        getActiveEvent();
-                    }
                     
                     const infoEl = document.querySelector('.next-attempt-info');
                     
@@ -1188,7 +1208,7 @@
                         return;
                     }
                     
-                    // Store attempt info with full event data for display when expired
+                    // Store current attempt info
                     if (data.event && data.lift_type) {
                         currentAttemptInfo = {
                             event: data.event,
@@ -1198,116 +1218,128 @@
                         };
                     }
                     
+                    // Handle different response states
                     if (data.no_attempts) {
-                        currentAttemptInfo = null;
-                        currentCountdownAttemptId = null;
-                        lastTimerType = null;
-                        timerHasExpired = false; // Reset on no attempts
-                        if (timerCountdownInterval) {
-                            clearInterval(timerCountdownInterval);
-                            timerCountdownInterval = null;
-                        }
-                        updateTimerDisplay(0, 'inactive', 'inactive');
-                        if (infoEl) infoEl.innerHTML = '<p>' + (data.message || 'No attempt left') + '</p>';
-                    } else if (!data.error && data.is_first_in_queue) {
-                        // Athlete is first in queue - show "YOU ARE UP"
-                        currentAttemptInfo = null;
-                        currentCountdownAttemptId = data.attempt_id || null;
-                        lastTimerType = 'you-are-up';
-                        timerHasExpired = false;
+                        // No attempts left
+                        handleNoAttempts(data, infoEl);
                         
-                        if (timerCountdownInterval) {
-                            clearInterval(timerCountdownInterval);
-                            timerCountdownInterval = null;
-                        }
+                    } else if (data.is_first_in_queue || data.status === 'in-progress') {
+                        // Athlete is up - show YOU ARE UP
+                        handleYouAreUp(data, infoEl);
                         
-                        updateTimerDisplay(0, 'you-are-up', '');
-                        updateTimerInfoDisplay(infoEl, data);
-                    } else if (!data.error && data.timer_active && data.time !== null) {
-                        checkAndNotify(data.time, data.timer_type, currentAttemptInfo);
-
-                        const serverAttemptId = data.attempt_id || null;
-                        const serverTimerType = data.timer_type || null;
-                        const serverTime = data.time;
-
-                        const noCountdown = !timerCountdownInterval;
-                        const differentAttempt = String(currentCountdownAttemptId) !== String(serverAttemptId);
-                        const differentType = lastTimerType !== serverTimerType;
+                    } else if (data.timer_active && data.time !== null && data.time >= 0) {
+                        // Active countdown
+                        handleActiveTimer(data, infoEl);
                         
-                        // Detect significant time changes (queue changed, attempt order updated, status changed)
-                        // Only check if countdown is running and we have a previous server time
-                        // Increase threshold to 30 seconds to avoid restarts from network delays
-                        const significantTimeChange = timerCountdownInterval && 
-                                                    lastServerTime !== null && 
-                                                    Math.abs(serverTime - lastServerTime) > 30; // 30+ second difference
-
-                        const needRestart = noCountdown || differentAttempt || differentType || significantTimeChange;
-
-                        if (needRestart) {
-                            if (significantTimeChange) {
-                                console.log(`⚡ Queue changed - restarting timer: old=${lastServerTime}s, new=${serverTime}s, diff=${Math.abs(serverTime - lastServerTime)}s`);
-                            } else {
-                                console.log(`🔄 Timer START: attempt=${serverAttemptId}, type=${serverTimerType}, time=${serverTime}s`);
-                            }
-                            
-                            timerHasExpired = false; // Reset expired flag when starting new timer
-                            startLocalCountdown(serverTime, data.timer_type, currentAttemptInfo);
-                            currentCountdownAttemptId = serverAttemptId;
-                            lastTimerType = serverTimerType;
-                            lastServerTime = serverTime; // Track this server time
-                        } else {
-                            // Update lastServerTime for next comparison (but don't restart)
-                            lastServerTime = serverTime;
-                        }
-
-                        updateTimerInfoDisplay(infoEl, data);
                     } else {
-                        currentAttemptInfo = null;
-                        currentCountdownAttemptId = null;
-                        lastTimerType = null;
-                        timerHasExpired = false; // Reset on inactive
-                        if (timerCountdownInterval) {
-                            clearInterval(timerCountdownInterval);
-                            timerCountdownInterval = null;
-                        }
-                        updateTimerDisplay(0, 'inactive', 'inactive');
-                        if (infoEl) infoEl.innerHTML = '<p>No upcoming attempts</p>';
+                        // Inactive state
+                        handleInactive(infoEl);
                     }
+                    
                 } catch (error) {
                     connectionFailures++;
                     console.warn(`Polling failed (${connectionFailures}/${maxFailures}):`, error.message);
                     
                     if (connectionFailures >= maxFailures) {
-                        console.log('Max failures reached. Stopping polling.');
-                        if (pollingIntervalId) {
-                            clearInterval(pollingIntervalId);
-                            pollingIntervalId = null;
-                        }
-                        // Clear local countdown/timers and stored state to avoid stale GET READY
-                        if (timerCountdownInterval) {
-                            clearInterval(timerCountdownInterval);
-                            timerCountdownInterval = null;
-                        }
-                        timerHasExpired = false;
-                        currentCountdownAttemptId = null;
-                        lastTimerType = null;
-                        stopReadyPolling();
-                        try { localStorage.removeItem(TIMER_STATE_KEY); } catch (e) {}
-
-                        updateTimerDisplay(0, 'disconnected', 'disconnected');
-                        const infoEl = document.querySelector('.next-attempt-info');
-                        if (infoEl) infoEl.innerHTML = '<p>Server disconnected</p>';
+                        handleDisconnection(pollingIntervalId);
                     } else {
                         updateTimerDisplay(0, 'error', 'error');
                     }
                 }
             }, 3000); // Poll every 3 seconds
         }
+        
+        function handleNoAttempts(data, infoEl) {
+            console.log('📭 No attempts left');
+            clearTimerState();
+            updateTimerDisplay(0, 'inactive', 'inactive');
+            if (infoEl) infoEl.innerHTML = '<p>' + (data.message || 'No attempts left') + '</p>';
+        }
+        
+        function handleYouAreUp(data, infoEl) {
+            console.log('🔴 YOU ARE UP');
+            
+            // Clear any running countdown
+            if (timerCountdownInterval) {
+                clearInterval(timerCountdownInterval);
+                timerCountdownInterval = null;
+            }
+            
+            currentCountdownAttemptId = data.attempt_id || null;
+            lastTimerType = 'you-are-up';
+            timerHasExpired = false;
+            readyStateStartTime = null;
+            
+            updateTimerDisplay(0, 'you-are-up', '');
+            updateTimerInfoDisplay(infoEl, data);
+            updateWeightInputAvailability();
+        }
+        
+        function handleActiveTimer(data, infoEl) {
+            const serverTime = data.time;
+            
+            checkAndNotify(serverTime, data.timer_type, currentAttemptInfo);
+            
+            // Check if restart is needed (ONLY if attempt/details changed)
+            if (shouldRestartTimer(data)) {
+                console.log(`🔄 Restarting timer: attempt=${data.attempt_id}, time=${serverTime}s`);
+                
+                timerHasExpired = false;
+                readyStateStartTime = null;
+                startLocalCountdown(serverTime, data.timer_type, currentAttemptInfo);
+                currentCountdownAttemptId = data.attempt_id;
+                lastTimerType = data.timer_type;
+                lastServerTime = serverTime;
+            } else {
+                // No restart needed - just continue current countdown
+                // Update lastServerTime for future comparisons
+                lastServerTime = serverTime;
+            }
+            
+            updateTimerInfoDisplay(infoEl, data);
+        }
+        
+        function handleInactive(infoEl) {
+            console.log('💤 Inactive state');
+            clearTimerState();
+            updateTimerDisplay(0, 'inactive', 'inactive');
+            if (infoEl) infoEl.innerHTML = '<p>No upcoming attempts</p>';
+        }
+        
+        function clearTimerState() {
+            currentAttemptInfo = null;
+            currentCountdownAttemptId = null;
+            lastTimerType = null;
+            timerHasExpired = false;
+            readyStateStartTime = null;
+            
+            if (timerCountdownInterval) {
+                clearInterval(timerCountdownInterval);
+                timerCountdownInterval = null;
+            }
+            
+            try {
+                localStorage.removeItem(TIMER_STATE_KEY);
+            } catch (e) {}
+        }
+        
+        function handleDisconnection(intervalId) {
+            console.log('❌ Max failures reached - server disconnected');
+            
+            if (intervalId) {
+                clearInterval(intervalId);
+            }
+            
+            clearTimerState();
+            stopReadyPolling();
+            
+            updateTimerDisplay(0, 'disconnected', 'disconnected');
+            const infoEl = document.querySelector('.next-attempt-info');
+            if (infoEl) infoEl.innerHTML = '<p>Server disconnected</p>';
+        }
     }
 
     // Make functions globally available
     window.showEvent = showEvent;
     window.toggleForm = toggleForm;
-
-    
 })();
