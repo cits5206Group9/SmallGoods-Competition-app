@@ -5,6 +5,8 @@
   // Root UI elements
   const compNameEl = $('#comp-name');
   const compDateEl = $('#comp-date');
+  const breaktimeEventsEl = $('#breaktime-events');
+  const breaktimeFlightsEl = $('#breaktime-flights');
   const allowAthleteInputEl = $('#allow-athlete-input');
   const allowCoachAssignmentEl = $('#allow-coach-assignment');
   const enableAttemptOrderingEl = $('#enable-attempt-ordering');
@@ -79,6 +81,8 @@
     const comp = {
       name: compNameEl.value.trim(),
       comp_date: compDateEl.value,
+      breaktime_between_events: Number(breaktimeEventsEl.value) || 600,
+      breaktime_between_flights: Number(breaktimeFlightsEl.value) || 180,
       features: {
         allowAthleteInput: !!allowAthleteInputEl.checked,
         allowCoachAssignment: !!allowCoachAssignmentEl.checked,
@@ -118,8 +122,7 @@
             metric: $('.scoring-metric', mCard)?.value.trim() || ''
           },
           timer: {
-            attempt_seconds: Number($('.attempt-time', mCard)?.value || 0) || null,
-            break_seconds: Number($('.break-time', mCard)?.value || 0) || null
+            attempt_seconds: Number($('.attempt-time', mCard)?.value || 0) || null
           },
           metrics
         };
@@ -281,6 +284,8 @@
     // Reset DOM
     compNameEl.value = '';
     compDateEl.value = '';
+    breaktimeEventsEl.value = 600;
+    breaktimeFlightsEl.value = 180;
     allowAthleteInputEl.checked = true;
     allowCoachAssignmentEl.checked = true;
     enableAttemptOrderingEl.checked = true;
@@ -295,6 +300,8 @@
 
     compNameEl.value = data.name || '';
     compDateEl.value = data.comp_date || '';
+    breaktimeEventsEl.value = data.breaktime_between_events || 600;
+    breaktimeFlightsEl.value = data.breaktime_between_flights || 180;
     allowAthleteInputEl.checked = !!(data.features?.allowAthleteInput);
     allowCoachAssignmentEl.checked = !!(data.features?.allowCoachAssignment);
     enableAttemptOrderingEl.checked = !!(data.features?.enableAttemptOrdering);
@@ -320,7 +327,6 @@
         $('.scoring-type', lastMovement).value = mov.scoring?.type || 'max';
         $('.scoring-metric', lastMovement).value = mov.scoring?.metric || '';
         $('.attempt-time', lastMovement).value = mov.timer?.attempt_seconds || '';
-        $('.break-time', lastMovement).value = mov.timer?.break_seconds || '';
 
         (mov.metrics || []).forEach(metric => {
           addMetricRow(lastMovement);
