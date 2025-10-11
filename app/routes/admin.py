@@ -148,6 +148,8 @@ def get_competition_model(id):
         'name': competition.name,
         'start_date': competition.start_date.isoformat() if competition.start_date else None,
         'description': competition.description,
+        'breaktime_between_events': competition.breaktime_between_events,
+        'breaktime_between_flights': competition.breaktime_between_flights,
         'events': events_data,  # Include the actual events data
         'config': competition.config or {
             'name': competition.name,
@@ -196,6 +198,8 @@ def save_competition_model():
         competition.name = data['name']
         competition.start_date = datetime.strptime(data['comp_date'], '%Y-%m-%d').date()
         competition.description = data.get('description', '')
+        competition.breaktime_between_events = data.get('breaktime_between_events', 600)
+        competition.breaktime_between_flights = data.get('breaktime_between_flights', 180)
 
         competition.start_date = datetime.now().date()
 
@@ -342,7 +346,6 @@ def save_competition_model():
                             # Update timer settings
                             timer = mv.get("timer") or {}
                             entry.attempt_time_limit = int(timer.get("attempt_seconds", 60))
-                            entry.break_time = int(timer.get("break_seconds", 120))
                             entry.entry_config = mv
                             updated_count += 1
                         break
