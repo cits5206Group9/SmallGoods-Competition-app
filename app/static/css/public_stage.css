@@ -359,6 +359,27 @@ body {
     line-height: normal;
 }
 
+.timer-display.break-timer {
+    background-color: #3b82f6;
+    color: #ffffff;
+    border-radius: 0.5rem;
+    padding: 0.15em 0.35em;
+}
+
+.break-label {
+    font-size: 2rem;
+    font-weight: bold;
+    font-family: 'Inter', 'Arial', sans-serif;
+    color: #ffffff;
+    background-color: #dc2626;
+    padding: 0.3em 0.6em;
+    border-radius: 0.5rem;
+    margin-left: 20px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    box-shadow: 0 4px 6px rgba(220, 38, 38, 0.3);
+}
+
 .timer-display.warning {
     color: #f59e0b;
 }
