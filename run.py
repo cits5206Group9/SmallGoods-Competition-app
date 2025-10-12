@@ -11,4 +11,4 @@ if __name__ == '__main__':
     logger.info(f"Log level set to {LOG_LEVEL}")
     # Use 0.0.0.0 to bind to all network interfaces (accessible on local network)
     # Use 127.0.0.1 to bind only to localhost (same machine only)
-    socketio.run(app, debug=DEBUG_MODE_ON, port=5001, host='0.0.0.0', allow_unsafe_werkzeug=True)
+    socketio.run(app, debug=DEBUG_MODE_ON, port=5000, host='0.0.0.0', allow_unsafe_werkzeug=True)

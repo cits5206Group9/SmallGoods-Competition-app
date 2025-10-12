@@ -249,7 +249,7 @@ def create_weightlifting_competition():
         print(f"Events: {len(events)}")
         print(f"Athletes: {len(athletes)}")
         print(f"Flights: {len(flights_created) * 2}")
-        print(f"\nView at: http://localhost:5001/display/public-stage?competition_id={competition.id}")
+        print(f"\nView at: http://localhost:5000/display/public-stage?competition_id={competition.id}")
         print("="*60)
 
         return competition.id
