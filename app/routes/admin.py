@@ -1020,7 +1020,9 @@ def get_competition_details(competition_id):
             'is_active': competition.is_active,
             'start_date': competition.start_date.isoformat() if competition.start_date else None,
             'events': events,
-            'config': competition.config
+            'config': competition.config,
+            'breaktime_between_flights': competition.breaktime_between_flights,
+            'breaktime_between_events': competition.breaktime_between_events
         })
     except Exception as e:
         print("Error fetching competition details:", str(e))
@@ -3582,11 +3584,13 @@ def get_attempt(attempt_id):
             'status': attempt.status or 'waiting',
             'lifting_order': attempt.lifting_order,
             'completed_at': attempt.completed_at.isoformat() if attempt.completed_at else None,
-            'final_result': attempt.final_result
+            'final_result': attempt.final_result.value if attempt.final_result else None
         })
         
     except Exception as e:
         print(f"Error getting attempt: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'error': 'Failed to get attempt'}), 500
 
 
