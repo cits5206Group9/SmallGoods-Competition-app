@@ -1,18 +1,20 @@
 """
 Test CompetitionRealTime class functionality
 """
+
 import pytest
 import sys
 import os
 
 # Add the parent directory to sys.path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 
 def test_competition_realtime_import():
     """Test CompetitionRealTime class can be imported"""
     try:
         from app.real_time.websocket import CompetitionRealTime
+
         assert CompetitionRealTime is not None
     except ImportError as e:
         pytest.fail(f"Failed to import CompetitionRealTime: {e}")
@@ -44,15 +46,15 @@ def test_competition_realtime_methods():
 
         # Check required methods exist
         required_methods = [
-            'register_handlers',
-            'join_competition_room',
-            'leave_competition_room',
-            'broadcast_to_competition',
-            'broadcast_timer_update',
-            'broadcast_referee_decision',
-            'broadcast_attempt_result',
-            'get_connected_clients_count',
-            'get_competition_clients'
+            "register_handlers",
+            "join_competition_room",
+            "leave_competition_room",
+            "broadcast_to_competition",
+            "broadcast_timer_update",
+            "broadcast_referee_decision",
+            "broadcast_attempt_result",
+            "get_connected_clients_count",
+            "get_competition_clients",
         ]
 
         for method_name in required_methods:
@@ -81,13 +83,13 @@ def test_client_tracking():
         if test_competition_id not in realtime.competition_rooms:
             realtime.competition_rooms[test_competition_id] = {}
 
-        realtime.competition_rooms[test_competition_id][test_client_id] = 'referee'
+        realtime.competition_rooms[test_competition_id][test_client_id] = "referee"
 
         # Test tracking
         assert realtime.get_connected_clients_count(test_competition_id) == 1
         clients = realtime.get_competition_clients(test_competition_id)
         assert test_client_id in clients
-        assert clients[test_client_id] == 'referee'
+        assert clients[test_client_id] == "referee"
 
     except Exception as e:
         pytest.fail(f"Failed client tracking test: {e}")
