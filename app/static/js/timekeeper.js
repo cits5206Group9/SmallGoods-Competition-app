@@ -57,7 +57,7 @@
   }
 
   // Helper function to update attempt status - make it globally accessible
-  window.updateAttemptStatus = async function(athleteId, attemptNumber, flightId, status) {
+ const baseUpdateAttemptStatus = async function(athleteId, attemptNumber, flightId, status) {
     if (!athleteId || !attemptNumber) {
       console.warn('Missing athlete ID or attempt number for status update');
       return false;
@@ -102,6 +102,19 @@
     }
   };
 
+  // Wrap with break trigger check
+  window.updateAttemptStatus = async function(athleteId, attemptNumber, flightId, status) {
+    const result = await baseUpdateAttemptStatus(athleteId, attemptNumber, flightId, status);
+    
+    // Check if this was marking an attempt as finished
+    if (result && status === 'finished' && flightId) {
+      // Use a slight delay to ensure DB is updated
+      setTimeout(() => checkForBreakTrigger(flightId), 100);
+    }
+    
+    return result;
+  };
+  
   // Helper function to mark all "in-progress" attempts in a flight as "finished" except the specified one
   window.markOtherAttemptsAsFinished = async function(flightId, currentAthleteId, currentAttemptNumber) {
     if (!flightId) return;
