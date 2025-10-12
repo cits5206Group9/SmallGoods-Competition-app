@@ -4,6 +4,9 @@
 
 set -e  # Exit on error
 
+# Suppress Python ResourceWarnings
+export PYTHONWARNINGS="ignore::ResourceWarning"
+
 # Activate virtual environment if it exists
 if [ -d "venv" ]; then
     source venv/bin/activate
