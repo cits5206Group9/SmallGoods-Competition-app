@@ -266,6 +266,9 @@ document.addEventListener('DOMContentLoaded', function() {
         return;
     }
 
+    // Load competitions list
+    loadCompetitionsList();
+
     timerSynchronizer = new TimerSynchronizer();
     timerSynchronizer.start();
 
@@ -275,6 +278,73 @@ document.addEventListener('DOMContentLoaded', function() {
     // Set up periodic updates
     updateInterval = setInterval(fetchAndDisplayData, UPDATE_INTERVAL_MS);
 });
+
+/**
+ * Load competitions list into selector
+ */
+async function loadCompetitionsList() {
+    try {
+        const response = await fetch('/display/api/competitions');
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        if (!data.success) {
+            throw new Error(data.error || 'Failed to fetch competitions');
+        }
+
+        const selector = document.getElementById('competitionSelector');
+        if (!selector) return;
+
+        // Clear existing options
+        selector.innerHTML = '';
+
+        // Add competitions as options
+        if (data.competitions && data.competitions.length > 0) {
+            data.competitions.forEach(competition => {
+                const option = document.createElement('option');
+                option.value = competition.id;
+                option.textContent = competition.name;
+
+                // Select current competition
+                if (competition.id === competitionId) {
+                    option.selected = true;
+                }
+
+                selector.appendChild(option);
+            });
+
+            // Add change event listener
+            selector.addEventListener('change', handleCompetitionChange);
+        } else {
+            selector.innerHTML = '<option value="">No competitions available</option>';
+        }
+
+    } catch (error) {
+        console.error('Error loading competitions list:', error);
+        const selector = document.getElementById('competitionSelector');
+        if (selector) {
+            selector.innerHTML = '<option value="">Error loading competitions</option>';
+        }
+    }
+}
+
+/**
+ * Handle competition selection change
+ */
+function handleCompetitionChange(event) {
+    const newCompetitionId = parseInt(event.target.value);
+
+    if (newCompetitionId && newCompetitionId !== competitionId) {
+        // Update URL with new competition ID
+        const url = new URL(window.location);
+        url.searchParams.set('competition_id', newCompetitionId);
+        window.location.href = url.toString();
+    }
+}
 
 /**
  * Fetch competition data
