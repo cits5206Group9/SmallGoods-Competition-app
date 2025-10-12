@@ -12,12 +12,15 @@ class ScoringCalculator:
     """Main scoring calculator for competitions"""
     
     @staticmethod
-    def determine_attempt_result(attempt_id: int) -> AttemptResult:
-
+    def determine_attempt_result(attempt_id: int) -> Optional[AttemptResult]:
+        """
+        Determine attempt result based on referee decisions.
+        Returns None if no decisions have been recorded yet.
+        """
         decisions = RefereeDecision.query.filter_by(attempt_id=attempt_id).all()
         
         if not decisions:
-            return AttemptResult.MISSED  # No decisions yet
+            return None  # ✅ Return None instead of MISSED for pending attempts
         
         # Count votes
         decision_counts = {}
@@ -100,10 +103,12 @@ class ScoringCalculator:
         successful_count = 0
         
         for attempt in attempts:
-            # Update final result based on referee decisions
+            # Update final result ONLY if there are referee decisions
             if attempt.final_result is None:
-                attempt.final_result = ScoringCalculator.determine_attempt_result(attempt.id)
-                db.session.add(attempt)
+                result = ScoringCalculator.determine_attempt_result(attempt.id)
+                if result is not None: 
+                    attempt.final_result = result
+                    db.session.add(attempt)
             
             score = ScoringCalculator.calculate_attempt_score(attempt, scoring_type)
             
