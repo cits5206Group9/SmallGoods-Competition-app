@@ -457,9 +457,7 @@ def get_flights_data(competition_id):
     try:
         competition = Competition.query.get(competition_id)
         if not competition:
-            return jsonify(
-                {"success": False, "error": "Competition not found"}
-            ), 404
+            return jsonify({"success": False, "error": "Competition not found"}), 404
 
         # Get all flights for this competition with their events
         flights = (
@@ -484,9 +482,7 @@ def get_flights_data(competition_id):
             entry_ids = [entry.id for entry in entries]
             scores_by_entry = {}
             if entry_ids:
-                scores = Score.query.filter(
-                    Score.athlete_entry_id.in_(entry_ids)
-                ).all()
+                scores = Score.query.filter(Score.athlete_entry_id.in_(entry_ids)).all()
                 scores_by_entry = {score.athlete_entry_id: score for score in scores}
 
             # Get event name from the event relationship or fall back to movement_type
