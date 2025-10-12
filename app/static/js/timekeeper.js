@@ -194,6 +194,14 @@
         if (this.mode === "countup") {
           const val = this.baseSeconds + this.elapsed + dt;
           this.displayEl.textContent = this.format(val);
+          
+          // Check if countup timer has reached its limit (baseSeconds > 0 means there's a limit)
+          if (this.baseSeconds > 0 && val >= this.baseSeconds) {
+            this.pause(); // Stop the timer
+            this.displayEl.textContent = this.format(this.baseSeconds); // Show exact limit
+            this.onExpire();
+            return;
+          }
         } else {
           const left = Math.max(0, this.remaining - dt);
           this.displayEl.textContent = this.format(left);
@@ -269,6 +277,11 @@
     displayEl: $("attemptClock"),
     mode: "countup",
     formatter: fmtHMS,
+    onExpire: async () => {
+      console.log("Timer expired - auto-stopping attempt");
+      // Automatically trigger the stop button logic
+      document.getElementById("btnBarLeft")?.click();
+    }
   });
   attemptClock.set(0);
 
@@ -798,7 +811,12 @@
       const stopTs = new Date();
       
       // Calculate duration from actual wall-clock time (more reliable)
-      const durationSec = Math.max(0, (stopTs - startTs) / 1000);
+      let durationSec = Math.max(0, (stopTs - startTs) / 1000);
+      
+      // Cap duration at the timer limit (don't save more than the allowed time)
+      if (attemptTimeLimit > 0 && durationSec > attemptTimeLimit) {
+        durationSec = attemptTimeLimit;
+      }
 
       const attemptNo = document.getElementById("attemptSelect")?.value || "";
       const athleteId = localStorage.getItem("TK_ATHLETE_ID") || null;
@@ -864,16 +882,23 @@
   const btnAttemptApply = $("btnAttemptApply");
   
   let countdownOn = false;
+  let attemptTimeLimit = 120; // Default 2-minute limit for attempts
+  
   function setAttemptMode(countdownSeconds) {
     if (typeof countdownSeconds === "number" && countdownSeconds > 0) {
       countdownOn = true;
+      attemptTimeLimit = countdownSeconds;
       attemptClock.mode = "countdown";
       attemptClock.set(countdownSeconds);
       if (btnAttemptToggle) btnAttemptToggle.textContent = "Disable 1-min Countdown";
     } else {
       countdownOn = false;
       attemptClock.mode = "countup";
-      attemptClock.set(0);
+      // Set baseSeconds to the limit so timer knows when to expire
+      attemptClock.set(attemptTimeLimit);
+      // Reset elapsed to 0 to start counting from 0
+      attemptClock.elapsed = 0;
+      attemptClock.render();
       if (btnAttemptToggle) btnAttemptToggle.textContent = "Enable 1-min Countdown";
     }
     attemptSessionStartTime = null;
@@ -918,9 +943,18 @@
       
       if (totalSec < 0) totalSec = 0;
       
+      // Update the time limit
+      attemptTimeLimit = totalSec;
+      
       // Preserve the current mode (countdown or countup)
       const wasRunning = attemptClock.running;
       attemptClock.set(totalSec);
+      
+      // If in countup mode, reset elapsed to start from 0
+      if (attemptClock.mode === "countup") {
+        attemptClock.elapsed = 0;
+        attemptClock.render();
+      }
       
       // If timer was running, restart it
       if (wasRunning) {
@@ -1138,6 +1172,10 @@
 
   if (btnAthlete) {
     btnAthlete.addEventListener("click", async () => {
+      console.log("=== APPLY BUTTON CLICKED ===");
+      console.log("athleteSelect.value BEFORE:", athleteSelect?.value);
+      console.log("attemptSelect.value BEFORE:", attemptSelect?.value);
+      
       let id = "", name = "";
       if (athleteSelect && athleteSelect.value) {
         id = athleteSelect.value;
@@ -1145,6 +1183,8 @@
       } else if (athleteInput) {
         name = athleteInput.value.trim();
       }
+      
+      console.log("Selected athlete ID:", id, "Name:", name);
       
       // Get previous athlete/attempt from localStorage
       const prevAthleteId = localStorage.getItem(ATHLETE_ID_KEY);
@@ -1167,6 +1207,8 @@
       // Update attempt status to 'in-progress' when new athlete is applied
       const attemptNumber = attemptSelect?.value;
       if (id && attemptNumber && lastFlightId) {
+        console.log("Applying athlete:", id, "Attempt:", attemptNumber);
+        
         // IMPORTANT: First, mark all other in-progress attempts as finished
         await window.markOtherAttemptsAsFinished(lastFlightId, id, attemptNumber);
         
@@ -1176,13 +1218,20 @@
         // Then mark this attempt as in-progress
         await window.updateAttemptStatus(id, attemptNumber, lastFlightId, 'in-progress');
         
+        console.log("athleteSelect.value AFTER status update:", athleteSelect?.value);
+        console.log("attemptSelect.value AFTER status update:", attemptSelect?.value);
+        
         // Refresh the attempt order list to show updated status (without auto-selecting)
         if (typeof loadAttemptOrder === 'function') {
+          console.log("Calling loadAttemptOrder with autoSelect=false");
           await loadAttemptOrder(lastFlightId, false); // Pass false to prevent auto-selection
+          console.log("athleteSelect.value AFTER loadAttemptOrder:", athleteSelect?.value);
+          console.log("attemptSelect.value AFTER loadAttemptOrder:", attemptSelect?.value);
         }
       }
       
       updateAthleteApplied();
+      console.log("=== APPLY BUTTON COMPLETE ===");
     });
   }
 
@@ -1239,18 +1288,49 @@
         );
       }
 
-      // Get next attempt
+      // Filter out finished attempts (status: 'finished', 'success', 'failed')
+      const pendingAttempts = orderedAttempts.filter(att => {
+        const status = (att.status || '').toLowerCase();
+        return !['finished', 'success', 'failed'].includes(status);
+      });
+
+      if (pendingAttempts.length === 0) {
+        alert("All attempts in this flight are finished");
+        return;
+      }
+
+      // Get next attempt (only from pending attempts)
       let nextAttempt = null;
       if (currentIndex === -1) {
-        // No attempt selected, start with first
-        nextAttempt = orderedAttempts[0];
-      } else if (currentIndex < orderedAttempts.length - 1) {
-        // Move to next attempt in order
-        nextAttempt = orderedAttempts[currentIndex + 1];
+        // No attempt selected, start with first pending attempt
+        nextAttempt = pendingAttempts[0];
       } else {
-        // Already at last attempt
-        alert("This is the last attempt in the flight");
-        return;
+        // Find current attempt in the full list
+        const currentAttempt = orderedAttempts[currentIndex];
+        
+        // Find next pending attempt after current position
+        let foundNext = false;
+        for (let i = currentIndex + 1; i < orderedAttempts.length; i++) {
+          const att = orderedAttempts[i];
+          const status = (att.status || '').toLowerCase();
+          if (!['finished', 'success', 'failed'].includes(status)) {
+            nextAttempt = att;
+            foundNext = true;
+            break;
+          }
+        }
+        
+        if (!foundNext) {
+          // No more pending attempts after current, wrap to first pending
+          nextAttempt = pendingAttempts[0];
+          
+          // If we're already at the last pending attempt, show message
+          if (String(nextAttempt.athlete_id) === String(currentAthleteId) && 
+              String(nextAttempt.attempt_number) === String(currentAttemptNumber)) {
+            alert("This is the last pending attempt in the flight");
+            return;
+          }
+        }
       }
 
       // Select next athlete and attempt in dropdowns (WITHOUT auto-applying)
@@ -1512,6 +1592,8 @@
   async function loadAttemptOrder(flightId, autoSelect = true) {
     if (!flightId) return;
     
+    console.log("loadAttemptOrder called with autoSelect:", autoSelect);
+    
     try {
       const response = await fetch(`/admin/flights/${flightId}/attempts/order`, {
         headers: { "X-Requested-With": "XMLHttpRequest" }
@@ -1525,26 +1607,40 @@
       const attempts = data.attempts || [];
       displayAttemptOrder(attempts);
       
-      // Auto-select (but don't apply) the first athlete from the ordered attempts
+      console.log("Should auto-select?", autoSelect, "Attempts count:", attempts.length);
+      
+      // Auto-select (but don't apply) the first PENDING athlete from the ordered attempts
       // Only do this when loading the flight initially, not when refreshing after Apply
       if (autoSelect && attempts.length > 0 && athleteSelect && attemptSelect) {
-        const firstAttempt = attempts[0];
+        // Find first pending attempt (skip finished ones)
+        const firstPendingAttempt = attempts.find(att => {
+          const status = (att.status || '').toLowerCase();
+          return !['finished', 'success', 'failed'].includes(status);
+        });
         
-        // Set athlete dropdown
-        athleteSelect.value = String(firstAttempt.athlete_id);
-        
-        // Populate attempts for this athlete
-        await populateAttemptDropdown(firstAttempt.athlete_id);
-        
-        // Set attempt dropdown to the specific attempt
-        attemptSelect.value = String(firstAttempt.attempt_number);
-        
-        // Show visual feedback that first athlete is selected (but NOT applied yet)
-        if (athleteApplied) {
-          const name = firstAttempt.athlete_name;
-          const attemptNum = firstAttempt.attempt_number;
-          athleteApplied.textContent = `Selected: ${name} • Attempt ${attemptNum} (Click Apply to start)`;
-          athleteApplied.style.color = '#d69e2e'; // Orange color to indicate not yet applied
+        if (firstPendingAttempt) {
+          // Set athlete dropdown
+          athleteSelect.value = String(firstPendingAttempt.athlete_id);
+          
+          // Populate attempts for this athlete
+          await populateAttemptDropdown(firstPendingAttempt.athlete_id);
+          
+          // Set attempt dropdown to the specific attempt
+          attemptSelect.value = String(firstPendingAttempt.attempt_number);
+          
+          // Show visual feedback that first athlete is selected (but NOT applied yet)
+          if (athleteApplied) {
+            const name = firstPendingAttempt.athlete_name;
+            const attemptNum = firstPendingAttempt.attempt_number;
+            athleteApplied.textContent = `Selected: ${name} • Attempt ${attemptNum} (Click Apply to start)`;
+            athleteApplied.style.color = '#d69e2e'; // Orange color to indicate not yet applied
+          }
+        } else {
+          // All attempts are finished
+          if (athleteApplied) {
+            athleteApplied.textContent = `All attempts in this flight are finished`;
+            athleteApplied.style.color = '#718096'; // Gray color
+          }
         }
       }
     } catch (error) {
