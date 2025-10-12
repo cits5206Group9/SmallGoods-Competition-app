@@ -2,26 +2,30 @@
 """
 Simple test runner for WebSocket functionality without pytest dependency
 """
+
 import sys
 import os
 import traceback
 
 # Add the parent directory to sys.path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+
 
 def test_flask_socketio_import():
     """Test that Flask-SocketIO can be imported successfully"""
     try:
         import flask_socketio
+
         print("✅ Flask-SocketIO imported successfully")
         return True
     except ImportError as e:
         print(f"❌ Failed to import Flask-SocketIO: {e}")
         return False
 
+
 def test_socketio_dependencies():
     """Test that all SocketIO dependencies are available"""
-    dependencies = ['python_socketio', 'eventlet']
+    dependencies = ["python_socketio", "eventlet"]
     all_passed = True
 
     for dep in dependencies:
@@ -34,10 +38,12 @@ def test_socketio_dependencies():
 
     return all_passed
 
+
 def test_extensions_import():
     """Test that extensions can be imported"""
     try:
         from app.extensions import socketio, db, migrate
+
         print("✅ Extensions imported successfully")
 
         # Check types
@@ -58,6 +64,7 @@ def test_extensions_import():
         traceback.print_exc()
         return False
 
+
 def test_realtime_module():
     """Test real-time module functionality"""
     try:
@@ -74,12 +81,17 @@ def test_realtime_module():
 
         # Test methods exist
         required_methods = [
-            'register_handlers', 'join_competition_room', 'leave_competition_room',
-            'broadcast_to_competition', 'get_connected_clients_count'
+            "register_handlers",
+            "join_competition_room",
+            "leave_competition_room",
+            "broadcast_to_competition",
+            "get_connected_clients_count",
         ]
 
         for method_name in required_methods:
-            if hasattr(realtime, method_name) and callable(getattr(realtime, method_name)):
+            if hasattr(realtime, method_name) and callable(
+                getattr(realtime, method_name)
+            ):
                 print(f"✅ {method_name} method exists")
             else:
                 print(f"❌ {method_name} method missing")
@@ -91,18 +103,23 @@ def test_realtime_module():
         traceback.print_exc()
         return False
 
+
 def test_event_handlers():
     """Test event handlers module"""
     try:
         from app.real_time.event_handlers import register_all_handlers
+
         print("✅ Event handlers imported successfully")
 
         # Test that functions exist
         from app.real_time import event_handlers
 
         handler_functions = [
-            'handle_timer_start', 'handle_timer_stop', 'handle_referee_decision',
-            'handle_attempt_result', 'handle_ping'
+            "handle_timer_start",
+            "handle_timer_stop",
+            "handle_referee_decision",
+            "handle_attempt_result",
+            "handle_ping",
         ]
 
         for func_name in handler_functions:
@@ -118,17 +135,18 @@ def test_event_handlers():
         traceback.print_exc()
         return False
 
+
 def test_app_creation():
     """Test that app can be created with all extensions"""
     try:
         from app import create_app
 
-        app = create_app('testing')
+        app = create_app("testing")
         print("✅ Flask app created successfully")
 
         # Check extensions are registered
-        if hasattr(app, 'extensions'):
-            if 'socketio' in app.extensions:
+        if hasattr(app, "extensions"):
+            if "socketio" in app.extensions:
                 print("✅ SocketIO extension registered in app")
             else:
                 print("❌ SocketIO extension not registered")
@@ -139,6 +157,7 @@ def test_app_creation():
         print(f"❌ App creation test failed: {e}")
         traceback.print_exc()
         return False
+
 
 def run_all_tests():
     """Run all tests and report results"""
@@ -175,6 +194,7 @@ def run_all_tests():
     else:
         print("⚠️  Some tests failed. Please fix issues before continuing.")
         return False
+
 
 if __name__ == "__main__":
     success = run_all_tests()
