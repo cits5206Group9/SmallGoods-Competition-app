@@ -2,13 +2,14 @@
 """
 Final system integration test with running server
 """
+
 import sys
 import os
 import requests
 import time
 
 # Add the parent directory to sys.path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 
 def test_server_endpoints():
@@ -22,7 +23,7 @@ def test_server_endpoints():
             "/static/js/websocket-client.js",
             "/static/js/real-time-timer.js",
             "/static/js/real-time-dashboard.js",
-            "/static/css/real-time-dashboard.css"
+            "/static/css/real-time-dashboard.css",
         ]
 
         print("Testing server endpoints...")
@@ -92,7 +93,7 @@ def test_static_file_content():
         js_tests = [
             ("/static/js/websocket-client.js", "class WebSocketClient"),
             ("/static/js/real-time-timer.js", "class RealTimeTimer"),
-            ("/static/js/real-time-dashboard.js", "class RealTimeDashboard")
+            ("/static/js/real-time-dashboard.js", "class RealTimeDashboard"),
         ]
 
         for endpoint, expected_content in js_tests:
@@ -104,8 +105,13 @@ def test_static_file_content():
                 return False
 
         # Test CSS file
-        css_response = requests.get(f"{base_url}/static/css/real-time-dashboard.css", timeout=5)
-        if css_response.status_code == 200 and ".real-time-dashboard" in css_response.text:
+        css_response = requests.get(
+            f"{base_url}/static/css/real-time-dashboard.css", timeout=5
+        )
+        if (
+            css_response.status_code == 200
+            and ".real-time-dashboard" in css_response.text
+        ):
             print("✅ Dashboard CSS: Contains required styles")
         else:
             print("❌ Dashboard CSS: Missing required styles")
@@ -124,7 +130,9 @@ def test_admin_dashboard_content():
     try:
         print("Testing admin dashboard content...")
 
-        response = requests.get("http://127.0.0.1:8000/admin/real-time-dashboard", timeout=5)
+        response = requests.get(
+            "http://127.0.0.1:8000/admin/real-time-dashboard", timeout=5
+        )
 
         if response.status_code != 200:
             print(f"❌ Dashboard not accessible: {response.status_code}")
@@ -138,7 +146,7 @@ def test_admin_dashboard_content():
             "stats-grid",
             "dashboard-grid",
             "emergency-controls",
-            "socket.io"  # Check for Socket.IO CDN
+            "socket.io",  # Check for Socket.IO CDN
         ]
 
         for element in required_elements:
@@ -171,18 +179,21 @@ def test_production_readiness_indicators():
 
         # Test logging
         import logging
-        logger = logging.getLogger('app')
+
+        logger = logging.getLogger("app")
         assert logger is not None
         print("✅ Logging: Logging system available")
 
         # Test app creation
         from app import create_app
-        app = create_app('testing')
+
+        app = create_app("testing")
         assert app is not None
         print("✅ App Creation: Flask app creates successfully")
 
         # Test WebSocket integration
         from app.extensions import socketio
+
         assert socketio is not None
         print("✅ WebSocket Integration: SocketIO extension available")
 
@@ -210,11 +221,11 @@ def test_file_permissions_and_structure():
             "app/static/js/real-time-timer.js",
             "app/static/js/real-time-dashboard.js",
             "app/static/css/real-time-dashboard.css",
-            "run.py"
+            "run.py",
         ]
 
         for file_path in critical_files:
-            full_path = os.path.join(os.path.dirname(__file__), '..', file_path)
+            full_path = os.path.join(os.path.dirname(__file__), "..", file_path)
             if os.path.exists(full_path) and os.access(full_path, os.R_OK):
                 print(f"✅ {file_path}: Exists and readable")
             else:

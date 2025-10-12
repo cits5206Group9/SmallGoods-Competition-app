@@ -2,6 +2,7 @@ from datetime import datetime
 from enum import Enum
 from .extensions import db
 
+
 # Enums
 class UserRole(Enum):
     ADMIN = 1
@@ -10,16 +11,19 @@ class UserRole(Enum):
     ATHLETE = 4
     COACH = 5
 
+
 class SportType(Enum):
     OLYMPIC_WEIGHTLIFTING = "olympic_weightlifting"
     POWERLIFTING = "powerlifting"
     CROSSFIT = "crossfit"
     HYROX = "hyrox"
 
+
 class ScoringType(Enum):
     MAX = "max"  # Heaviest weight
     SUM = "sum"  # Total weight/reps
     TIME = "time"  # Fastest completion
+
 
 class AttemptResult(Enum):
     GOOD_LIFT = "good_lift"
@@ -28,9 +32,11 @@ class AttemptResult(Enum):
     MISSED = "missed"
     DNF = "dnf"  # Did Not Finish
 
+
 # User Models
 class User(db.Model):
     """User accounts with different roles"""
+
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(120), unique=True, nullable=False)
     password_hash = db.Column(db.String(128), nullable=False)
@@ -41,11 +47,15 @@ class User(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     # Relationships
-    referee_assignments = db.relationship("RefereeAssignment", backref="user", lazy=True)
+    referee_assignments = db.relationship(
+        "RefereeAssignment", backref="user", lazy=True
+    )
+
 
 # Competition Structure
 class Competition(db.Model):
     """Main competition entity"""
+
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(200), nullable=False)
     description = db.Column(db.Text)
@@ -53,49 +63,72 @@ class Competition(db.Model):
     is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     config = db.Column(db.JSON)
-    
+
     # Break times (in seconds)
     breaktime_between_events = db.Column(db.Integer, default=300)  # 5 minutes default
     breaktime_between_flights = db.Column(db.Integer, default=180)  # 3 minutes default
 
     # Relationships
-    events = db.relationship("Event", backref="competition", lazy=True, cascade="all, delete-orphan")
-    athletes = db.relationship("Athlete", backref="competition", lazy=True, cascade="all, delete-orphan")
+    events = db.relationship(
+        "Event", backref="competition", lazy=True, cascade="all, delete-orphan"
+    )
+    athletes = db.relationship(
+        "Athlete", backref="competition", lazy=True, cascade="all, delete-orphan"
+    )
+
 
 class Event(db.Model):
     """Specific events within a competition"""
+
     id = db.Column(db.Integer, primary_key=True)
-    competition_id = db.Column(db.Integer, db.ForeignKey("competition.id"), nullable=False)
+    competition_id = db.Column(
+        db.Integer, db.ForeignKey("competition.id"), nullable=False
+    )
     name = db.Column(db.String(150), nullable=False)
     weight_category = db.Column(db.String(50))
     gender = db.Column(db.String(10))
     sport_type = db.Column(db.Enum(SportType), nullable=False)
-    scoring_type = db.Column(db.Enum(ScoringType), nullable=False, default=ScoringType.MAX)
+    scoring_type = db.Column(
+        db.Enum(ScoringType), nullable=False, default=ScoringType.MAX
+    )
     is_active = db.Column(db.Boolean, default=False)
 
     # Relationships
-    flights = db.relationship("Flight", backref="event", lazy=True, cascade="all, delete-orphan")
+    flights = db.relationship(
+        "Flight", backref="event", lazy=True, cascade="all, delete-orphan"
+    )
+
 
 class Flight(db.Model):
     """Groups of athletes competing together"""
+
     id = db.Column(db.Integer, primary_key=True)
     event_id = db.Column(db.Integer, db.ForeignKey("event.id"), nullable=True)
-    competition_id = db.Column(db.Integer, db.ForeignKey("competition.id"), nullable=True)
+    competition_id = db.Column(
+        db.Integer, db.ForeignKey("competition.id"), nullable=True
+    )
     name = db.Column(db.String(50), nullable=False)
     order = db.Column(db.Integer, nullable=False)
     is_active = db.Column(db.Boolean, default=False)
-    movement_type = db.Column(db.String(50), nullable=True)  # e.g., "snatch", "clean_jerk", "squat", "bench", "deadlift"
-    
+    movement_type = db.Column(
+        db.String(50), nullable=True
+    )  # e.g., "snatch", "clean_jerk", "squat", "bench", "deadlift"
+
     # Relationships
-    athlete_flights = db.relationship("AthleteFlight", backref="flight", lazy=True, cascade="all, delete-orphan")
+    athlete_flights = db.relationship(
+        "AthleteFlight", backref="flight", lazy=True, cascade="all, delete-orphan"
+    )
     competition = db.relationship("Competition", backref="flights", lazy=True)
-    
+
 
 class Athlete(db.Model):
     """Competition participants"""
+
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
-    competition_id = db.Column(db.Integer, db.ForeignKey("competition.id"), nullable=True)
+    competition_id = db.Column(
+        db.Integer, db.ForeignKey("competition.id"), nullable=True
+    )
     first_name = db.Column(db.String(80), nullable=False)
     last_name = db.Column(db.String(80), nullable=False)
     gender = db.Column(db.String(10))
@@ -110,7 +143,7 @@ class Athlete(db.Model):
     # Relationships
     flights = db.relationship("AthleteFlight", backref="athlete", lazy=True)
     entries = db.relationship("AthleteEntry", backref="athlete", lazy=True)
-    
+
     @property
     def attempts(self):
         """Get all attempts for this athlete across all entries"""
@@ -119,15 +152,21 @@ class Athlete(db.Model):
             all_attempts.extend(entry.attempts)
         return all_attempts
 
+
 class AthleteEntry(db.Model):
     """Athletes entered in specific competition types"""
+
     id = db.Column(db.Integer, primary_key=True)
     athlete_id = db.Column(db.Integer, db.ForeignKey("athlete.id"), nullable=False)
     event_id = db.Column(db.Integer, db.ForeignKey("event.id"), nullable=False)
-    flight_id = db.Column(db.Integer, db.ForeignKey("flight.id", ondelete="CASCADE"), nullable=False)
-    entry_order = db.Column(db.Integer, db.ForeignKey("athlete_flight.order"), nullable=False)
+    flight_id = db.Column(
+        db.Integer, db.ForeignKey("flight.id", ondelete="CASCADE"), nullable=False
+    )
+    entry_order = db.Column(
+        db.Integer, db.ForeignKey("athlete_flight.order"), nullable=False
+    )
     is_active = db.Column(db.Boolean, default=True)
-    lift_type = db.Column(db.String(50), nullable=False) # e.g., "snatch", "clean_jerk"
+    lift_type = db.Column(db.String(50), nullable=False)  # e.g., "snatch", "clean_jerk"
     attempt_time_limit = db.Column(db.Integer, default=60)  # seconds
     default_reps = db.Column(db.JSON)
     reps = db.Column(db.JSON)
@@ -136,13 +175,17 @@ class AthleteEntry(db.Model):
     entry_config = db.Column(db.JSON, default=dict)
 
     # Relationships
-    attempts = db.relationship("Attempt", backref="athlete_entry", lazy=True, cascade="all, delete-orphan")
+    attempts = db.relationship(
+        "Attempt", backref="athlete_entry", lazy=True, cascade="all, delete-orphan"
+    )
     event = db.relationship("Event", backref="athlete_entries")
     flight = db.relationship("Flight", backref="athlete_entries")
-    
+
     # Prevent duplicate (athlete, event, lift_type) - Allow athlete in multiple flights of different movements
     __table_args__ = (
-        db.UniqueConstraint("athlete_id", "flight_id", "lift_type", name="uq_athlete_flight_lift"),
+        db.UniqueConstraint(
+            "athlete_id", "flight_id", "lift_type", name="uq_athlete_flight_lift"
+        ),
     )
 
     @property
@@ -150,34 +193,42 @@ class AthleteEntry(db.Model):
         """Human-readable movement name; we persist this into lift_type, so return it."""
         return self.lift_type or "Unknown"
 
+
 class AthleteFlight(db.Model):
     """Many-to-many relationship between athletes and flights"""
+
     id = db.Column(db.Integer, primary_key=True)
     athlete_id = db.Column(db.Integer, db.ForeignKey("athlete.id"), nullable=False)
     flight_id = db.Column(db.Integer, db.ForeignKey("flight.id"), nullable=False)
     lot_number = db.Column(db.Integer)
     order = db.Column(db.Integer, default=0)  # Order within the flight for attempts
 
+
 # Attempt and Referee System
 class Attempt(db.Model):
     """Individual lift attempts"""
+
     id = db.Column(db.Integer, primary_key=True)
     athlete_id = db.Column(
-        db.Integer, 
-        db.ForeignKey("athlete.id", name="fk_attempt_athlete_id"), 
-        nullable=False
+        db.Integer,
+        db.ForeignKey("athlete.id", name="fk_attempt_athlete_id"),
+        nullable=False,
     )
     athlete_entry_id = db.Column(
-        db.Integer, 
-        db.ForeignKey("athlete_entry.id", name="fk_attempt_athlete_entry_id", ondelete="CASCADE"), 
-        nullable=False
+        db.Integer,
+        db.ForeignKey(
+            "athlete_entry.id", name="fk_attempt_athlete_entry_id", ondelete="CASCADE"
+        ),
+        nullable=False,
     )
     flight_id = db.Column(
-        db.Integer, 
-        db.ForeignKey("flight.id", name="fk_attempt_flight_id", ondelete="CASCADE"), 
-        nullable=False
+        db.Integer,
+        db.ForeignKey("flight.id", name="fk_attempt_flight_id", ondelete="CASCADE"),
+        nullable=False,
     )
-    movement_type = db.Column(db.String(50), nullable=True)  # e.g., "snatch", "clean_jerk", "squat", "bench", "deadlift"
+    movement_type = db.Column(
+        db.String(50), nullable=True
+    )  # e.g., "snatch", "clean_jerk", "squat", "bench", "deadlift"
     attempt_number = db.Column(db.Integer, nullable=False)
     requested_weight = db.Column(db.Float, nullable=False)
     actual_weight = db.Column(db.Float)
@@ -185,25 +236,35 @@ class Attempt(db.Model):
     started_at = db.Column(db.DateTime)
     completed_at = db.Column(db.DateTime)
     lifting_order = db.Column(db.Integer)
-    status = db.Column(db.String(20), default='waiting')  # 'waiting', 'in-progress', 'finished'
+    status = db.Column(
+        db.String(20), default="waiting"
+    )  # 'waiting', 'in-progress', 'finished'
 
     # Relationships
     athlete = db.relationship("Athlete", backref="attempts")
     flight = db.relationship("Flight", backref="attempts")
-    referee_decisions = db.relationship("RefereeDecision", backref="attempt", lazy=True, cascade="all, delete-orphan")
-    
+    referee_decisions = db.relationship(
+        "RefereeDecision", backref="attempt", lazy=True, cascade="all, delete-orphan"
+    )
+
+
 class RefereeAssignment(db.Model):
     """Referee assignments"""
+
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
     referee_position = db.Column(db.String(20))
     is_active = db.Column(db.Boolean, default=True)
 
+
 class RefereeDecision(db.Model):
     """Individual referee decisions"""
+
     id = db.Column(db.Integer, primary_key=True)
     attempt_id = db.Column(db.Integer, db.ForeignKey("attempt.id"), nullable=False)
-    referee_assignment_id = db.Column(db.Integer, db.ForeignKey("referee_assignment.id"), nullable=False)
+    referee_assignment_id = db.Column(
+        db.Integer, db.ForeignKey("referee_assignment.id"), nullable=False
+    )
     decision = db.Column(db.Enum(AttemptResult), nullable=False)
     decision_time = db.Column(db.DateTime, default=datetime.utcnow)
     notes = db.Column(db.Text)
@@ -211,9 +272,11 @@ class RefereeDecision(db.Model):
     # Relationships
     referee_assignment = db.relationship("RefereeAssignment", backref="decisions")
 
+
 # Timer and Scoring
 class Timer(db.Model):
     """Timer management"""
+
     id = db.Column(db.Integer, primary_key=True)
     timer_type = db.Column(db.String(20), nullable=False)
     duration_seconds = db.Column(db.Integer, nullable=False)
@@ -229,10 +292,14 @@ class Timer(db.Model):
     current_attempt = db.relationship("Attempt", foreign_keys=[current_attempt_id])
     current_athlete = db.relationship("Athlete", foreign_keys=[current_athlete_id])
 
+
 class Score(db.Model):
     """Score tracking"""
+
     id = db.Column(db.Integer, primary_key=True)
-    athlete_entry_id = db.Column(db.Integer, db.ForeignKey("athlete_entry.id"), nullable=False)
+    athlete_entry_id = db.Column(
+        db.Integer, db.ForeignKey("athlete_entry.id"), nullable=False
+    )
     best_attempt_weight = db.Column(db.Float)
     total_score = db.Column(db.Float)
     rank = db.Column(db.Integer)
@@ -243,9 +310,11 @@ class Score(db.Model):
     # Relationships
     athlete_entry = db.relationship("AthleteEntry", backref="scores")
 
+
 # Coach Assignment
 class CoachAssignment(db.Model):
     """Coach to athlete assignments"""
+
     id = db.Column(db.Integer, primary_key=True)
     coach_user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
     athlete_id = db.Column(db.Integer, db.ForeignKey("athlete.id"), nullable=False)
@@ -256,13 +325,17 @@ class CoachAssignment(db.Model):
     notes = db.Column(db.Text)
 
     # Relationships
-    coach = db.relationship("User", backref="coach_assignments", foreign_keys=[coach_user_id])
+    coach = db.relationship(
+        "User", backref="coach_assignments", foreign_keys=[coach_user_id]
+    )
 
     athlete = db.relationship("Athlete", backref="coach_assignments")
+
 
 # Referee Management
 class Referee(db.Model):
     """Referee accounts and credentials for individual referee pages"""
+
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
     username = db.Column(db.String(50), unique=True, nullable=False)
@@ -270,17 +343,19 @@ class Referee(db.Model):
     position = db.Column(db.String(50))  # e.g., "Head Referee", "Side Referee"
     email = db.Column(db.String(120))
     phone = db.Column(db.String(20))
-    competition_id = db.Column(db.Integer, db.ForeignKey('competition.id'))  # Link to competition
+    competition_id = db.Column(
+        db.Integer, db.ForeignKey("competition.id")
+    )  # Link to competition
     is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     last_login = db.Column(db.DateTime)
     notes = db.Column(db.Text)
 
     # Relationships
-    competition = db.relationship('Competition', backref='referees')
+    competition = db.relationship("Competition", backref="referees")
 
     def __repr__(self):
-        return f'<Referee {self.name} ({self.username})>'
+        return f"<Referee {self.name} ({self.username})>"
 
 
 ## Timer Log table - Timekeeper view - ##
@@ -288,110 +363,130 @@ class TimerLog(db.Model):
     __tablename__ = "timer_log"
     id = db.Column(db.Integer, primary_key=True)
 
-    competition_id = db.Column(db.Integer, db.ForeignKey("competition.id"), nullable=True)
-    event_id       = db.Column(db.Integer, db.ForeignKey("event.id"),       nullable=True)
-    flight_id      = db.Column(db.Integer, db.ForeignKey("flight.id"),      nullable=True)
+    competition_id = db.Column(
+        db.Integer, db.ForeignKey("competition.id"), nullable=True
+    )
+    event_id = db.Column(db.Integer, db.ForeignKey("event.id"), nullable=True)
+    flight_id = db.Column(db.Integer, db.ForeignKey("flight.id"), nullable=True)
 
-    athlete        = db.Column(db.String(120), nullable=True)  # free text
-    action         = db.Column(db.String(32),  nullable=False) # "Attempt", "Break", etc.
+    athlete = db.Column(db.String(120), nullable=True)  # free text
+    action = db.Column(db.String(32), nullable=False)  # "Attempt", "Break", etc.
 
-    start_ts       = db.Column(db.DateTime(timezone=True), nullable=True)
-    stop_ts        = db.Column(db.DateTime(timezone=True),  nullable=True)
-    duration_sec   = db.Column(db.Integer, nullable=True)
+    start_ts = db.Column(db.DateTime(timezone=True), nullable=True)
+    stop_ts = db.Column(db.DateTime(timezone=True), nullable=True)
+    duration_sec = db.Column(db.Integer, nullable=True)
 
-    created_at     = db.Column(db.DateTime(timezone=True), server_default=db.func.now(), nullable=False)
-    meta_json      = db.Column(db.JSON, nullable=True)  # optional: store extras (mode, notes)
+    created_at = db.Column(
+        db.DateTime(timezone=True), server_default=db.func.now(), nullable=False
+    )
+    meta_json = db.Column(
+        db.JSON, nullable=True
+    )  # optional: store extras (mode, notes)
 
 
 ## Referee Decision Log - Store all referee decisions with full context ##
 class RefereeDecisionLog(db.Model):
     """Store referee decisions with complete athlete and competition context"""
-    __tablename__ = 'referee_decision_log'
-    
+
+    __tablename__ = "referee_decision_log"
+
     id = db.Column(db.Integer, primary_key=True)
-    
+
     # Referee information
-    referee_id = db.Column(db.Integer, db.ForeignKey('referee.id'), nullable=False)
-    referee = db.relationship('Referee', backref='decision_logs')
-    
+    referee_id = db.Column(db.Integer, db.ForeignKey("referee.id"), nullable=False)
+    referee = db.relationship("Referee", backref="decision_logs")
+
     # Competition and event information
-    competition_id = db.Column(db.Integer, db.ForeignKey('competition.id'), nullable=False)
-    competition = db.relationship('Competition', backref='referee_decision_logs')
-    
+    competition_id = db.Column(
+        db.Integer, db.ForeignKey("competition.id"), nullable=False
+    )
+    competition = db.relationship("Competition", backref="referee_decision_logs")
+
     event_name = db.Column(db.String(150), nullable=True)
     flight_name = db.Column(db.String(50), nullable=True)
-    
+
     # Athlete information
     athlete_name = db.Column(db.String(255), nullable=False)
     athlete_id = db.Column(db.Integer, nullable=True)  # Optional link to athlete
     weight_class = db.Column(db.String(50), nullable=True)
     team = db.Column(db.String(255), nullable=True)
-    
+
     # Lift details
-    current_lift = db.Column(db.String(100), nullable=True)  # e.g., "Snatch", "Clean & Jerk"
+    current_lift = db.Column(
+        db.String(100), nullable=True
+    )  # e.g., "Snatch", "Clean & Jerk"
     attempt_number = db.Column(db.Integer, nullable=False)
     attempt_weight = db.Column(db.Float, nullable=True)
-    
+
     # Decision details
-    decision_label = db.Column(db.String(100), nullable=False)  # e.g., "Good Lift", "No Lift"
-    decision_value = db.Column(db.Boolean, nullable=False)  # True for good, False for no lift
+    decision_label = db.Column(
+        db.String(100), nullable=False
+    )  # e.g., "Good Lift", "No Lift"
+    decision_value = db.Column(
+        db.Boolean, nullable=False
+    )  # True for good, False for no lift
     decision_color = db.Column(db.String(50), nullable=True)
-    
+
     # Technical violations (for "No Lift" decisions)
     violations = db.Column(db.Text, nullable=True)  # Comma-separated list of violations
-    
+
     # Timestamp
     timestamp = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
-    
+
     def __repr__(self):
-        return f'<RefereeDecisionLog {self.referee.name if self.referee else "Unknown"} - {self.athlete_name} - {self.decision_label}>'
-    
+        return f"<RefereeDecisionLog {self.referee.name if self.referee else 'Unknown'} - {self.athlete_name} - {self.decision_label}>"
+
     def to_dict(self):
         return {
-            'id': self.id,
-            'referee_id': self.referee_id,
-            'referee_name': self.referee.name if self.referee else 'Unknown',
-            'referee_position': self.referee.position if self.referee else None,
-            'competition_id': self.competition_id,
-            'competition_name': self.competition.name if self.competition else 'Unknown',
-            'event_name': self.event_name,
-            'flight_name': self.flight_name,
-            'athlete_name': self.athlete_name,
-            'weight_class': self.weight_class,
-            'team': self.team,
-            'current_lift': self.current_lift,
-            'attempt_number': self.attempt_number,
-            'attempt_weight': self.attempt_weight,
-            'decision_label': self.decision_label,
-            'decision_value': self.decision_value,
-            'decision_color': self.decision_color,
-            'violations': self.violations,
-            'timestamp': self.timestamp.isoformat() if self.timestamp else None
+            "id": self.id,
+            "referee_id": self.referee_id,
+            "referee_name": self.referee.name if self.referee else "Unknown",
+            "referee_position": self.referee.position if self.referee else None,
+            "competition_id": self.competition_id,
+            "competition_name": self.competition.name
+            if self.competition
+            else "Unknown",
+            "event_name": self.event_name,
+            "flight_name": self.flight_name,
+            "athlete_name": self.athlete_name,
+            "weight_class": self.weight_class,
+            "team": self.team,
+            "current_lift": self.current_lift,
+            "attempt_number": self.attempt_number,
+            "attempt_weight": self.attempt_weight,
+            "decision_label": self.decision_label,
+            "decision_value": self.decision_value,
+            "decision_color": self.decision_color,
+            "violations": self.violations,
+            "timestamp": self.timestamp.isoformat() if self.timestamp else None,
         }
 
 
 class TechnicalViolation(db.Model):
     """Store configurable technical violation types"""
-    __tablename__ = 'technical_violations'
-    
+
+    __tablename__ = "technical_violations"
+
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), unique=True, nullable=False)
     description = db.Column(db.Text, nullable=True)
     is_active = db.Column(db.Boolean, default=True, nullable=False)
     display_order = db.Column(db.Integer, default=0)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
-    
+    updated_at = db.Column(
+        db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+    )
+
     def __repr__(self):
-        return f'<TechnicalViolation {self.name}>'
-    
+        return f"<TechnicalViolation {self.name}>"
+
     def to_dict(self):
         return {
-            'id': self.id,
-            'name': self.name,
-            'description': self.description,
-            'is_active': self.is_active,
-            'display_order': self.display_order,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
-            'updated_at': self.updated_at.isoformat() if self.updated_at else None
+            "id": self.id,
+            "name": self.name,
+            "description": self.description,
+            "is_active": self.is_active,
+            "display_order": self.display_order,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }
