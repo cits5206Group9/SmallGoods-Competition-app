@@ -2425,14 +2425,20 @@ class FlightManager {
 
   async editAttempt(attemptId) {
     try {
+      console.log('Editing attempt with ID:', attemptId);
       const response = await fetch(`/admin/attempts/${attemptId}`);
+      console.log('Response status:', response.status);
+      
       if (response.ok) {
         const attemptData = await response.json();
+        console.log('Attempt data received:', attemptData);
         this.currentEditingAttemptId = attemptId;
         await this.populateAttemptModal(attemptData);
         this.showModal('attempt-modal');
       } else {
-        this.showNotification('Error loading attempt data', 'error');
+        const errorText = await response.text();
+        console.error('Error response:', response.status, errorText);
+        this.showNotification(`Error loading attempt data: ${response.status}`, 'error');
       }
     } catch (error) {
       console.error('Error loading attempt:', error);
