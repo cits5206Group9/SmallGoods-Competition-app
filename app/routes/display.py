@@ -68,10 +68,29 @@ def display_competition():
 def display_datatable():
     return render_template('display/datatable.html')
 
+@display_bp.route('/api/competitions')
+def get_competitions_list():
+    """API endpoint to get list of all active competitions"""
+    try:
+        competitions = Competition.query.filter_by(is_active=True).order_by(Competition.id).all()
+        return jsonify({
+            'success': True,
+            'competitions': [{'id': c.id, 'name': c.name} for c in competitions]
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'Failed to get competitions: {str(e)}'
+        }), 500
+
 @display_bp.route('/public-stage')
 def display_public_stage():
     """Public stage display for competition"""
-    competition_id = request.args.get('competition_id', 1, type=int)
+    competition_id = request.args.get('competition_id', type=int)
+    # If no competition_id provided, get the first active competition
+    if competition_id is None:
+        first_competition = Competition.query.filter_by(is_active=True).first()
+        competition_id = first_competition.id if first_competition else 1
     return render_template('display/public_stage.html', competition_id=competition_id)
 
 
@@ -379,8 +398,8 @@ def get_flights_data(competition_id):
                 'error': 'Competition not found'
             }), 404
 
-        # Get all flights for this competition
-        flights = Flight.query.filter_by(competition_id=competition_id).order_by(Flight.id).all()
+        # Get all flights for this competition with their events
+        flights = Flight.query.filter_by(competition_id=competition_id).options(joinedload(Flight.event)).order_by(Flight.id).all()
 
         events_dict = {}
 
@@ -400,12 +419,21 @@ def get_flights_data(competition_id):
                 scores = Score.query.filter(Score.athlete_entry_id.in_(entry_ids)).all()
                 scores_by_entry = {score.athlete_entry_id: score for score in scores}
 
-            # Group by movement type to create events
-            event_key = f"{flight.movement_type}"
+            # Get event name from the event relationship or fall back to movement_type
+            event_name = None
+            if flight.event_id and flight.event:
+                event_name = flight.event.name
+            elif flight.movement_type:
+                event_name = flight.movement_type
+            else:
+                event_name = f"Event {flight.id}"
+
+            # Group by event name to create events
+            event_key = event_name
 
             if event_key not in events_dict:
                 events_dict[event_key] = {
-                    'name': flight.movement_type,
+                    'name': event_name,
                     'flights': []
                 }
 
