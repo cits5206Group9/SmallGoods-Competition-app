@@ -86,6 +86,10 @@ def get_public_timer_state():
         if state_file.exists():
             with state_file.open('r') as f:
                 state = json.load(f)
+                state.setdefault('break_timer_seconds', 0)
+                state.setdefault('break_timer_running', False)
+                state.setdefault('break_timer_type', '')
+                state.setdefault('break_timer_message', '')
         else:
             state = {
                 'athlete_name': '',
@@ -101,6 +105,10 @@ def get_public_timer_state():
                 'team': '',
                 'current_lift': '',
                 'attempt_weight': '',
+                'break_timer_seconds': 0,
+                'break_timer_running': False,
+                'break_timer_type': '',
+                'break_timer_message': '',
                 'timestamp': 0
             }
         return jsonify(state)
@@ -378,7 +386,19 @@ def get_flights_data(competition_id):
 
         for flight in flights:
             # Get all athlete entries in this flight
-            entries = AthleteEntry.query.filter_by(flight_id=flight.id).order_by(AthleteEntry.id).all()
+            entries = (
+                AthleteEntry.query.filter_by(flight_id=flight.id)
+                .options(joinedload(AthleteEntry.athlete))
+                .order_by(AthleteEntry.id)
+                .all()
+            )
+
+            # Prefetch score data for these entries to avoid N+1 queries
+            entry_ids = [entry.id for entry in entries]
+            scores_by_entry = {}
+            if entry_ids:
+                scores = Score.query.filter(Score.athlete_entry_id.in_(entry_ids)).all()
+                scores_by_entry = {score.athlete_entry_id: score for score in scores}
 
             # Group by movement type to create events
             event_key = f"{flight.movement_type}"
@@ -398,7 +418,7 @@ def get_flights_data(competition_id):
 
                 # Build attempts array
                 attempts_data = []
-                best_weight = 0
+                best_weight_attempt = 0
                 for attempt in attempts:
                     # Convert AttemptResult enum to 'success'/'fail' string
                     result_str = None
@@ -416,8 +436,8 @@ def get_flights_data(competition_id):
                     }
 
                     # Update best weight if successful
-                    if result_str == 'success' and attempt.requested_weight > best_weight:
-                        best_weight = attempt.requested_weight
+                    if result_str == 'success' and attempt.requested_weight > best_weight_attempt:
+                        best_weight_attempt = attempt.requested_weight
 
                     attempts_data.append(attempt_info)
 
@@ -486,6 +506,20 @@ def get_flights_data(competition_id):
                 if hasattr(competition, 'current_athlete_entry_id'):
                     is_current = (entry.id == competition.current_athlete_entry_id)
 
+                # Pull score model data for competition results
+                score_record = scores_by_entry.get(entry.id)
+                score_best = None
+                score_total = None
+                if score_record:
+                    if score_record.best_attempt_weight is not None:
+                        score_best = score_record.best_attempt_weight
+                    if score_record.total_score is not None:
+                        score_total = score_record.total_score
+
+                # Prefer score model values; fall back to attempt-derived data
+                final_best = score_best if score_best is not None else (best_weight_attempt if best_weight_attempt > 0 else None)
+                final_total = score_total if score_total is not None else (final_best if final_best is not None else 0)
+
                 athlete_info = {
                     'id': athlete.id,
                     'name': f"{athlete.first_name} {athlete.last_name}",
@@ -493,9 +527,9 @@ def get_flights_data(competition_id):
                     'category': category,
                     'gender': athlete.gender,
                     'attempts': attempts_data,
-                    'best': best_weight if best_weight > 0 else None,
+                    'best': final_best,
                     'reps': reps_value,
-                    'total': best_weight if best_weight > 0 else 0,
+                    'total': final_total,
                     'is_current': is_current
                 }
 

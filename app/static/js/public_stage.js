@@ -24,8 +24,13 @@ class TimerSynchronizer {
         this.lastState = null;
         this.lastSyncTimestamp = 0;
         this.lastKnownSeconds = 0;
+        this.baseSeconds = 0;
+        this.seconds = 0;
+        this.startTimestamp = 0;
+        this.remoteTimestamp = null;
         this.mode = 'countdown';
         this.isRunning = false;
+        this.isBreakTimer = false;
     }
 
     start() {
@@ -57,7 +62,6 @@ class TimerSynchronizer {
                 throw new Error(`HTTP ${response.status}`);
             }
             const state = await response.json();
-            console.log('[Timer] Fetched state:', state);
             this.applyState(state);
         } catch (error) {
             console.warn('Timer sync fetch failed:', error);
@@ -70,27 +74,91 @@ class TimerSynchronizer {
             this.lastState = null;
             this.lastSyncTimestamp = 0;
             this.lastKnownSeconds = 0;
+            this.baseSeconds = 0;
+            this.seconds = 0;
+            this.startTimestamp = 0;
+            this.remoteTimestamp = null;
             this.isRunning = false;
             this.mode = 'countdown';
+            this.isBreakTimer = false;
             this.render(true);
             return;
         }
 
-        const numericSeconds = Number(state.timer_seconds);
-        this.lastState = state;
-        this.lastSyncTimestamp = Date.now();
-        this.lastKnownSeconds = Number.isFinite(numericSeconds) ? numericSeconds : 0;
-        const rawMode = typeof state.timer_mode === 'string' ? state.timer_mode.toLowerCase() : '';
-        this.mode = (rawMode === 'countup' || rawMode === 'countdown') ? rawMode : 'countdown';
-        this.isRunning = Boolean(state.timer_running);
+        const parseBool = (value) => value === true || value === 'true' || value === 1 || value === '1';
+        const parseSeconds = (value) => {
+            if (value === null || value === undefined) {
+                return NaN;
+            }
+            if (typeof value === 'number' && Number.isFinite(value)) {
+                return value;
+            }
+            if (typeof value === 'string') {
+                const trimmed = value.trim();
+                if (!trimmed) {
+                    return NaN;
+                }
+                const numeric = Number(trimmed);
+                if (Number.isFinite(numeric)) {
+                    return numeric;
+                }
+                const parts = trimmed.split(':').map((part) => Number(part));
+                if (parts.every((n) => Number.isFinite(n))) {
+                    if (parts.length === 3) {
+                        return parts[0] * 3600 + parts[1] * 60 + parts[2];
+                    }
+                    if (parts.length === 2) {
+                        return parts[0] * 60 + parts[1];
+                    }
+                    if (parts.length === 1) {
+                        return parts[0];
+                    }
+                }
+            }
+            return NaN;
+        };
+        const now = Date.now();
+        const stateTimestamp = Number(state.timestamp);
 
-        // Debug log
-        console.log('[Timer] State updated:', {
-            seconds: this.lastKnownSeconds,
-            running: this.isRunning,
-            mode: this.mode,
-            timestamp: new Date(state.timestamp).toLocaleTimeString()
-        });
+        this.remoteTimestamp = Number.isFinite(stateTimestamp) ? stateTimestamp : null;
+        this.startTimestamp = this.remoteTimestamp ?? now;
+        this.lastSyncTimestamp = now;
+        this.lastState = state;
+        const breakSecondsRaw = parseSeconds(state.break_timer_seconds);
+        const hasBreakSeconds = Number.isFinite(breakSecondsRaw);
+        const breakRunning = parseBool(state.break_timer_running);
+        const attemptRunning = parseBool(state.timer_running);
+        const breakHasMetadata = typeof state.break_timer_type === 'string' || typeof state.break_timer_message === 'string';
+        const breakLikelyActive = (breakRunning && hasBreakSeconds) ||
+            (!attemptRunning && hasBreakSeconds && breakHasMetadata);
+
+        if (breakLikelyActive) {
+            const breakSeconds = hasBreakSeconds ? breakSecondsRaw : 0;
+            this.seconds = Math.max(0, Number.isFinite(breakSeconds) ? breakSeconds : 0);
+            this.baseSeconds = this.seconds;
+            this.lastKnownSeconds = this.seconds;
+            this.mode = 'countdown';
+            this.isRunning = breakRunning || !attemptRunning;
+            this.isBreakTimer = true;
+        } else if (attemptRunning) {
+            const attemptSeconds = parseSeconds(state.timer_seconds);
+            const baseSeconds = parseSeconds(state.base_seconds);
+            this.seconds = Number.isFinite(attemptSeconds) ? attemptSeconds : 0;
+            this.baseSeconds = Number.isFinite(baseSeconds) ? baseSeconds : this.seconds;
+            this.lastKnownSeconds = this.seconds;
+            const rawMode = typeof state.timer_mode === 'string' ? state.timer_mode.toLowerCase() : '';
+            this.mode = rawMode === 'countup' ? 'countup' : 'countdown';
+            this.isRunning = true;
+            this.isBreakTimer = false;
+        } else {
+            const fallbackSeconds = parseSeconds(state.timer_seconds);
+            this.seconds = Number.isFinite(fallbackSeconds) ? fallbackSeconds : 0;
+            this.baseSeconds = this.seconds;
+            this.lastKnownSeconds = this.seconds;
+            this.isRunning = false;
+            this.mode = 'countdown';
+            this.isBreakTimer = false;
+        }
 
         this.render(true);
     }
@@ -100,11 +168,11 @@ class TimerSynchronizer {
             return null;
         }
 
-        let seconds = this.lastKnownSeconds;
+        let seconds = Number.isFinite(this.lastKnownSeconds) ? this.lastKnownSeconds : 0;
         if (this.isRunning && this.lastSyncTimestamp) {
             const elapsed = (Date.now() - this.lastSyncTimestamp) / 1000;
             if (this.mode === 'countup') {
-                seconds += elapsed;
+                seconds = seconds + elapsed;
             } else {
                 seconds = Math.max(0, seconds - elapsed);
             }
@@ -122,6 +190,9 @@ class TimerSynchronizer {
             if (force) {
                 this.timerDisplay.textContent = '00:00';
                 this.updateClasses('idle');
+                // Hide break label
+                const breakLabel = document.getElementById('breakLabel');
+                if (breakLabel) breakLabel.style.display = 'none';
             }
             return;
         }
@@ -129,8 +200,17 @@ class TimerSynchronizer {
         const formatted = this.formatSeconds(seconds);
         if (force || this.timerDisplay.textContent !== formatted) {
             this.timerDisplay.textContent = formatted;
-            if (force) {
-                console.log('[Timer] Rendered:', formatted, 'seconds:', seconds.toFixed(2), 'running:', this.isRunning);
+        }
+
+        this.timerDisplay.classList.toggle('break-timer', !!this.isBreakTimer);
+
+        // Show/hide BREAK label
+        const breakLabel = document.getElementById('breakLabel');
+        if (breakLabel) {
+            if (this.isBreakTimer && this.isRunning) {
+                breakLabel.style.display = 'inline-block';
+            } else {
+                breakLabel.style.display = 'none';
             }
         }
 
@@ -309,15 +389,30 @@ function renderMainTable() {
                         attempts: athlete.attempts,
                         best: athlete.best
                     };
+                    if (athlete.total !== null && athlete.total !== undefined) {
+                        const normalizedTotal = Number(athlete.total);
+                        if (!Number.isNaN(normalizedTotal)) {
+                            const previousTotal = Number(existing.total);
+                            const safePreviousTotal = Number.isFinite(previousTotal) ? previousTotal : 0;
+                            existing.total = safePreviousTotal + normalizedTotal;
+                        }
+                    }
                 } else {
                     // New athlete
+                    let initialTotal = 0;
+                    if (athlete.total !== null && athlete.total !== undefined) {
+                        const normalizedTotal = Number(athlete.total);
+                        if (!Number.isNaN(normalizedTotal) && Number.isFinite(normalizedTotal)) {
+                            initialTotal = normalizedTotal;
+                        }
+                    }
                     const newAthlete = {
                         id: athlete.id,
                         name: athlete.name,
                         class: athlete.class,
                         gender: athlete.gender,
                         is_current: athlete.is_current,
-                        total: athlete.total,
+                        total: initialTotal,
                         eventData: {}
                     };
                     newAthlete.eventData[event.name || event.id] = {
