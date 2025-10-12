@@ -2,20 +2,25 @@
 """
 Test timer management functionality
 """
+
 import sys
 import os
 import time
 
 # Add the parent directory to sys.path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 
 def test_timer_imports():
     """Test timer module imports"""
     try:
         from app.real_time.timer_manager import (
-            TimerManager, CompetitionTimer, TimerData, TimerState
+            TimerManager,
+            CompetitionTimer,
+            TimerData,
+            TimerState,
         )
+
         print("✅ Timer modules imported successfully")
         return True
     except ImportError as e:
@@ -32,10 +37,7 @@ def test_timer_creation():
 
         # Create timer
         timer_id = manager.create_timer(
-            competition_id=1,
-            timer_id="test_timer",
-            duration=5,
-            timer_type="attempt"
+            competition_id=1, timer_id="test_timer", duration=5, timer_type="attempt"
         )
 
         assert timer_id == "1_test_timer"
