@@ -1,8 +1,17 @@
 import pytest
 import os
 import tempfile
+import gc
 from app import create_app
 from app.extensions import db
+
+
+def pytest_configure(config):
+    """Configure pytest with custom settings."""
+    # Suppress resource warnings from coverage tool
+    import warnings
+
+    warnings.filterwarnings("ignore", category=ResourceWarning)
 
 
 @pytest.fixture()
@@ -17,18 +26,30 @@ def app():
             "TESTING": True,
             "SQLALCHEMY_DATABASE_URI": f"sqlite:///{db_path}",
             "WTF_CSRF_ENABLED": False,  # Disable CSRF for testing
+            "SQLALCHEMY_ENGINE_OPTIONS": {
+                "pool_pre_ping": True,
+                "pool_recycle": 300,
+                "poolclass": None,  # Disable connection pooling for tests
+            },
         }
     )
 
     with app.app_context():
         db.create_all()
         yield app
+
+        # Properly close all database connections
+        db.session.close()
         db.session.remove()
         db.drop_all()
+        db.engine.dispose()
 
     # Clean up the temporary database file
     os.close(db_fd)
     os.unlink(db_path)
+
+    # Force garbage collection to clean up any remaining references
+    gc.collect()
 
 
 @pytest.fixture()
