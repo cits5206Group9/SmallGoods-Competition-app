@@ -37,7 +37,9 @@ def test_socketio_dependencies():
             print(f"⚠️  {dep} import issue (may be Python version incompatibility): {e}")
             # Don't fail the test for known eventlet/Python 3.12 compatibility issues
             if dep == "eventlet" and "wrap_socket" in str(e):
-                print(f"   Note: eventlet has known issues with Python 3.11+, but app works with gevent")
+                print(
+                    f"   Note: eventlet has known issues with Python 3.11+, but app works with gevent"
+                )
                 continue
             all_passed = False
 
