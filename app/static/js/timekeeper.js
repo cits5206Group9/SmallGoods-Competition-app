@@ -836,11 +836,17 @@
 
       // Update attempt status to 'finished' when timer is stopped
       if (athleteId && attemptNo) {
-        await window.updateAttemptStatus(athleteId, attemptNo, CURRENT_FLIGHT_ID, 'finished');
+        // Use the current flight ID from context
+        const currentFlightId = CURRENT_CTX.flightId || CURRENT_FLIGHT_ID;
+        
+        await window.updateAttemptStatus(athleteId, attemptNo, currentFlightId, 'finished');
         
         // Refresh the attempt order list to show updated status (without auto-selecting)
-        if (CURRENT_FLIGHT_ID && typeof loadAttemptOrder === 'function') {
-          await loadAttemptOrder(CURRENT_FLIGHT_ID, false); // Pass false to prevent auto-selection
+        if (currentFlightId && typeof window.loadAttemptOrder === 'function') {
+          console.log("Stop button: Refreshing attempt order visualization after marking attempt as finished");
+          await window.loadAttemptOrder(currentFlightId, false); // Pass false to prevent auto-selection
+        } else {
+          console.warn("Stop button: Cannot refresh attempt order - missing flight ID or loadAttemptOrder function");
         }
       }
 
@@ -1235,9 +1241,9 @@
         console.log("attemptSelect.value AFTER status update:", attemptSelect?.value);
         
         // Refresh the attempt order list to show updated status (without auto-selecting)
-        if (typeof loadAttemptOrder === 'function') {
+        if (typeof window.loadAttemptOrder === 'function') {
           console.log("Calling loadAttemptOrder with autoSelect=false");
-          await loadAttemptOrder(lastFlightId, false); // Pass false to prevent auto-selection
+          await window.loadAttemptOrder(lastFlightId, false); // Pass false to prevent auto-selection
           console.log("athleteSelect.value AFTER loadAttemptOrder:", athleteSelect?.value);
           console.log("attemptSelect.value AFTER loadAttemptOrder:", attemptSelect?.value);
         }
@@ -1598,11 +1604,12 @@
     // Show attempt order section and load attempts
     if (attemptOrderSection) {
       attemptOrderSection.style.display = "block";
-      loadAttemptOrder(flight.id);
+      window.loadAttemptOrder(flight.id);
     }
   };
   
-  async function loadAttemptOrder(flightId, autoSelect = true) {
+  // Make loadAttemptOrder globally accessible so it can be called from the Stop button
+  window.loadAttemptOrder = async function loadAttemptOrder(flightId, autoSelect = true) {
     if (!flightId) return;
     
     console.log("loadAttemptOrder called with autoSelect:", autoSelect);
@@ -1843,7 +1850,7 @@
   
   if (refreshAttemptsBtn) {
     refreshAttemptsBtn.addEventListener("click", () => {
-      if (lastFlightId) loadAttemptOrder(lastFlightId);
+      if (lastFlightId) window.loadAttemptOrder(lastFlightId);
     });
   }
   
@@ -1921,7 +1928,7 @@
       showNotification(result.message || `Attempts sorted by ${sortType} successfully`, "success");
       
       // Reload attempt order
-      await loadAttemptOrder(lastFlightId);
+      await window.loadAttemptOrder(lastFlightId);
       
     } catch (error) {
       console.error('Error sorting attempts:', error);
@@ -1966,7 +1973,7 @@
       showNotification(result.message || 'Test attempts generated successfully', "success");
       
       // Reload attempt order to show new attempts
-      await loadAttemptOrder(lastFlightId);
+      await window.loadAttemptOrder(lastFlightId);
       
     } catch (error) {
       console.error('Error generating test attempts:', error);
@@ -2007,7 +2014,7 @@
       
       if (response.ok) {
         // Reload the attempt order to show the updated queue
-        await loadAttemptOrder(lastFlightId);
+        await window.loadAttemptOrder(lastFlightId);
         showNotification(`Attempt by ${firstPendingAttempt.athlete_name} marked as completed.`, 'success');
       } else {
         const errorData = await response.json();
