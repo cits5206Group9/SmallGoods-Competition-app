@@ -1,0 +1,43 @@
+name: Format and Test
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+
+jobs:
+  format-and-test:
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        python-version: ['3.13']
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+        cache: 'pip'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install ruff
+
+    - name: Run ruff format (check only)
+      run: |
+        ruff format --check .
+      continue-on-error: false
+
+    - name: Run tests
+      run: |
+        pytest -v --tb=short --color=yes
+      env:
+        PYTHONPATH: .

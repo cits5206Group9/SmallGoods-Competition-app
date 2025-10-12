@@ -2,33 +2,38 @@
 """
 Test Phase 3 advanced real-time functionality
 """
+
 import sys
 import os
 
 # Add the parent directory to sys.path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 
 def test_dashboard_template_exists():
     """Test that dashboard template exists"""
     try:
         template_path = os.path.join(
-            os.path.dirname(__file__), '..',
-            'app', 'templates', 'admin', 'real_time_dashboard.html'
+            os.path.dirname(__file__),
+            "..",
+            "app",
+            "templates",
+            "admin",
+            "real_time_dashboard.html",
         )
 
         if os.path.exists(template_path):
-            with open(template_path, 'r') as f:
+            with open(template_path, "r") as f:
                 content = f.read()
 
             # Check for key components
             required_elements = [
-                'real-time-dashboard',
-                'dashboard-header',
-                'stats-grid',
-                'dashboard-grid',
-                'connection-status',
-                'main-competition-timer'
+                "real-time-dashboard",
+                "dashboard-header",
+                "stats-grid",
+                "dashboard-grid",
+                "connection-status",
+                "main-competition-timer",
             ]
 
             for element in required_elements:
@@ -53,22 +58,26 @@ def test_dashboard_styles():
     """Test that dashboard CSS exists"""
     try:
         css_path = os.path.join(
-            os.path.dirname(__file__), '..',
-            'app', 'static', 'css', 'real-time-dashboard.css'
+            os.path.dirname(__file__),
+            "..",
+            "app",
+            "static",
+            "css",
+            "real-time-dashboard.css",
         )
 
         if os.path.exists(css_path):
-            with open(css_path, 'r') as f:
+            with open(css_path, "r") as f:
                 content = f.read()
 
             # Check for key styles
             required_styles = [
-                '.real-time-dashboard',
-                '.stats-grid',
-                '.dashboard-grid',
-                '.dashboard-panel',
-                '.activity-feed',
-                '.emergency-controls'
+                ".real-time-dashboard",
+                ".stats-grid",
+                ".dashboard-grid",
+                ".dashboard-panel",
+                ".activity-feed",
+                ".emergency-controls",
             ]
 
             for style in required_styles:
@@ -97,22 +106,26 @@ def test_dashboard_javascript():
     """Test that dashboard JavaScript exists"""
     try:
         js_path = os.path.join(
-            os.path.dirname(__file__), '..',
-            'app', 'static', 'js', 'real-time-dashboard.js'
+            os.path.dirname(__file__),
+            "..",
+            "app",
+            "static",
+            "js",
+            "real-time-dashboard.js",
         )
 
         if os.path.exists(js_path):
-            with open(js_path, 'r') as f:
+            with open(js_path, "r") as f:
                 content = f.read()
 
             # Check for key JavaScript components
             required_components = [
-                'class RealTimeDashboard',
-                'setupWebSocket',
-                'handleTimerUpdate',
-                'handleRefereeDecision',
-                'updateStats',
-                'emergencyControls'
+                "class RealTimeDashboard",
+                "setupWebSocket",
+                "handleTimerUpdate",
+                "handleRefereeDecision",
+                "updateStats",
+                "emergencyControls",
             ]
 
             for component in required_components:
@@ -147,9 +160,11 @@ def test_admin_route_integration():
         print("✅ Admin blueprint exists")
 
         # Test route function exists
-        route_functions = [rule.endpoint.split('.')[-1] for rule in admin_bp.url_map.iter_rules()]
+        route_functions = [
+            rule.endpoint.split(".")[-1] for rule in admin_bp.url_map.iter_rules()
+        ]
 
-        if 'real_time_dashboard' in route_functions:
+        if "real_time_dashboard" in route_functions:
             print("✅ Real-time dashboard route registered")
         else:
             print("❌ Real-time dashboard route not found")
@@ -166,21 +181,24 @@ def test_dashboard_functionality():
     """Test dashboard functionality integration"""
     try:
         # Test WebSocket client integration
-        from app.static.js import websocket_client  # This will fail, but shows structure
+        from app.static.js import (
+            websocket_client,
+        )  # This will fail, but shows structure
+
         print("✅ WebSocket client available")
 
     except ImportError:
         # Expected - JavaScript files can't be imported in Python
         # But we can check they exist
         js_files = [
-            'app/static/js/websocket-client.js',
-            'app/static/js/real-time-timer.js',
-            'app/static/js/real-time-dashboard.js'
+            "app/static/js/websocket-client.js",
+            "app/static/js/real-time-timer.js",
+            "app/static/js/real-time-dashboard.js",
         ]
 
         all_exist = True
         for js_file in js_files:
-            file_path = os.path.join(os.path.dirname(__file__), '..', js_file)
+            file_path = os.path.join(os.path.dirname(__file__), "..", js_file)
             if os.path.exists(file_path):
                 print(f"✅ {js_file} exists")
             else:
@@ -203,13 +221,13 @@ def test_phase3_completeness():
     try:
         # Check file structure
         required_files = [
-            'app/templates/admin/real_time_dashboard.html',
-            'app/static/css/real-time-dashboard.css',
-            'app/static/js/real-time-dashboard.js'
+            "app/templates/admin/real_time_dashboard.html",
+            "app/static/css/real-time-dashboard.css",
+            "app/static/js/real-time-dashboard.js",
         ]
 
         for file_path in required_files:
-            full_path = os.path.join(os.path.dirname(__file__), '..', file_path)
+            full_path = os.path.join(os.path.dirname(__file__), "..", file_path)
             if os.path.exists(full_path):
                 print(f"✅ {file_path} exists")
             else:
@@ -226,6 +244,7 @@ def test_phase3_completeness():
 
         # Check admin route integration
         from app.routes.admin import admin_bp
+
         assert admin_bp is not None
         print("✅ Admin route integration ready")
 
