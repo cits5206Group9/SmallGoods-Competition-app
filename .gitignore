@@ -11,6 +11,15 @@ instance/
 .mypy_cache/
 .pytest_cache/
 
+# Coverage reports
+htmlcov/
+.coverage
+.coverage.*
+coverage.json
+coverage.xml
+*.cover
+.hypothesis/
+
 # Database files
 *.db
 *.sqlite
