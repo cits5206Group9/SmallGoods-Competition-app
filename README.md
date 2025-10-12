@@ -12,6 +12,31 @@ A Flask-based web app.
 
 ---
 
+## 📚 Documentation
+
+Comprehensive documentation is available in the `docs/` directory:
+
+- **[User Guide](docs/USER_GUIDE.md)** - Complete guide for using the application
+  - Competition, Event, Athlete, and Flight Management
+  - Step-by-step workflows and best practices
+  - Troubleshooting common issues
+
+- **[Coverage Testing Guide](docs/COVERAGE_TESTING_GUIDE.md)** - Detailed coverage testing documentation
+  - Running coverage tests
+  - Understanding coverage reports
+  - Best practices and CI/CD integration
+
+- **[Testing Summary](docs/TESTING_SUMMARY.md)** - Quick reference for testing and formatting
+  - Quick start commands
+  - Current coverage status
+  - Pre-commit workflow
+
+- **[Architecture](docs/ARCHITECTURE.md)** - System architecture and design decisions
+
+- **[Contributing](docs/CONTRIBUTING.md)** - Guidelines for contributors
+
+---
+
 ## Getting Started (Local)
 
 ```bash
@@ -250,6 +275,351 @@ pytest --pdb -x
 pytest --cov=app --cov-report=html
 # View: open htmlcov/index.html
 ```
+
+#### 📊 **Running Tests with Coverage**
+
+This project includes comprehensive code coverage reporting. Coverage measures how much of the codebase is tested.
+
+**Quick Coverage Check:**
+
+```bash
+# Run all tests with coverage report
+pytest --cov=app --cov-report=term-missing
+
+# Generate HTML coverage report
+pytest --cov=app --cov-report=html
+
+# Open HTML report (macOS)
+open htmlcov/index.html
+
+# Open HTML report (Linux)
+xdg-open htmlcov/index.html
+
+# Open HTML report (Windows)
+start htmlcov/index.html
+```
+
+**Coverage with Threshold:**
+
+```bash
+# Fail if coverage is below 70%
+pytest --cov=app --cov-fail-under=70
+
+# Run specific tests with coverage
+pytest tests/test_models.py --cov=app.models --cov-report=html
+```
+
+**Coverage Report Formats:**
+
+```bash
+# Terminal report with missing lines
+pytest --cov=app --cov-report=term-missing
+
+# HTML report (interactive, browsable)
+pytest --cov=app --cov-report=html
+
+# JSON report (machine-readable)
+pytest --cov=app --cov-report=json
+
+# XML report (for CI/CD tools)
+pytest --cov=app --cov-report=xml
+
+# Generate all formats at once
+pytest --cov=app --cov-report=html --cov-report=term-missing --cov-report=json
+```
+
+**Understanding Coverage Output:**
+
+```
+---------- coverage: platform darwin, python 3.13.0 -----------
+Name                        Stmts   Miss  Cover   Missing
+---------------------------------------------------------
+app/models.py                 187     12    94%   145-148
+app/routes/admin.py           542     87    84%   234, 456-489
+app/utils/scoring.py           89      5    94%   67-69
+---------------------------------------------------------
+TOTAL                        1284    185    86%
+```
+
+- **Stmts**: Total statements
+- **Miss**: Uncovered statements
+- **Cover**: Coverage percentage
+- **Missing**: Line numbers not covered
+
+**Coverage Configuration:**
+
+Coverage settings are in `.coveragerc` and `pytest.ini`:
+- Minimum coverage: 70%
+- Target coverage: 80%+
+- Critical modules: 90%+
+
+For detailed coverage testing guide, see: [`docs/COVERAGE_TESTING_GUIDE.md`](docs/COVERAGE_TESTING_GUIDE.md)
+
+---
+
+## Code Formatting
+
+This project uses automated code formatting tools to maintain consistent code style.
+
+### Formatting Tools
+
+**Black** - Python code formatter (opinionated, PEP 8 compliant)
+
+```bash
+# Format all Python files
+black .
+
+# Format specific file or directory
+black app/
+black tests/
+
+# Check formatting without making changes
+black --check .
+
+# See what would be changed
+black --diff .
+```
+
+**isort** - Import statement organizer
+
+```bash
+# Sort all imports
+isort .
+
+# Sort specific file or directory
+isort app/
+isort tests/
+
+# Check without making changes
+isort --check-only .
+
+# Show diff of what would change
+isort --diff .
+```
+
+**Ruff** - Fast Python linter (alternative to flake8)
+
+```bash
+# Lint all files
+ruff check .
+
+# Lint and auto-fix issues
+ruff check --fix .
+
+# Lint specific directory
+ruff check app/
+
+# Show detailed error information
+ruff check --verbose .
+```
+
+**Flake8** - Python linter (style and error checking)
+
+```bash
+# Check all Python files
+flake8 .
+
+# Check specific directory
+flake8 app/
+
+# Show statistics
+flake8 --statistics .
+
+# Generate HTML report
+flake8 --format=html --htmldir=flake-report .
+```
+
+### Format All Code
+
+Run all formatting tools in sequence:
+
+```bash
+# 1. Sort imports
+isort .
+
+# 2. Format code
+black .
+
+# 3. Check for linting issues
+ruff check --fix .
+
+# Or run flake8 (alternative to ruff)
+flake8 .
+```
+
+**One-liner for all formatting:**
+
+```bash
+isort . && black . && ruff check --fix .
+```
+
+### Pre-commit Hooks
+
+The project includes pre-commit configuration for automatic formatting.
+
+**Setup pre-commit:**
+
+```bash
+# Install pre-commit hooks
+pre-commit install
+
+# Run manually on all files
+pre-commit run --all-files
+
+# Update hooks to latest versions
+pre-commit autoupdate
+```
+
+**What pre-commit does:**
+- Runs Black on Python files
+- Sorts imports with isort
+- Checks for trailing whitespace
+- Validates YAML, JSON, TOML files
+- Checks for large files
+- Runs linters (ruff/flake8)
+
+### Formatting Configuration
+
+**Black settings** (in `pyproject.toml` or command line):
+```bash
+# Line length (default: 88)
+black --line-length 88 .
+
+# Python version target
+black --target-version py311 .
+```
+
+**isort settings** (compatible with Black):
+```bash
+# Use Black-compatible profile
+isort --profile black .
+```
+
+**Ruff settings** (in `pyproject.toml` or `ruff.toml`):
+```toml
+# Example ruff.toml
+line-length = 88
+target-version = "py311"
+
+[lint]
+select = ["E", "F", "W", "C90", "I", "N"]
+ignore = ["E501"]  # Line too long (handled by Black)
+```
+
+### VS Code Integration
+
+For automatic formatting on save, add to `.vscode/settings.json`:
+
+```json
+{
+  "python.formatting.provider": "black",
+  "python.linting.enabled": true,
+  "python.linting.ruffEnabled": true,
+  "editor.formatOnSave": true,
+  "editor.codeActionsOnSave": {
+    "source.organizeImports": true
+  }
+}
+```
+
+### CI/CD Formatting Checks
+
+GitHub Actions checks formatting on every PR (see `.github/workflows/tests.yml`):
+
+```yaml
+- name: Check code formatting
+  run: |
+    black --check .
+    isort --check-only .
+    ruff check .
+```
+
+### Common Formatting Commands
+
+```bash
+# Full formatting workflow
+isort . && black .                    # Format code
+
+# Check formatting (CI/CD)
+black --check . && isort --check-only . && ruff check .
+
+# Fix common issues
+ruff check --fix .                    # Auto-fix linting issues
+isort . && black .                    # Fix imports and formatting
+
+# Generate reports
+flake8 --statistics .                 # Linting statistics
+black --diff . > formatting-diff.txt  # Save formatting changes
+```
+
+---
+
+## Running the Application
+
+### Development Mode
+
+```bash
+# With INFO logging
+./run.sh INFO
+
+# With DEBUG logging (very verbose)
+./run.sh DEBUG
+
+# With WARNING logging (less verbose)
+./run.sh WARNING
+
+# Default (production mode)
+./run.sh
+```
+
+### Production Mode
+
+```bash
+# Using gunicorn (production server)
+gunicorn -w 4 -b 0.0.0.0:5000 "app:create_app()"
+
+# With logging
+gunicorn -w 4 -b 0.0.0.0:5000 --access-logfile - --error-logfile - "app:create_app()"
+```
+
+---
+
+## Complete Testing Workflow
+
+**Before committing code:**
+
+```bash
+# 1. Format code
+isort . && black .
+
+# 2. Check linting
+ruff check --fix .
+
+# 3. Run tests
+pytest
+
+# 4. Run tests with coverage
+pytest --cov=app --cov-fail-under=70
+
+# 5. Review coverage report
+open htmlcov/index.html
+```
+
+**Quick pre-commit check:**
+
+```bash
+# All checks in one line
+isort . && black . && ruff check --fix . && pytest --cov=app --cov-fail-under=70
+```
+
+---
+
+## Additional Documentation
+
+- **User Guide**: [`docs/USER_GUIDE.md`](docs/USER_GUIDE.md) - Instructions for using the app (sections, athlete management, flight management)
+- **Coverage Testing**: [`docs/COVERAGE_TESTING_GUIDE.md`](docs/COVERAGE_TESTING_GUIDE.md) - Comprehensive guide on coverage testing
+- **Architecture**: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) - System architecture and design decisions
+- **Contributing**: [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md) - Contribution guidelines
 
 ---
 
