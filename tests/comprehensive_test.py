@@ -2,11 +2,12 @@
 """
 Comprehensive test suite for the complete real-time competition system
 """
+
 import sys
 import os
 
 # Add the parent directory to sys.path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 
 def test_complete_system_integration():
@@ -47,13 +48,13 @@ def test_complete_system_integration():
 
         # Check dashboard files exist
         dashboard_files = [
-            'app/templates/admin/real_time_dashboard.html',
-            'app/static/css/real-time-dashboard.css',
-            'app/static/js/real-time-dashboard.js'
+            "app/templates/admin/real_time_dashboard.html",
+            "app/static/css/real-time-dashboard.css",
+            "app/static/js/real-time-dashboard.js",
         ]
 
         for file_path in dashboard_files:
-            full_path = os.path.join(os.path.dirname(__file__), '..', file_path)
+            full_path = os.path.join(os.path.dirname(__file__), "..", file_path)
             assert os.path.exists(full_path), f"Missing: {file_path}"
 
         print("✅ Phase 3: Dashboard components complete")
@@ -78,17 +79,26 @@ def test_static_file_completeness():
         print("Testing static file completeness...")
 
         static_files = {
-            'app/static/js/websocket-client.js': ['WebSocketClient', 'ConnectionStatus'],
-            'app/static/js/real-time-timer.js': ['RealTimeTimer', 'formatTime'],
-            'app/static/js/real-time-dashboard.js': ['RealTimeDashboard', 'emergencyControls'],
-            'app/static/css/real-time-dashboard.css': ['.real-time-dashboard', '.stats-grid']
+            "app/static/js/websocket-client.js": [
+                "WebSocketClient",
+                "ConnectionStatus",
+            ],
+            "app/static/js/real-time-timer.js": ["RealTimeTimer", "formatTime"],
+            "app/static/js/real-time-dashboard.js": [
+                "RealTimeDashboard",
+                "emergencyControls",
+            ],
+            "app/static/css/real-time-dashboard.css": [
+                ".real-time-dashboard",
+                ".stats-grid",
+            ],
         }
 
         for file_path, required_content in static_files.items():
-            full_path = os.path.join(os.path.dirname(__file__), '..', file_path)
+            full_path = os.path.join(os.path.dirname(__file__), "..", file_path)
 
             if os.path.exists(full_path):
-                with open(full_path, 'r') as f:
+                with open(full_path, "r") as f:
                     content = f.read()
 
                 for required in required_content:
@@ -118,12 +128,12 @@ def test_app_creation_with_all_components():
         from app.extensions import socketio
 
         # Create app
-        app = create_app('testing')
+        app = create_app("testing")
         assert app is not None
 
         # Check SocketIO integration
-        assert hasattr(app, 'extensions')
-        assert 'socketio' in app.extensions
+        assert hasattr(app, "extensions")
+        assert "socketio" in app.extensions
 
         print("✅ Flask app with real-time components created successfully")
         return True
@@ -142,14 +152,14 @@ def test_websocket_event_coverage():
 
         # Check all required event handlers exist
         required_handlers = [
-            'handle_timer_start',
-            'handle_timer_stop',
-            'handle_timer_reset',
-            'handle_referee_decision',
-            'handle_attempt_result',
-            'handle_competition_status_update',
-            'handle_athlete_queue_update',
-            'handle_ping'
+            "handle_timer_start",
+            "handle_timer_stop",
+            "handle_timer_reset",
+            "handle_referee_decision",
+            "handle_attempt_result",
+            "handle_competition_status_update",
+            "handle_athlete_queue_update",
+            "handle_ping",
         ]
 
         for handler in required_handlers:
@@ -187,9 +197,9 @@ def test_real_time_data_flow():
 
         # Test broadcast methods exist
         broadcast_methods = [
-            'broadcast_timer_update',
-            'broadcast_referee_decision',
-            'broadcast_attempt_result'
+            "broadcast_timer_update",
+            "broadcast_referee_decision",
+            "broadcast_attempt_result",
         ]
 
         for method in broadcast_methods:
@@ -226,12 +236,14 @@ def test_production_readiness():
 
         # Check logging integration
         import logging
-        logger = logging.getLogger('app.real_time.websocket')
+
+        logger = logging.getLogger("app.real_time.websocket")
         assert logger is not None
         print("✅ Logging integration ready")
 
         # Check configuration
         from app.extensions import socketio
+
         assert socketio is not None
         print("✅ Configuration integration ready")
 
@@ -271,9 +283,9 @@ def run_comprehensive_tests():
         except Exception as e:
             print(f"🔴 {test_name}: ERROR - {e}")
 
-    print(f"\n" + "="*60)
+    print(f"\n" + "=" * 60)
     print(f"📊 COMPREHENSIVE TEST RESULTS: {passed}/{total} tests passed")
-    print("="*60)
+    print("=" * 60)
 
     if passed == total:
         print("\n🎉 🎉 🎉 COMPLETE REAL-TIME SYSTEM READY! 🎉 🎉 🎉")

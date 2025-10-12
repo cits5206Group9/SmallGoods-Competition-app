@@ -2,11 +2,12 @@
 """
 Test Phase 2 real-time functionality
 """
+
 import sys
 import os
 
 # Add the parent directory to sys.path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 
 def test_timer_manager_integration():
@@ -31,7 +32,7 @@ def test_timer_manager_integration():
             competition_id=1,
             timer_id="test_integration",
             duration=2,
-            callback=timer_callback
+            callback=timer_callback,
         )
 
         assert timer_id == "1_test_integration"
@@ -47,7 +48,9 @@ def test_websocket_timer_events():
     """Test WebSocket timer event handlers"""
     try:
         from app.real_time.event_handlers import (
-            handle_timer_start, handle_timer_stop, handle_timer_reset
+            handle_timer_start,
+            handle_timer_stop,
+            handle_timer_reset,
         )
 
         # Check handlers exist
@@ -68,14 +71,14 @@ def test_static_files_exist():
         import os
 
         js_files = [
-            'app/static/js/websocket-client.js',
-            'app/static/js/real-time-timer.js'
+            "app/static/js/websocket-client.js",
+            "app/static/js/real-time-timer.js",
         ]
 
         for js_file in js_files:
-            file_path = os.path.join(os.path.dirname(__file__), '..', js_file)
+            file_path = os.path.join(os.path.dirname(__file__), "..", js_file)
             if os.path.exists(file_path):
-                with open(file_path, 'r') as f:
+                with open(file_path, "r") as f:
                     content = f.read()
                     if len(content) > 1000:  # Check substantial content
                         print(f"✅ {js_file} exists and has content")
@@ -97,9 +100,9 @@ def test_real_time_module_complete():
         from app.real_time import websocket, timer_manager, event_handlers
 
         # Check main components
-        assert hasattr(websocket, 'CompetitionRealTime')
-        assert hasattr(timer_manager, 'TimerManager')
-        assert hasattr(event_handlers, 'register_all_handlers')
+        assert hasattr(websocket, "CompetitionRealTime")
+        assert hasattr(timer_manager, "TimerManager")
+        assert hasattr(event_handlers, "register_all_handlers")
         print("✅ Real-time module components complete")
 
         # Check timer integration
@@ -112,8 +115,8 @@ def test_real_time_module_complete():
         print("✅ Timer operations working")
 
         # Test WebSocket methods
-        assert hasattr(competition_realtime, 'broadcast_timer_update')
-        assert hasattr(competition_realtime, 'broadcast_referee_decision')
+        assert hasattr(competition_realtime, "broadcast_timer_update")
+        assert hasattr(competition_realtime, "broadcast_referee_decision")
         print("✅ WebSocket broadcast methods available")
 
         return True
