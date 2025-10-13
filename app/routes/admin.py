@@ -322,7 +322,7 @@ def save_competition_model():
                 first_movement = movements[0]
                 scoring_data = first_movement.get("scoring", {})
                 scoring_type_str = scoring_data.get("type", "max")
-                
+
                 # Map string to enum
                 scoring_type_map = {
                     "max": ScoringType.MAX,
@@ -3960,7 +3960,7 @@ def update_attempt_weight(attempt_id):
         # Check if attempt is already finished - prioritize status field over legacy fields
         if attempt.status and attempt.status.strip():
             # Use the current status field as the authoritative source
-            if attempt.status.lower() in ['finished', 'success', 'failed']:
+            if attempt.status.lower() in ["finished", "success", "failed"]:
                 return jsonify(
                     {
                         "status": "error",
@@ -4443,7 +4443,7 @@ def delete_attempt(attempt_id):
         # Don't allow deletion of finished attempts - prioritize status field over legacy fields
         if attempt.status and attempt.status.strip():
             # Use the current status field as the authoritative source
-            if attempt.status.lower() in ['finished', 'success', 'failed']:
+            if attempt.status.lower() in ["finished", "success", "failed"]:
                 return jsonify({"error": "Cannot delete finished attempts"}), 400
         else:
             # Fallback to legacy fields only if status field is missing or empty

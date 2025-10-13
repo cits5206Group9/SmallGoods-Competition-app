@@ -701,7 +701,7 @@ def update_attempt_weight():
         # Attempt must not be finalized - prioritize status field over legacy fields
         if attempt.status and attempt.status.strip():
             # Use the current status field as the authoritative source
-            if attempt.status.lower() in ['finished', 'success', 'failed']:
+            if attempt.status.lower() in ["finished", "success", "failed"]:
                 return (
                     jsonify(
                         {
@@ -897,7 +897,6 @@ def calculate_estimated_time(
         buffer = 15
         attempt_time = time_limit + buffer
         total_seconds += attempt_time
-
 
     # 3. CACHE AND RETURN RESULT
     now = datetime.utcnow()
@@ -1149,30 +1148,32 @@ def get_next_attempt_timer():
         try:
             import json
             from pathlib import Path
-            
-            state_file = Path(__file__).parent.parent.parent / "instance" / "timer_state.json"
+
+            state_file = (
+                Path(__file__).parent.parent.parent / "instance" / "timer_state.json"
+            )
             if state_file.exists():
-                with open(state_file, 'r') as f:
+                with open(state_file, "r") as f:
                     timer_state = json.load(f)
-                
+
                 # Check if there's an active break timer (both flight and event breaks)
-                break_running = timer_state.get('break_timer_running', False)
-                break_seconds = timer_state.get('break_timer_seconds', 0)
-                break_type = timer_state.get('break_timer_type', '')
-                
+                break_running = timer_state.get("break_timer_running", False)
+                break_seconds = timer_state.get("break_timer_seconds", 0)
+                break_type = timer_state.get("break_timer_type", "")
+
                 # Show both flight and event break timers explicitly
                 if break_running and break_seconds > 0:
-                    if break_type == 'Event Break':
-                        timer_type = 'break_between_events'
+                    if break_type == "Event Break":
+                        timer_type = "break_between_events"
                         lift_type_display = "Event Break"
-                    elif break_type == 'Flight Break':
-                        timer_type = 'break_between_flights'
+                    elif break_type == "Flight Break":
+                        timer_type = "break_between_flights"
                         lift_type_display = "Flight Break"
                     else:
                         # Fallback for other break types
-                        timer_type = 'break_between_flights'
+                        timer_type = "break_between_flights"
                         lift_type_display = "Break"
-                    
+
                     # Create a base response for break timer (no attempt info needed)
                     base_response = {
                         "attempt_id": None,
@@ -1181,7 +1182,9 @@ def get_next_attempt_timer():
                         "lift_type": lift_type_display,
                         "order": None,
                         "weight": None,
-                        "sport_type": current_sport_type.value if current_sport_type else None,
+                        "sport_type": current_sport_type.value
+                        if current_sport_type
+                        else None,
                         "is_first_in_queue": False,
                         "is_first_of_flight": False,
                         "has_completed_attempts": False,
