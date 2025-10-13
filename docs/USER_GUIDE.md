@@ -84,7 +84,7 @@ Events are specific categories within a competition (e.g., "Men's 85kg", "Women'
    - **Scoring Type**:
      - **MAX**: Heaviest successful lift (weightlifting)
      - **SUM**: Total of all lifts (powerlifting total)
-     - **TIME**: Fastest completion time (HYROX, CrossFit)
+     - **MIN**: Fastest completion time (HYROX, CrossFit)
    - **Weight Category**: e.g., "85kg", "94kg", "Open"
    - **Gender**: Male, Female, or Mixed
 5. Click **"Create Event"**
@@ -118,10 +118,9 @@ Events are specific categories within a competition (e.g., "Men's 85kg", "Women'
 
 ### Athlete Registration Details
 
-**Important Fields:**
-- **Bodyweight**: Used for Sinclair/IPF calculations and weight class verification
+- **Bodyweight**
 - **Team**: For team competitions and leaderboards
-- **Email**: For athlete portal access (if enabled)
+- **Email**: For athlete dashboard access
 
 ### Managing Athletes
 
@@ -406,7 +405,7 @@ During competition, attempt order may change based on requested weights.
 - **Flight**: Group of athletes competing together
 - **Athlete Entry**: An athlete's registration in a specific event
 - **Attempt**: Single lift/performance by an athlete
-- **Scoring Type**: How winners are determined (MAX, SUM, TIME)
+- **Scoring Type**: How winners are determined (MAX, SUM, MIN)
 - **Sport Type**: Type of sport (Weightlifting, Powerlifting, etc.)
 
 ---

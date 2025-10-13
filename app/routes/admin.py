@@ -315,6 +315,23 @@ def save_competition_model():
 
         print("Processing events from config:", competition.config.get("events", []))
 
+        def extract_scoring_type_from_event(event_data):
+            """Extract scoring type from event movements data"""
+            movements = event_data.get("movements", [])
+            if movements and len(movements) > 0:
+                first_movement = movements[0]
+                scoring_data = first_movement.get("scoring", {})
+                scoring_type_str = scoring_data.get("type", "max")
+                
+                # Map string to enum
+                scoring_type_map = {
+                    "max": ScoringType.MAX,
+                    "sum": ScoringType.SUM,
+                    "min": ScoringType.MIN,
+                }
+                return scoring_type_map.get(scoring_type_str, ScoringType.MAX)
+            return ScoringType.MAX
+
         for event_data in competition.config["events"]:
             event_id = event_data.get("id")
 
@@ -329,8 +346,8 @@ def save_competition_model():
                         if event_data.get("sport_type")
                         else SportType.OLYMPIC_WEIGHTLIFTING
                     )
-                    if not hasattr(event, "scoring_type") or event.scoring_type is None:
-                        event.scoring_type = ScoringType.MAX
+                    # Extract scoring type from movements data
+                    event.scoring_type = extract_scoring_type_from_event(event_data)
                     event.is_active = True
                     current_event_ids.add(event.id)
             else:
@@ -342,7 +359,7 @@ def save_competition_model():
                     sport_type=SportType(event_data["sport_type"])
                     if event_data.get("sport_type")
                     else SportType.OLYMPIC_WEIGHTLIFTING,
-                    scoring_type=ScoringType.MAX,  # Default scoring type
+                    scoring_type=extract_scoring_type_from_event(event_data),
                     is_active=True,
                 )
                 db.session.add(event)
