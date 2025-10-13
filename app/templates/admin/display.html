@@ -80,7 +80,7 @@
                 {% endfor %}
             </select>
 
-            <a href="/display/competition" target="_blank" id="display-link" class="btn btn-info" style="text-decoration: none; padding: 8px 15px; background: #17a2b8; color: white; border-radius: 4px;">
+            <a href="/display/public-stage" target="_blank" id="display-link" class="btn btn-info" style="text-decoration: none; padding: 8px 15px; background: #17a2b8; color: white; border-radius: 4px;">
                 🖥️ Open Display View
             </a>
         </div>
@@ -239,9 +239,9 @@ document.addEventListener('DOMContentLoaded', function() {
     function updateDisplayLink() {
         const competitionId = competitionSelect.value;
         if (competitionId) {
-            displayLink.href = `/display/competition?competition_id=${competitionId}`;
+            displayLink.href = `/display/public-stage?competition_id=${competitionId}`;
         } else {
-            displayLink.href = '/display/competition';
+            displayLink.href = '/display/public-stage';
         }
     }
 
