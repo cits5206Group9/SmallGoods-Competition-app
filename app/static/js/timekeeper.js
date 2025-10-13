@@ -438,6 +438,12 @@
       }
     }
     
+    // Get break timer state
+    let breakTimerState = { seconds: 0, running: false, type: '', message: '' };
+    if (typeof window.TK_getBreakTimerState === 'function') {
+      breakTimerState = window.TK_getBreakTimerState();
+    }
+
     const state = {
       athlete_name: getAthleteName() || '',
       athlete_id: athleteId,
@@ -455,7 +461,12 @@
       attempt_weight: attemptWeight,
       weight_class: weightClass,
       team: team,
-      current_lift: currentLift
+      current_lift: currentLift,
+      // Break timer state
+      break_timer_seconds: breakTimerState.seconds,
+      break_timer_running: breakTimerState.running,
+      break_timer_type: breakTimerState.type,
+      break_timer_message: breakTimerState.message
     };
     
     fetch('/admin/api/timer-state', {
@@ -2081,6 +2092,17 @@
   let breakTimerSeconds = 0;
   let breakTimerRunning = false;
   let currentCompetitionData = null;
+
+  // Expose break timer state to the outer scope for broadcasting
+  window.TK_getBreakTimerState = function() {
+    return {
+      seconds: breakTimerSeconds,
+      running: breakTimerRunning,
+      type: breakTimerTitle ? breakTimerTitle.textContent : '',
+      message: breakTimerMessage ? breakTimerMessage.textContent : ''
+    };
+  };
+
   
   // Listen for attempt status updates to detect when to start break timers
   if (typeof window.updateAttemptStatus !== 'undefined') {

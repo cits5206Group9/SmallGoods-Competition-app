@@ -1,0 +1,693 @@
+/* ===== Reset & Base ===== */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Arial', 'Helvetica', sans-serif;
+    background-color: #000000;
+    color: #ffffff;
+    overflow: hidden;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+/* ===== Top Header (Sticky) ===== */
+.top-header {
+    background-color: #000000;
+    padding: 15px 30px 12px 30px;
+    text-align: center;
+    border-bottom: 2px solid #333;
+    flex-shrink: 0;
+    position: sticky;
+    top: 0;
+    z-index: 200;
+}
+
+.competition-title {
+    font-size: 1.8rem;
+    font-weight: bold;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+}
+
+.competition-selector {
+    background-color: #1a1a1a;
+    color: #fff;
+    border: 2px solid #444;
+    border-radius: 4px;
+    padding: 8px 12px;
+    font-size: 0.9rem;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.2s;
+    min-width: 250px;
+    margin: 0 auto 10px auto;
+    display: block;
+}
+
+.competition-selector:hover {
+    background-color: #2a2a2a;
+    border-color: #ffd700;
+}
+
+.competition-selector:focus {
+    outline: none;
+    border-color: #ffd700;
+    box-shadow: 0 0 0 2px rgba(255, 215, 0, 0.2);
+}
+
+.competition-selector option {
+    background-color: #1a1a1a;
+    color: #fff;
+}
+
+.event-tabs {
+    display: flex;
+    justify-content: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.event-tab {
+    background-color: #1a1a1a;
+    border: 1px solid #444;
+    color: #fff;
+    padding: 5px 14px;
+    font-size: 0.8rem;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-transform: capitalize;
+    border-radius: 3px;
+}
+
+.event-tab:hover {
+    background-color: #2a2a2a;
+    border-color: #666;
+}
+
+.event-tab.active {
+    background-color: #ffd700;
+    color: #000;
+    border-color: #ffd700;
+}
+
+/* ===== Flights Container (Vertical Stack with Y scroll) ===== */
+.flights-container {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 15px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.flights-container::-webkit-scrollbar {
+    width: 10px;
+}
+
+.flights-container::-webkit-scrollbar-track {
+    background: #1a1a1a;
+}
+
+.flights-container::-webkit-scrollbar-thumb {
+    background: #444;
+    border-radius: 5px;
+}
+
+.flights-container::-webkit-scrollbar-thumb:hover {
+    background: #666;
+}
+
+/* ===== Flight Card ===== */
+.flight-card {
+    background-color: #1a1a1a;
+    border: 2px solid #333;
+    border-radius: 8px;
+    padding: 15px;
+    flex-shrink: 0;
+}
+
+.flight-header {
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid #444;
+}
+
+.flight-title {
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: #ffd700;
+    text-transform: uppercase;
+}
+
+/* ===== Flight Table Wrapper (Horizontal Scroll) ===== */
+.flight-table-wrapper {
+    overflow-x: auto;
+    overflow-y: visible;
+    position: relative;
+}
+
+.flight-table-wrapper::-webkit-scrollbar {
+    height: 8px;
+}
+
+.flight-table-wrapper::-webkit-scrollbar-track {
+    background: #0d0d0d;
+}
+
+.flight-table-wrapper::-webkit-scrollbar-thumb {
+    background: #4da6ff;
+    border-radius: 4px;
+}
+
+.flight-table-wrapper::-webkit-scrollbar-thumb:hover {
+    background: #3d8acc;
+}
+
+/* ===== Flight Table ===== */
+.flight-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 0.85rem;
+    min-width: 800px;
+}
+
+.flight-table thead {
+    background-color: #2d2d2d;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    box-shadow: 0 2px 0 rgba(185, 185, 185, 0.4);
+}
+
+.flight-table th {
+    padding: 10px 12px;
+    text-align: center;
+    font-weight: bold;
+    font-size: 0.8rem;
+    border: 1px solid #444;
+    text-transform: uppercase;
+    color: #ddd;
+    background-color: #2d2d2d;
+    white-space: nowrap;
+}
+
+.flight-table td {
+    padding: 10px 6px;
+    text-align: center;
+    border: 1px solid #444;
+    background-color: #000;
+}
+
+/* ===== Sticky Left Columns ===== */
+/* Name column - leftmost sticky */
+.col-name {
+    position: sticky;
+    left: 0;
+    z-index: 30;
+    background-color: #2d2d2d !important;
+    font-weight: bold;
+    text-align: left !important;
+    padding-left: 10px !important;
+    min-width: 120px;
+    box-shadow: 2px 0 5px rgba(0, 0, 0, 0.3);
+}
+
+.flight-table tbody .col-name {
+    background-color: #000 !important;
+}
+
+/* Class column - sticky after name */
+.col-class {
+    position: sticky;
+    left: 120px;
+    z-index: 29;
+    background-color: #2d2d2d !important;
+    text-align: center;
+    min-width: 70px;
+    box-shadow: 2px 0 5px rgba(0, 0, 0, 0.2);
+}
+
+.flight-table tbody .col-class {
+    background-color: #000 !important;
+}
+
+/* ===== Sticky Right Column ===== */
+/* Total column - rightmost sticky */
+.col-total {
+    position: sticky;
+    right: 0;
+    z-index: 28;
+    background-color: #2d2d2d !important;
+    font-weight: bold;
+    font-size: 1rem;
+    color: #ffd700;
+    min-width: 80px;
+    box-shadow: -2px 0 5px rgba(0, 0, 0, 0.3);
+}
+
+.flight-table tbody .col-total {
+    background-color: #000 !important;
+}
+
+/* ===== Event Section Headers (colspan groups) ===== */
+.event-header-group {
+    background-color: #2d2d2d !important;
+    font-size: 0.9rem;
+    font-weight: bold;
+    text-transform: uppercase;
+    color: #ffd700;
+    border-left: 2px solid #ffd700 !important;
+    border-right: 2px solid #ffd700 !important;
+    letter-spacing: 0.5px;
+}
+
+/* Event header with collapse icon */
+.event-header-content {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.collapse-icon {
+    font-size: 0.75rem;
+    transition: transform 0.2s ease;
+    display: inline-block;
+    color: #ffd700;
+}
+
+.collapse-icon.collapsed {
+    transform: rotate(0deg);
+}
+
+.collapse-icon:not(.collapsed) {
+    transform: rotate(90deg);
+}
+
+/* Hide collapsed event columns */
+.event-collapsed {
+    display: none !important;
+}
+
+/* ===== Scrollable Columns (Events attempts) ===== */
+.col-att {
+    min-width: 55px;
+    max-width: 65px;
+    font-weight: bold;
+}
+
+.col-best {
+    min-width: 65px;
+    font-weight: bold;
+}
+
+/* Emphasize best column boundary to reflect group stroke */
+.flight-table td.col-best,
+.flight-table th.col-best {
+    border-right: 2px solid #666;
+}
+
+/* Comp Results (Total) emphasis */
+.flight-table td.col-total,
+.flight-table th.col-total {
+    border-left: 2px solid #666;
+}
+
+/* ===== Result Colors ===== */
+.attempt-success {
+    background-color: #22c55e !important;
+    color: #000 !important;
+}
+
+.attempt-fail {
+    background-color: #ef4444 !important;
+    color: #fff !important;
+}
+
+.attempt-pending {
+    background-color: #000 !important;
+    color: #666 !important;
+}
+
+/* ===== Current Athlete Highlight ===== */
+.athlete-row.current td {
+    background-color: #fbbf24 !important;
+    color: #000 !important;
+    font-weight: bold;
+}
+
+.athlete-row.current .col-name,
+.athlete-row.current .col-class,
+.athlete-row.current .col-total {
+    background-color: #fbbf24 !important;
+}
+
+/* Hover effect */
+.flight-table tbody tr:hover td {
+    filter: brightness(1.1);
+}
+
+/* ===== Bottom Status Bar (Fixed) ===== */
+.status-bar {
+    background: linear-gradient(135deg, #e5e5e5 0%, #f5f5f5 100%);
+    color: #000;
+    padding: 18px 35px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-top: 3px solid #ccc;
+    flex-shrink: 0;
+    box-shadow: 0 -4px 8px rgba(0, 0, 0, 0.2);
+    position: sticky;
+    bottom: 0;
+    z-index: 200;
+}
+
+.timer-section {
+    flex: 1;
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+    background-color: #ffffff;
+    padding: 24px 64px;
+    border-radius: 4px;
+}
+
+.timer-display {
+    font-size: 4rem;
+    font-weight: bold;
+    font-family: 'Inter', 'Arial', sans-serif;
+    color: #000000;
+    line-height: normal;
+}
+
+.timer-display.break-timer {
+    background-color: #3b82f6;
+    color: #ffffff;
+    border-radius: 0.5rem;
+    padding: 0.15em 0.35em;
+}
+
+.break-label {
+    font-size: 2rem;
+    font-weight: bold;
+    font-family: 'Inter', 'Arial', sans-serif;
+    color: #ffffff;
+    background-color: #dc2626;
+    padding: 0.3em 0.6em;
+    border-radius: 0.5rem;
+    margin-left: 20px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    box-shadow: 0 4px 6px rgba(220, 38, 38, 0.3);
+}
+
+.timer-display.warning {
+    color: #f59e0b;
+}
+
+.timer-display.expired {
+    color: #dc2626;
+    animation: pulse 0.5s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+.athlete-section {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.current-athlete {
+    font-size: 2.6rem;
+    font-weight: bold;
+    color: #000;
+}
+
+.weight-section {
+    flex: 1;
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 10px;
+}
+
+.current-weight {
+    font-size: 3rem;
+    font-weight: bold;
+    color: #000;
+}
+
+.weight-unit {
+    font-size: 1.6rem;
+    font-weight: normal;
+    color: #333;
+}
+
+/* Gender Icon */
+.gender-icon {
+    font-size: 3.5rem;
+    color: #333;
+    margin-left: 15px;
+    display: none;
+}
+
+/* Audio Visualizer */
+.audio-visualizer {
+    display: flex;
+    gap: 2px;
+    align-items: flex-end;
+    height: 40px;
+    margin-left: 15px;
+}
+
+.audio-visualizer .bar {
+    width: 6px;
+    background-color: #333;
+    animation: audioWave 1.2s ease-in-out infinite;
+}
+
+.audio-visualizer .bar:nth-child(1) {
+    height: 12px;
+    animation-delay: 0s;
+}
+
+.audio-visualizer .bar:nth-child(2) {
+    height: 18px;
+    animation-delay: 0.15s;
+}
+
+.audio-visualizer .bar:nth-child(3) {
+    height: 28px;
+    animation-delay: 0.3s;
+}
+
+.audio-visualizer .bar:nth-child(4) {
+    height: 38px;
+    animation-delay: 0.45s;
+}
+
+.audio-visualizer .bar:nth-child(5) {
+    height: 38px;
+    animation-delay: 0.6s;
+}
+
+.audio-visualizer .bar:nth-child(6) {
+    height: 16px;
+    animation-delay: 0.75s;
+}
+
+@keyframes audioWave {
+    0%, 100% {
+        transform: scaleY(1);
+    }
+    50% {
+        transform: scaleY(1.5);
+    }
+}
+
+/* ===== Responsive ===== */
+@media (max-width: 1024px) {
+    .competition-title {
+        font-size: 1.5rem;
+    }
+
+    .timer-display {
+        font-size: 3rem;
+    }
+
+    .timer-section {
+        padding: 20px 48px;
+    }
+
+    .current-athlete {
+        font-size: 2.2rem;
+    }
+
+    .current-weight {
+        font-size: 2.6rem;
+    }
+
+    .gender-icon {
+        font-size: 3rem;
+    }
+
+    .status-bar {
+        padding: 15px 25px;
+    }
+
+    /* Table density adjustments */
+    .flight-table th {
+        padding: 8px 10px;
+        font-size: 0.75rem;
+    }
+    .flight-table td {
+        padding: 8px 6px;
+    }
+    .col-name { min-width: 110px; }
+    .col-class { left: 110px; min-width: 64px; }
+    .col-att { min-width: 52px; max-width: 60px; }
+    .col-best { min-width: 58px; }
+}
+
+@media (max-width: 768px) {
+    .top-header {
+        padding: 12px 20px 10px 20px;
+    }
+
+    .competition-title {
+        font-size: 1.2rem;
+    }
+
+    .event-tab {
+        padding: 4px 10px;
+        font-size: 0.7rem;
+    }
+
+    .status-bar {
+        flex-direction: column;
+        gap: 10px;
+        padding: 12px 20px;
+    }
+
+    .timer-section,
+    .athlete-section,
+    .weight-section {
+        justify-content: center;
+    }
+
+    .timer-display {
+        font-size: 2.5rem;
+    }
+
+    .timer-section {
+        padding: 16px 32px;
+    }
+
+    .current-athlete {
+        font-size: 1.7rem;
+    }
+
+    .current-weight {
+        font-size: 2rem;
+    }
+
+    .weight-unit {
+        font-size: 1.3rem;
+    }
+
+    .gender-icon {
+        font-size: 2.5rem;
+    }
+
+    .audio-visualizer {
+        height: 30px;
+        margin-left: 10px;
+    }
+
+    .audio-visualizer .bar {
+        width: 5px;
+    }
+
+    /* Table becomes more compact on small screens */
+    .flight-table-wrapper::-webkit-scrollbar { height: 10px; }
+    .flight-table th {
+        padding: 6px 8px;
+        font-size: 0.72rem;
+    }
+    .flight-table td {
+        padding: 7px 6px;
+        font-size: 0.82rem;
+    }
+    .event-header-group {
+        font-size: 0.8rem;
+        letter-spacing: 0.3px;
+    }
+    .col-name { min-width: 100px; }
+    .col-class { left: 100px; min-width: 58px; }
+    .col-att { min-width: 48px; max-width: 56px; }
+    .col-best { min-width: 54px; }
+}
+
+@media (max-width: 560px) {
+    /* Extra compact for very small widths; keep columns but tighten spacing */
+    .flight-table th {
+        padding: 6px 6px;
+        font-size: 0.68rem;
+    }
+    .flight-table td {
+        padding: 6px 5px;
+        font-size: 0.8rem;
+    }
+    .col-name { min-width: 92px; }
+    .col-class { left: 92px; min-width: 52px; }
+    .col-att { min-width: 44px; max-width: 52px; }
+    .col-best { min-width: 50px; }
+    .timer-display { font-size: 2rem; }
+    .timer-section { padding: 12px 24px; }
+    .current-athlete { font-size: 1.4rem; }
+    .current-weight { font-size: 1.8rem; }
+    .gender-icon { font-size: 2rem; margin-left: 8px; }
+    .audio-visualizer { height: 24px; margin-left: 8px; }
+    .audio-visualizer .bar { width: 4px; }
+}
+
+/* ===== Loading & Error States ===== */
+.loading {
+    text-align: center;
+    padding: 60px;
+    font-size: 1.3rem;
+    color: #666;
+}
+
+.error-state {
+    text-align: center;
+    padding: 35px;
+    color: #ef4444;
+    font-size: 1.1rem;
+    background-color: #2d1a1a;
+    border-radius: 8px;
+    border: 2px solid #ef4444;
+    margin: 15px;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 25px;
+    color: #666;
+    font-size: 0.95rem;
+}
