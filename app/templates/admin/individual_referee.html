@@ -894,9 +894,15 @@ class IndividualReferee {
                 
                 document.getElementById('vote-status').style.display = 'block';
                 
+                // Get selected violations
+                const selectedViolations = [];
+                document.querySelectorAll('.violations-section input[type="checkbox"]:checked').forEach(cb => {
+                    selectedViolations.push(cb.getAttribute('data-name') || cb.value);
+                });
+                
                 let successMessage = `Decision "${decisionOption.label}" submitted successfully!`;
-                if (violations.length > 0) {
-                    successMessage += ` Violations: ${violations.join(', ')}`;
+                if (selectedViolations.length > 0) {
+                    successMessage += ` Violations: ${selectedViolations.join(', ')}`;
                 }
                 document.getElementById('vote-message').textContent = successMessage;
                 
