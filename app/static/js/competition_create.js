@@ -377,12 +377,6 @@
         console.log('=== Saving Competition Model ===');
         console.log('Total events in model:', model.events.length);
         console.log('Events:', model.events.map(e => ({ name: e.name, sport_type: e.sport_type })));
-        console.log('Full model structure:', JSON.stringify(model, null, 2));
-        
-        if (model.events.length === 0) {
-            alert('⚠️ No events defined!\n\nPlease click the "+ Add Event" button to add at least one event to your competition.');
-            return;
-        }
         
         const response = await fetch('/admin/competition-model/save', {
             method: 'POST',
