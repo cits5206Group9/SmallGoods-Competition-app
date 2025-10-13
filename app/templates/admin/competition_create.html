@@ -63,6 +63,25 @@
       <h2>Events</h2>
       <button type="button" class="btn" id="add-event-btn">+ Add Event</button>
     </div>
+    <div class="help-text" style="background: #e7f3ff; border-left: 4px solid #2196F3; padding: 1rem; margin-bottom: 1rem; border-radius: 4px;">
+      <strong>💡 How Events Work:</strong>
+      <br><br>
+      <strong>Option 1 - Multiple Movements in One Event:</strong>
+      <ul style="margin: 0.5rem 0; padding-left: 1.5rem;">
+        <li>Create 1 Event (e.g., "Female Powerlifting")</li>
+        <li>Add multiple <strong>Movements</strong> (Deadlift, Bench, Squat)</li>
+        <li>Result: Creates <strong>3 separate events</strong> in database: "Female Powerlifting - Deadlift", "Female Powerlifting - Bench", "Female Powerlifting - Squat"</li>
+      </ul>
+      <br>
+      <strong>Option 2 - Separate Events:</strong>
+      <ul style="margin: 0.5rem 0; padding-left: 1.5rem;">
+        <li>Click "+ Add Event" 3 times</li>
+        <li>Name each event separately (e.g., "Men's Deadlift", "Men's Bench", "Men's Squat")</li>
+        <li>Add 1 movement per event</li>
+      </ul>
+      <br>
+      <em>Both approaches work - choose what fits your competition structure best!</em>
+    </div>
     <div id="events-container" class="stack"></div>
   </section>
 

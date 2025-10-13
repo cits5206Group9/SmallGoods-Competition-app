@@ -97,6 +97,61 @@ def require_admin_auth():
     return None
 
 
+def sync_flights_to_competition_config(competition_id):
+    """
+    Sync all flights for a competition back into the competition.config JSON.
+    This ensures that flights created/modified via flight management page
+    are reflected in the competition config.
+    """
+    try:
+        competition = Competition.query.get(competition_id)
+        if not competition or not competition.config:
+            return
+
+        # Get all flights for this competition
+        flights = Flight.query.filter_by(competition_id=competition_id).all()
+
+        # Get existing config
+        config = (
+            competition.config.copy() if isinstance(competition.config, dict) else {}
+        )
+        events_config = config.get("events", [])
+
+        # Update flights in each event's groups
+        for event_config in events_config:
+            # Find the corresponding event
+            event_name = event_config.get("name")
+            event = Event.query.filter_by(
+                competition_id=competition_id, name=event_name
+            ).first()
+
+            if event:
+                # Get flights for this event
+                event_flights = [f for f in flights if f.event_id == event.id]
+
+                # Update groups in config
+                event_config["groups"] = [
+                    {
+                        "id": flight.id,
+                        "name": flight.name,
+                        "order": flight.order,
+                        "is_active": flight.is_active,
+                        "movement_type": flight.movement_type,
+                    }
+                    for flight in sorted(event_flights, key=lambda f: f.order)
+                ]
+
+        # Update competition config
+        competition.config = config
+        db.session.commit()
+
+        print(f"Synced {len(flights)} flights to competition {competition_id} config")
+
+    except Exception as e:
+        print(f"Error syncing flights to config: {e}")
+        # Don't raise - this is a background sync operation
+
+
 @admin_bp.route("/")
 def admin_dashboard():
     auth_check = require_admin_auth()
@@ -314,14 +369,116 @@ def save_competition_model():
         current_flight_ids = set()
 
         print("Processing events from config:", competition.config.get("events", []))
+        print(f"Total events to process: {len(competition.config.get('events', []))}")
 
-        for event_data in competition.config["events"]:
+        for idx, event_data in enumerate(competition.config["events"]):
+            print(
+                f"\n=== Processing event {idx + 1}/{len(competition.config['events'])} ==="
+            )
+            print(
+                f"Event data: name='{event_data.get('name')}', sport_type='{event_data.get('sport_type')}', gender='{event_data.get('gender')}'"
+            )
+
+            # Check if this event has movements - if so, create separate events for each movement
+            movements = event_data.get("movements", [])
+            if movements:
+                print(
+                    f"  -> Found {len(movements)} movements, creating separate event for each"
+                )
+
+                for movement_idx, movement in enumerate(movements):
+                    movement_name = movement.get("name", "")
+                    if not movement_name:
+                        continue
+
+                    # Create event name combining original event name and movement name
+                    combined_event_name = f"{event_data['name']} - {movement_name}"
+                    print(
+                        f"  -> Creating event {movement_idx + 1}/{len(movements)}: {combined_event_name}"
+                    )
+
+                    # Check if this event already exists (for updates)
+                    existing_event = Event.query.filter_by(
+                        competition_id=competition.id, name=combined_event_name
+                    ).first()
+
+                    if existing_event:
+                        print(f"    -> Updating existing event ID {existing_event.id}")
+                        event = existing_event
+                        event.gender = event_data.get("gender")
+                        event.sport_type = (
+                            SportType(event_data["sport_type"])
+                            if event_data.get("sport_type")
+                            else SportType.OLYMPIC_WEIGHTLIFTING
+                        )
+                        if (
+                            not hasattr(event, "scoring_type")
+                            or event.scoring_type is None
+                        ):
+                            event.scoring_type = ScoringType.MAX
+                        event.is_active = True
+                        current_event_ids.add(event.id)
+                    else:
+                        print(f"    -> Creating NEW event: {combined_event_name}")
+                        event = Event(
+                            competition=competition,
+                            name=combined_event_name,
+                            gender=event_data.get("gender"),
+                            sport_type=SportType(event_data["sport_type"])
+                            if event_data.get("sport_type")
+                            else SportType.OLYMPIC_WEIGHTLIFTING,
+                            scoring_type=ScoringType.MAX,
+                            is_active=True,
+                        )
+                        db.session.add(event)
+                        db.session.flush()
+                        current_event_ids.add(event.id)
+                        print(
+                            f"    -> NEW Event created with ID {event.id}: {event.name}"
+                        )
+
+                    # Process flights for this movement-based event
+                    print(
+                        f"    -> Processing flights for event {event.id} - {event.name}"
+                    )
+                    if "groups" in event_data:
+                        for flight_data in event_data["groups"]:
+                            flight_id = flight_data.get("id")
+                            if flight_id:
+                                flight = Flight.query.get(flight_id)
+                                if flight and flight.competition_id == competition.id:
+                                    flight.name = flight_data["name"]
+                                    flight.order = flight_data.get("order", 1)
+                                    flight.is_active = flight_data.get(
+                                        "is_active", True
+                                    )
+                                    flight.event_id = event.id
+                                    flight.movement_type = movement_name
+                                    current_flight_ids.add(flight.id)
+                            else:
+                                flight = Flight(
+                                    event_id=event.id,
+                                    competition_id=competition.id,
+                                    name=flight_data["name"],
+                                    order=flight_data.get("order", 1),
+                                    is_active=flight_data.get("is_active", True),
+                                    movement_type=movement_name,
+                                )
+                                db.session.add(flight)
+                                db.session.flush()
+                                current_flight_ids.add(flight.id)
+
+                # Skip the original event creation since we created movement-based events
+                continue
+
+            # Original logic for events without movements
             event_id = event_data.get("id")
 
             if event_id:
                 # Update existing event
                 event = Event.query.get(event_id)
                 if event and event.competition_id == competition.id:
+                    print(f"  -> Updating existing event ID {event_id}")
                     event.name = event_data["name"]
                     event.gender = event_data.get("gender")
                     event.sport_type = (
@@ -333,8 +490,14 @@ def save_competition_model():
                         event.scoring_type = ScoringType.MAX
                     event.is_active = True
                     current_event_ids.add(event.id)
+                    print(f"  -> Event {event.id} updated: {event.name}")
+                else:
+                    print(
+                        f"  -> WARNING: Event ID {event_id} not found or doesn't belong to this competition"
+                    )
             else:
                 # Create new event
+                print(f"  -> Creating NEW event: {event_data['name']}")
                 event = Event(
                     competition=competition,
                     name=event_data["name"],
@@ -348,6 +511,7 @@ def save_competition_model():
                 db.session.add(event)
                 db.session.flush()  # Get the new event ID
                 current_event_ids.add(event.id)
+                print(f"  -> NEW Event created with ID {event.id}: {event.name}")
 
             # Process flights for this event
             print(f"\nProcessing event {event.id} - {event.name}")
@@ -387,7 +551,7 @@ def save_competition_model():
         print("Current event IDs:", current_event_ids)
         print("Current flight IDs:", current_flight_ids)
 
-        # Remove events and flights that no longer exist in the configuration
+        # Remove events that no longer exist in the configuration
         events_to_delete = existing_event_ids - current_event_ids
         if events_to_delete:
             print(f"Deleting events: {events_to_delete}")
@@ -395,13 +559,31 @@ def save_competition_model():
                 synchronize_session="fetch"
             )
 
-        # Remove any flights not in current_flight_ids
-        flights_to_delete = existing_flight_ids - current_flight_ids
-        if flights_to_delete:
-            print(f"Deleting flights: {flights_to_delete}")
-            Flight.query.filter(Flight.id.in_(flights_to_delete)).delete(
-                synchronize_session="fetch"
-            )
+        # IMPORTANT: Only delete flights that were in the config but are now removed
+        # Don't delete flights created outside the competition config (e.g., from flight management)
+        # Only process flights that are explicitly in the config groups
+        if current_flight_ids:  # Only if there are flights in the config
+            # Get flights that were previously in the config but are now removed
+            flights_in_config = set()
+            for event_data in competition.config.get("events", []):
+                if "groups" in event_data:
+                    for flight_data in event_data["groups"]:
+                        if flight_data.get("id"):
+                            flights_in_config.add(flight_data["id"])
+
+            # Only delete flights that were in the old config but not in the new config
+            flights_to_delete = (
+                existing_flight_ids & flights_in_config
+            ) - current_flight_ids
+            if flights_to_delete:
+                print(
+                    f"Deleting flights that were removed from config: {flights_to_delete}"
+                )
+                Flight.query.filter(Flight.id.in_(flights_to_delete)).delete(
+                    synchronize_session="fetch"
+                )
+        else:
+            print("No flights in config, preserving all existing flights")
 
         # Print final state
         print("\nFinal state after save:")
@@ -466,6 +648,15 @@ def save_competition_model():
         # Commit all changes
         db.session.commit()
 
+        # Final verification after commit
+        final_events = Event.query.filter_by(competition_id=competition.id).all()
+        print(f"\n=== FINAL VERIFICATION ===")
+        print(f"Total events saved: {len(final_events)}")
+        for evt in final_events:
+            print(
+                f"  - Event ID {evt.id}: {evt.name} (sport_type: {evt.sport_type}, gender: {evt.gender})"
+            )
+
         logger.info(
             "Saved competition: %d with %d events",
             competition.id,
@@ -480,6 +671,7 @@ def save_competition_model():
                 "events_created": len(current_event_ids - existing_event_ids),
                 "events_updated": len(current_event_ids & existing_event_ids),
                 "events_deleted": len(events_to_delete),
+                "total_events": len(final_events),
             }
         )
 
@@ -2505,6 +2697,10 @@ def create_flight():
         db.session.add(flight)
         db.session.commit()
 
+        # Sync flights back to competition config
+        if flight.competition_id:
+            sync_flights_to_competition_config(flight.competition_id)
+
         # Reload with relationships
         flight = Flight.query.options(
             db.joinedload(Flight.event).joinedload(Event.competition),
@@ -2562,6 +2758,8 @@ def reorder_flights():
         data = request.get_json()
         updates = data.get("updates", [])
 
+        competition_ids = set()
+
         for update in updates:
             flight_id = update.get("id")
             new_order = update.get("order")
@@ -2569,8 +2767,14 @@ def reorder_flights():
             flight = Flight.query.get(flight_id)
             if flight:
                 flight.order = new_order
+                if flight.competition_id:
+                    competition_ids.add(flight.competition_id)
 
         db.session.commit()
+
+        # Sync all affected competitions
+        for comp_id in competition_ids:
+            sync_flights_to_competition_config(comp_id)
 
         return jsonify(
             {"status": "success", "message": "Flight order updated successfully"}
@@ -2687,6 +2891,10 @@ def update_flight(flight_id):
 
         db.session.commit()
 
+        # Sync flights back to competition config
+        if flight.competition_id:
+            sync_flights_to_competition_config(flight.competition_id)
+
         # Reload with relationships
         flight = Flight.query.options(
             db.joinedload(Flight.event).joinedload(Event.competition),
@@ -2749,8 +2957,15 @@ def delete_flight(flight_id):
         if not flight:
             return jsonify({"status": "error", "message": "Flight not found"}), 404
 
+        # Store competition_id before deletion for config sync
+        competition_id = flight.competition_id
+
         db.session.delete(flight)
         db.session.commit()
+
+        # Sync flights back to competition config
+        if competition_id:
+            sync_flights_to_competition_config(competition_id)
 
         return jsonify(
             {"status": "success", "message": "Flight deleted successfully"}

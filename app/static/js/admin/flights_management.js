@@ -52,8 +52,7 @@ class FlightManager {
   init() {
     this.bindEvents();
     this.initializeData();
-    // Load all flights by default on page load
-    this.showAllFlights();
+    // Note: showAllFlights() is called via renderFlights() in initializeData()
   }
 
   initializeData() {
@@ -254,7 +253,7 @@ class FlightManager {
 
   populateCompetitionDropdowns() {
     // Populate main competition select
-    this.competitionSelect.innerHTML = '<option value="">Select Competition</option>';
+    this.competitionSelect.innerHTML = '<option value="">All Competition</option>';
     this.competitions.forEach((competition) => {
       const option = document.createElement("option");
       option.value = competition.id;
@@ -264,7 +263,7 @@ class FlightManager {
 
     // Populate modal competition select
     if (this.flightCompetitionSelect) {
-      this.flightCompetitionSelect.innerHTML = '<option value="">Select Competition</option>';
+      this.flightCompetitionSelect.innerHTML = '<option value="">All Competition</option>';
       this.competitions.forEach((competition) => {
         const option = document.createElement("option");
         option.value = competition.id;
@@ -291,7 +290,11 @@ class FlightManager {
     // Reset event dropdown
     this.flightEventSelect.innerHTML = '<option value="">Select Event (Optional)</option>';
     
-    if (!competitionId) return;
+    if (!competitionId) {
+      // Show all flights when "All Competitions" is selected
+      this.showAllFlights();
+      return;
+    }
 
     // Find the selected competition and populate its events
     const selectedCompetition = this.competitions.find(c => c.id === competitionId);
@@ -345,6 +348,12 @@ class FlightManager {
       movementFilter.addEventListener("change", () =>
         this.applyFlightFilters()
       );
+    }
+
+    // Clear all filters button
+    const clearAllFiltersBtn = document.getElementById("clear-filters-btn");
+    if (clearAllFiltersBtn) {
+      clearAllFiltersBtn.addEventListener("click", () => this.clearAllFilters());
     }
 
     // Modal form elements
@@ -491,13 +500,14 @@ class FlightManager {
     const competitionId = this.competitionSelect.value;
 
     // Reset event select
-    this.eventSelect.innerHTML = '<option value="">Select Event</option>';
+    this.eventSelect.innerHTML = '<option value="">All Events</option>';
     this.eventSelect.disabled = !competitionId;
 
-    // Hide flights
-    this.showEmptyState();
-
-    if (!competitionId) return;
+    if (!competitionId) {
+      // Show all flights when "All Competitions" is selected
+      this.showAllFlights();
+      return;
+    }
 
     try {
       const response = await fetch(
@@ -515,6 +525,9 @@ class FlightManager {
       });
 
       this.eventSelect.disabled = false;
+
+      // Load all flights for this competition when no event is selected
+      this.loadFlightsByCompetition(competitionId);
     } catch (error) {
       console.error("Error loading events:", error);
       this.showNotification("Error loading events", "error");
@@ -522,7 +535,14 @@ class FlightManager {
   }
   async handleEventChange() {
     const eventId = this.eventSelect.value;
+    const competitionId = this.competitionSelect.value;
     this.currentEventId = eventId;
+
+    if (!eventId && competitionId) {
+      // "All Events" selected - show all flights for the competition
+      this.loadFlightsByCompetition(competitionId);
+      return;
+    }
 
     if (!eventId) {
       this.showEmptyState();
@@ -550,6 +570,39 @@ class FlightManager {
       }
     } catch (error) {
       console.error("Error loading flights:", error);
+      this.showNotification("Error loading flights", "error");
+      this.showEmptyState();
+    } finally {
+      this.hideLoading(this.flightsContainer);
+    }
+  }
+
+  loadFlightsByCompetition(competitionId) {
+    try {
+      if (!competitionId) {
+        this.showEmptyState("Please select a competition to view flights");
+        return;
+      }
+
+      this.showLoading(this.flightsContainer);
+
+      // Filter flights by competition_id
+      // First, get all events for this competition
+      const competitionEvents = this.events.filter(event => event.competition_id == competitionId);
+      const eventIds = competitionEvents.map(event => event.id);
+
+      // Filter flights that belong to these events
+      const flights = this.flights.filter(flight => 
+        eventIds.includes(flight.event_id) || flight.competition_id == competitionId
+      );
+
+      if (flights.length === 0) {
+        this.showEmptyState("No flights found for this competition");
+      } else {
+        this.displayFlights(flights);
+      }
+    } catch (error) {
+      console.error("Error loading flights by competition:", error);
       this.showNotification("Error loading flights", "error");
       this.showEmptyState();
     } finally {
@@ -687,6 +740,34 @@ class FlightManager {
     // Reset to first page when filters change
     this.currentPage = 1;
     this.renderFlightCards();
+  }
+
+  clearAllFilters() {
+    // Clear search input
+    if (this.flightSearch) {
+      this.flightSearch.value = '';
+    }
+    
+    // Reset all filter dropdowns to their default values
+    if (this.competitionFilter) {
+      this.competitionFilter.value = '';
+    }
+    if (this.statusFilter) {
+      this.statusFilter.value = '';
+    }
+    if (this.eventFilter) {
+      this.eventFilter.value = '';
+    }
+    
+    const movementFilter = document.getElementById("movement-filter");
+    if (movementFilter) {
+      movementFilter.value = '';
+    }
+    
+    // Reapply filters (which will now show all flights)
+    this.applyFlightFilters();
+    
+    console.log('All filters cleared');
   }
 
   renderFlightCards() {
