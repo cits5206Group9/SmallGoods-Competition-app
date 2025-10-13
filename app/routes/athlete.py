@@ -806,119 +806,107 @@ def calculate_estimated_time(
     target_attempt: Attempt, competition_id: int, sport_type=None
 ) -> int:
     """
-    Calculate estimated time until target_attempt is up, INCLUDING break time between flights.
-    """
-    cache_key = f"{competition_id}_{target_attempt.id}"
-    now = datetime.utcnow()
+    Calculate estimated time until target_attempt is up.
 
-    # Check cache (5 second TTL)
-    if cache_key in _simple_estimate_cache:
-        cached_value, cached_time = _simple_estimate_cache[cache_key]
-        if (now - cached_time).total_seconds() < 5:
-            elapsed = int((now - cached_time).total_seconds())
-            return max(0, cached_value - elapsed)
+    SIMPLIFIED LOGIC:
+    1. If target attempt is currently in-progress -> return 0 (you're up now)
+    2. If there's another attempt in-progress -> add its remaining time
+    3. Add time for all waiting attempts that come before target in lifting order
+    4. Each attempt = time_limit + 15s buffer
+    5. Add break time when transitioning between flights
+    """
+    # print(f"\n[ESTIMATE] === Starting Calculation ===")
+    # print(f"[ESTIMATE] Target: Athlete {target_attempt.athlete_entry.athlete_id}, Attempt #{target_attempt.attempt_number}, Flight {target_attempt.flight_id}")
+
+    # Quick check: if target attempt is already in-progress, return 0
+    if target_attempt.status == "in-progress":
+        return 0
+
+    if target_attempt.status == "finished":
+        return 0
+
+    if target_attempt.status != "waiting":
+        return 0
 
     total_seconds = 0
-
-    # Get competition for break times
     competition = Competition.query.get(competition_id)
     breaktime_between_flights = (
         competition.breaktime_between_flights if competition else 180
     )
+    target_flight_id = target_attempt.flight_id
 
-    # print(f"\n[ESTIMATE] === Starting Calculation ===")
-    # print(f"[ESTIMATE] Break time between flights: {breaktime_between_flights}s")
-    # print(f"[ESTIMATE] Target: Athlete {target_attempt.athlete_entry.athlete_id}, Attempt #{target_attempt.attempt_number}, Flight {target_attempt.flight_id}")
-
-    # 1. CURRENT IN-PROGRESS ATTEMPT
+    # 1. CHECK FOR CURRENT IN-PROGRESS ATTEMPT
     current_attempt = get_current_in_progress_attempt(competition_id, sport_type)
-    current_flight_id = None
 
     if current_attempt:
-        current_flight_id = current_attempt.flight_id
+        # Add remaining time for current attempt
         remaining = attempt_time_remaining(current_attempt)
         if remaining and remaining > 0:
             total_seconds += remaining
-            # print(f"[ESTIMATE]   Time remaining: {remaining}s")
         else:
             time_limit = current_attempt.athlete_entry.attempt_time_limit or 60
             total_seconds += time_limit
-            # print(f"[ESTIMATE]   Assuming full time: {time_limit}s")
 
-        is_last = is_last_attempt_in_flight(current_attempt, competition_id)
+    # Get all waiting attempts for this competition
+    all_waiting_attempts = get_waiting_attempts_in_order(competition_id, sport_type)
+    # print(f"[ESTIMATE] Total waiting attempts found: {len(all_waiting_attempts)}")
 
-        if is_last and current_flight_id != target_attempt.flight_id:
-            total_seconds += breaktime_between_flights
-            # print(f"[ESTIMATE]   ✅ Adding break time after Flight {current_flight_id} ends: {breaktime_between_flights}s")
-
-        # Check for recently completed flight
-        last_finished_attempt = (
-            Attempt.query.join(
-                AthleteEntry, Attempt.athlete_entry_id == AthleteEntry.id
-            )
-            .join(Event, AthleteEntry.event_id == Event.id)
-            .filter(
-                Event.competition_id == competition_id, Attempt.status == "finished"
-            )
-            .order_by(Attempt.completed_at.desc())
-            .first()
-        )
-
-        if last_finished_attempt:
-            last_finished_flight_id = last_finished_attempt.flight_id
-            current_flight_id = last_finished_flight_id
-
-            is_last = is_last_attempt_in_flight(last_finished_attempt, competition_id)
-
-            if is_last and last_finished_flight_id != target_attempt.flight_id:
-                total_seconds += breaktime_between_flights
-                # print(f"[ESTIMATE]   ✅ Adding break time after Flight {last_finished_flight_id} completed: {breaktime_between_flights}s")
-
-    # 2. GET ALL WAITING ATTEMPTS IN ORDER
-    waiting_attempts = get_waiting_attempts_in_order(competition_id, sport_type)
-
-    target_flight_id = target_attempt.flight_id
-
-    # 3. PROCESS WAITING ATTEMPTS - ONLY COUNT ATTEMPTS IN CORRECT SEQUENCE
+    # Find attempts that come before target in the proper lifting order
     attempts_ahead = []
-    found_target = False
-    break_added = False
+    target_found = False
 
-    for attempt in waiting_attempts:
+    for attempt in all_waiting_attempts:
         if attempt.id == target_attempt.id:
-            found_target = True
+            target_found = True
             break
 
-        attempt_flight_id = attempt.flight_id
+        # Only include attempts from earlier flights OR same flight but before target in lifting order
+        if attempt.flight_id < target_flight_id:
+            # All attempts from earlier flights come first
+            attempts_ahead.append(attempt)
+        elif attempt.flight_id == target_flight_id:
+            # Same flight - only include if it comes before target in lifting order
+            attempts_ahead.append(attempt)
 
-        # Skip attempts from other flights that shouldn't be in the sequence
-        if current_flight_id:
-            # Add break time ONCE when we transition from current to target flight
-            if (
-                not break_added
-                and attempt_flight_id == target_flight_id
-                and current_flight_id != target_flight_id
-            ):
-                total_seconds += breaktime_between_flights
-                break_added = True
+    if not target_found:
+        print(f"[ESTIMATE] ERROR: Target attempt not found in waiting attempts!")
+        print(f"[ESTIMATE] Available attempts:")
+        for attempt in all_waiting_attempts:
+            print(
+                f"[ESTIMATE]   - Athlete {attempt.athlete_entry.athlete_id}, Attempt #{attempt.attempt_number}, Flight {attempt.flight_id}, Status: {attempt.status}"
+            )
+        return 0
 
-        # Count this attempt
-        attempts_ahead.append(attempt)
-
-    # 4. SUM TIME FOR ALL ATTEMPTS AHEAD
+    # 2. ADD TIME FOR ALL ATTEMPTS AHEAD
     for attempt in attempts_ahead:
         time_limit = attempt.athlete_entry.attempt_time_limit or 60
         buffer = 15
         attempt_time = time_limit + buffer
         total_seconds += attempt_time
 
-    result = max(0, int(total_seconds))
-    # print(f"[ESTIMATE] === TOTAL: {result}s ({result//60}:{result%60:02d}) ===\n")
+    # 3. ADD BREAK TIME BETWEEN FLIGHTS IF NEEDED
+    # Only add break time if target attempt is the FIRST attempt of athlete in a new flight
+    current_flight_id = current_attempt.flight_id if current_attempt else 1
+    if current_flight_id < target_flight_id and target_attempt.attempt_number == 1:
+        # Add break time for flight transitions, but only for first attempts
+        flight_breaks = target_flight_id - current_flight_id
+        flight_break_time = flight_breaks * breaktime_between_flights
+        total_seconds += flight_break_time
+        print(
+            f"[ESTIMATE] Adding break time for FIRST attempt in new flight: {flight_breaks} flight breaks × {breaktime_between_flights}s = {flight_break_time}s"
+        )
 
-    # Cache result
+    # 4. CACHE AND RETURN RESULT
+    now = datetime.utcnow()
+    cache_key = f"{competition_id}_{target_attempt.id}"
+    result = max(0, int(total_seconds))
+
+    # print(f"[ESTIMATE] Target: Athlete {target_attempt.athlete_entry.athlete_id}, Attempt #{target_attempt.attempt_number}, Flight {target_attempt.flight_id} → {len(attempts_ahead)} ahead, {result}s ({result//60}:{result%60:02d})")
+
+    # Cache result (5 second TTL)
     _simple_estimate_cache[cache_key] = (result, now)
 
-    # Clean old cache
+    # Clean old cache entries
     for key in list(_simple_estimate_cache.keys()):
         _, cache_time = _simple_estimate_cache[key]
         if (now - cache_time).total_seconds() > 10:
@@ -968,11 +956,13 @@ def get_waiting_attempts_in_order(
         query = query.filter(Attempt.movement_type == movement_type)
 
     # Order by lifting_order (weight-based), then attempt number
-    return query.order_by(
+    result = query.order_by(
         Attempt.lifting_order.asc().nullslast(),
         Attempt.requested_weight.asc(),
         Attempt.attempt_number.asc(),
     ).all()
+
+    return result
 
 
 def is_athlete_first_in_queue(attempt_id: int, athlete_id: int) -> bool:
@@ -1233,20 +1223,52 @@ def get_next_attempt_timer():
 
         # PRIORITY 2: First in queue
         if is_first:
-            # If this is the FIRST attempt of the flight, show countdown timer
+            # If this is the FIRST attempt of the flight, check if break time is needed
             if is_first_of_flight:
-                estimated_seconds = calculate_estimated_time(
-                    next_attempt, competition_id, current_sport_type
+                # Check if this is a flight transition (not the very first flight of competition)
+                current_flight_id = next_attempt.flight_id
+                print(
+                    f"[DEBUG] Checking flight transition: current_flight_id={current_flight_id}, attempt_number={next_attempt.attempt_number}"
                 )
 
-                base_response.update(
-                    {
-                        "time": estimated_seconds,
-                        "timer_active": True,
-                        "timer_type": "estimate",
-                    }
+                # Check if there are any completed attempts in earlier flights
+                previous_flight_completed = Attempt.query.filter(
+                    Attempt.flight_id < current_flight_id, Attempt.status == "finished"
+                ).first()
+
+                print(f"[DEBUG] previous_flight_completed: {previous_flight_completed}")
+                print(
+                    f"[DEBUG] Flight transition condition: previous_flight_completed={previous_flight_completed is not None}, attempt_number_1={next_attempt.attempt_number == 1}"
                 )
-                return jsonify(base_response)
+
+                # Simplified logic: if this is NOT Flight 1 AND it's the first attempt of the athlete
+                if current_flight_id > 1 and next_attempt.attempt_number == 1:
+                    # This is the first attempt of a NEW flight (flight transition)
+                    # Show break timer with the estimated time (includes break time)
+                    estimated_seconds = calculate_estimated_time(
+                        next_attempt, competition_id, current_sport_type
+                    )
+
+                    print(
+                        f"[DEBUG] Flight transition detected! Flight {current_flight_id}, Attempt #1 -> showing break timer with {estimated_seconds}s"
+                    )
+                    base_response.update(
+                        {
+                            "time": estimated_seconds,
+                            "timer_active": True,
+                            "timer_type": "break_between_flights",
+                        }
+                    )
+                    return jsonify(base_response)
+                else:
+                    # This is Flight 1 (very first attempt of competition) OR not a first attempt of athlete
+                    print(
+                        f"[DEBUG] No flight transition: Flight {current_flight_id}, Attempt #{next_attempt.attempt_number} -> YOU ARE UP"
+                    )
+                    base_response.update(
+                        {"time": 0, "timer_active": True, "timer_type": "you-are-up"}
+                    )
+                    return jsonify(base_response)
             else:
                 # Not first attempt of flight -> YOU ARE UP immediately
                 base_response.update(
@@ -1328,9 +1350,6 @@ def is_first_attempt_of_flight(attempt: Attempt) -> bool:
 
         # If no completed attempts in this flight, it's the first attempt of this flight
         if completed_in_flight == 0:
-            print(
-                f"[FIRST_ATTEMPT] Flight {flight_id} has no completed attempts - this is first"
-            )
             return True
 
         return False
