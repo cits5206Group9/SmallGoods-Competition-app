@@ -698,17 +698,31 @@ def update_attempt_weight():
         if attempt.athlete_entry.athlete_id != athlete.id:
             return jsonify({"success": False, "error": "Unauthorized access"}), 403
 
-        # Attempt must not be finalized
-        if attempt.final_result is not None:
-            return (
-                jsonify(
-                    {
-                        "success": False,
-                        "error": "Cannot update a completed attempt",
-                    }
-                ),
-                400,
-            )
+        # Attempt must not be finalized - prioritize status field over legacy fields
+        if attempt.status and attempt.status.strip():
+            # Use the current status field as the authoritative source
+            if attempt.status.lower() in ['finished', 'success', 'failed']:
+                return (
+                    jsonify(
+                        {
+                            "success": False,
+                            "error": "Cannot update a completed attempt",
+                        }
+                    ),
+                    400,
+                )
+        else:
+            # Fallback to legacy fields only if status field is missing or empty
+            if attempt.final_result is not None:
+                return (
+                    jsonify(
+                        {
+                            "success": False,
+                            "error": "Cannot update a completed attempt",
+                        }
+                    ),
+                    400,
+                )
 
         # Server-side timing validation
         remaining = attempt_time_remaining(attempt)

@@ -372,6 +372,12 @@ class FlightManager {
       cancelDeleteFlightBtn.addEventListener("click", () => this.closeModals());
     }
 
+    // Back to flights button
+    const backToFlightsBtn = document.getElementById("back-to-flights-btn");
+    if (backToFlightsBtn) {
+      backToFlightsBtn.addEventListener("click", () => this.backToFlightsList());
+    }
+
     // Form submission
     if (this.flightForm) {
       this.flightForm.addEventListener("submit", (e) =>
@@ -1742,10 +1748,11 @@ class FlightManager {
       // Use status field as primary indicator, fall back to legacy fields
       let isFinished = false;
       
-      if (attempt.status) {
+      // Always prioritize the status field from database if it exists
+      if (attempt.status && attempt.status.trim() !== '') {
         isFinished = ['finished', 'success', 'failed'].includes(attempt.status.toLowerCase());
       } else {
-        // Fallback for backward compatibility
+        // Fallback for backward compatibility (only when status field is truly missing)
         isFinished = attempt.completed_at || attempt.final_result;
       }
       
@@ -1782,6 +1789,8 @@ class FlightManager {
     orderedAttempts.forEach((attempt, index) => {
       const item = document.createElement("div");
       
+
+      
       // Use the status field from database as primary source
       let statusClass = "waiting";
       let statusText = "Waiting";
@@ -1789,19 +1798,21 @@ class FlightManager {
       let isFinished = false;
       let isInProgress = false;
       
-      // Primary logic: use the status field from database
-      if (attempt.status) {
+      // Primary logic: use the status field from database (always prioritize this)
+      if (attempt.status && attempt.status.trim() !== '') {
         switch(attempt.status.toLowerCase()) {
           case "waiting":
             statusClass = "waiting";
             statusText = "Waiting";
             itemClass += " attempt-waiting";
+            isFinished = false; // Explicitly set for clarity
             break;
           case "in-progress":
             statusClass = "in-progress";
             statusText = "In Progress";
             itemClass += " attempt-in-progress";
             isInProgress = true;
+            isFinished = false; // Explicitly set for clarity
             break;
           case "finished":
             statusClass = "finished";
@@ -1825,6 +1836,7 @@ class FlightManager {
             statusClass = "waiting";
             statusText = attempt.status;
             itemClass += " attempt-waiting";
+            isFinished = false; // Explicitly set for clarity
         }
       } else {
         // Fallback logic for backward compatibility (if status field is missing)
@@ -2066,8 +2078,8 @@ class FlightManager {
       const result = await response.json();
       this.showNotification('Weight updated successfully', 'success');
       
-      // Update the display
-      input.value = newWeight;
+      // Refresh the attempt table to ensure all data is synchronized
+      await this.loadFlightAttemptOrder();
       
     } catch (error) {
       console.error('Error updating weight:', error);
@@ -2174,6 +2186,24 @@ class FlightManager {
       this.flightAthletesSection.style.display = "none";
       this.flightsList.style.display = "block";
     }
+  }
+
+  backToFlightsList() {
+    // Hide the flight athletes section and show the flights list
+    this.flightAthletesSection.style.display = "none";
+    this.flightsList.style.display = "block";
+    
+    // Reset current flight selection
+    this.currentFlightId = null;
+    
+    // Close any open modals
+    const modals = ['flight-modal', 'delete-flight-modal', 'attempt-modal'];
+    modals.forEach(modalId => {
+      const modal = document.getElementById(modalId);
+      if (modal) {
+        modal.style.display = 'none';
+      }
+    });
   }
 
   showLoading(element) {

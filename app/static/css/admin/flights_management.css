@@ -1177,3 +1177,25 @@
     min-width: auto;
   }
 }
+
+/* Navigation Header Styles */
+.navigation-header {
+  margin-bottom: 1rem;
+}
+
+.back-to-flights {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+  text-decoration: none;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.back-to-flights:hover {
+  background-color: #5a6268;
+  transform: translateX(-2px);
+}

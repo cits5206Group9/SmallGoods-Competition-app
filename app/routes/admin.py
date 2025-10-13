@@ -3957,14 +3957,25 @@ def update_attempt_weight(attempt_id):
                 {"status": "error", "message": "Weight must be a valid number"}
             ), 400
 
-        # Check if attempt is already finished
-        if attempt.completed_at or attempt.final_result:
-            return jsonify(
-                {
-                    "status": "error",
-                    "message": "Cannot modify weight of a finished attempt",
-                }
-            ), 400
+        # Check if attempt is already finished - prioritize status field over legacy fields
+        if attempt.status and attempt.status.strip():
+            # Use the current status field as the authoritative source
+            if attempt.status.lower() in ['finished', 'success', 'failed']:
+                return jsonify(
+                    {
+                        "status": "error",
+                        "message": "Cannot modify weight of a finished attempt",
+                    }
+                ), 400
+        else:
+            # Fallback to legacy fields only if status field is missing or empty
+            if attempt.completed_at or attempt.final_result:
+                return jsonify(
+                    {
+                        "status": "error",
+                        "message": "Cannot modify weight of a finished attempt",
+                    }
+                ), 400
 
         # Update the weight
         attempt.requested_weight = new_weight
@@ -4429,9 +4440,15 @@ def delete_attempt(attempt_id):
     try:
         attempt = Attempt.query.get_or_404(attempt_id)
 
-        # Don't allow deletion of finished attempts
-        if attempt.completed_at or attempt.final_result:
-            return jsonify({"error": "Cannot delete finished attempts"}), 400
+        # Don't allow deletion of finished attempts - prioritize status field over legacy fields
+        if attempt.status and attempt.status.strip():
+            # Use the current status field as the authoritative source
+            if attempt.status.lower() in ['finished', 'success', 'failed']:
+                return jsonify({"error": "Cannot delete finished attempts"}), 400
+        else:
+            # Fallback to legacy fields only if status field is missing or empty
+            if attempt.completed_at or attempt.final_result:
+                return jsonify({"error": "Cannot delete finished attempts"}), 400
 
         db.session.delete(attempt)
         db.session.commit()
