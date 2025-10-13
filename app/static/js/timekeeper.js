@@ -2133,7 +2133,7 @@
       
       // Check if all attempts in the flight are finished
       const allFinished = attempts.every(att => 
-        ['finished', 'success', 'failed'].includes(att.status?.toLowerCase() || '')
+        att.status?.toLowerCase() === 'finished'
       );
       
       if (!allFinished) return; // Not all attempts finished yet
@@ -2173,12 +2173,14 @@
       const flights = await eventsResponse.json();
       const sortedFlights = flights.sort((a, b) => (a.order || 0) - (b.order || 0));
       const lastFlightInEvent = sortedFlights[sortedFlights.length - 1];
-      
-      if (lastFlightInEvent && lastFlightInEvent.id === flightId) {
+            
+      if (lastFlightInEvent && Number(lastFlightInEvent.id) === Number(flightId)) {
         // This is the last flight in the event - trigger EVENT break
+        console.log(`[BREAK DEBUG] Triggering EVENT break for flight ${flightId}`);
         triggerEventBreak();
       } else {
         // Not the last flight - trigger FLIGHT break
+        console.log(`[BREAK DEBUG] Triggering FLIGHT break for flight ${flightId}`);
         triggerFlightBreak();
       }
       
@@ -2189,11 +2191,13 @@
   
   function triggerFlightBreak() {
     const breakSeconds = currentCompetitionData?.breaktime_between_flights || 180;
+    console.log(`[BREAK DEBUG] triggerFlightBreak() called with ${breakSeconds} seconds`);
     startBreakTimer('Flight Break', 'Flight has finished. Break time before next flight.', breakSeconds);
   }
   
   function triggerEventBreak() {
     const breakSeconds = currentCompetitionData?.breaktime_between_events || 300;
+    console.log(`[BREAK DEBUG] triggerEventBreak() called with ${breakSeconds} seconds`);
     startBreakTimer('Event Break', 'Event has finished. Break time before next event.', breakSeconds);
   }
   
