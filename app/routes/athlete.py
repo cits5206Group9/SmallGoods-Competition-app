@@ -884,19 +884,8 @@ def calculate_estimated_time(
         attempt_time = time_limit + buffer
         total_seconds += attempt_time
 
-    # 3. ADD BREAK TIME BETWEEN FLIGHTS IF NEEDED
-    # Only add break time if target attempt is the FIRST attempt of athlete in a new flight
-    current_flight_id = current_attempt.flight_id if current_attempt else 1
-    if current_flight_id < target_flight_id and target_attempt.attempt_number == 1:
-        # Add break time for flight transitions, but only for first attempts
-        flight_breaks = target_flight_id - current_flight_id
-        flight_break_time = flight_breaks * breaktime_between_flights
-        total_seconds += flight_break_time
-        print(
-            f"[ESTIMATE] Adding break time for FIRST attempt in new flight: {flight_breaks} flight breaks × {breaktime_between_flights}s = {flight_break_time}s"
-        )
 
-    # 4. CACHE AND RETURN RESULT
+    # 3. CACHE AND RETURN RESULT
     now = datetime.utcnow()
     cache_key = f"{competition_id}_{target_attempt.id}"
     result = max(0, int(total_seconds))
@@ -1141,6 +1130,57 @@ def get_next_attempt_timer():
             athlete.id, current_sport_type, prefer_movement
         )
 
+        # PRIORITY CHECK: Active event break timer (check even if no attempts left)
+        # If there's an active event break timer running, show it regardless of other conditions
+        try:
+            import json
+            from pathlib import Path
+            
+            state_file = Path(__file__).parent.parent.parent / "instance" / "timer_state.json"
+            if state_file.exists():
+                with open(state_file, 'r') as f:
+                    timer_state = json.load(f)
+                
+                # Check if there's an active break timer (both flight and event breaks)
+                break_running = timer_state.get('break_timer_running', False)
+                break_seconds = timer_state.get('break_timer_seconds', 0)
+                break_type = timer_state.get('break_timer_type', '')
+                
+                # Show both flight and event break timers explicitly
+                if break_running and break_seconds > 0:
+                    if break_type == 'Event Break':
+                        timer_type = 'break_between_events'
+                        lift_type_display = "Event Break"
+                    elif break_type == 'Flight Break':
+                        timer_type = 'break_between_flights'
+                        lift_type_display = "Flight Break"
+                    else:
+                        # Fallback for other break types
+                        timer_type = 'break_between_flights'
+                        lift_type_display = "Break"
+                    
+                    # Create a base response for break timer (no attempt info needed)
+                    base_response = {
+                        "attempt_id": None,
+                        "status": "waiting",
+                        "event": None,
+                        "lift_type": lift_type_display,
+                        "order": None,
+                        "weight": None,
+                        "sport_type": current_sport_type.value if current_sport_type else None,
+                        "is_first_in_queue": False,
+                        "is_first_of_flight": False,
+                        "has_completed_attempts": False,
+                        "has_in_progress_attempts": False,
+                        "no_attempts": False,
+                        "time": int(break_seconds),
+                        "timer_active": True,
+                        "timer_type": timer_type,
+                    }
+                    return jsonify(base_response)
+        except Exception as e:
+            print(f"[DEBUG] Error checking break timer state: {e}")
+
         if not next_attempt:
             message = f"No attempts left"
             if current_sport_type:
@@ -1221,60 +1261,12 @@ def get_next_attempt_timer():
             )
             return jsonify(base_response)
 
-        # PRIORITY 2: First in queue
+        # PRIORITY 2: First in queue -> YOU ARE UP
         if is_first:
-            # If this is the FIRST attempt of the flight, check if break time is needed
-            if is_first_of_flight:
-                # Check if this is a flight transition (not the very first flight of competition)
-                current_flight_id = next_attempt.flight_id
-                print(
-                    f"[DEBUG] Checking flight transition: current_flight_id={current_flight_id}, attempt_number={next_attempt.attempt_number}"
-                )
-
-                # Check if there are any completed attempts in earlier flights
-                previous_flight_completed = Attempt.query.filter(
-                    Attempt.flight_id < current_flight_id, Attempt.status == "finished"
-                ).first()
-
-                print(f"[DEBUG] previous_flight_completed: {previous_flight_completed}")
-                print(
-                    f"[DEBUG] Flight transition condition: previous_flight_completed={previous_flight_completed is not None}, attempt_number_1={next_attempt.attempt_number == 1}"
-                )
-
-                # Simplified logic: if this is NOT Flight 1 AND it's the first attempt of the athlete
-                if current_flight_id > 1 and next_attempt.attempt_number == 1:
-                    # This is the first attempt of a NEW flight (flight transition)
-                    # Show break timer with the estimated time (includes break time)
-                    estimated_seconds = calculate_estimated_time(
-                        next_attempt, competition_id, current_sport_type
-                    )
-
-                    print(
-                        f"[DEBUG] Flight transition detected! Flight {current_flight_id}, Attempt #1 -> showing break timer with {estimated_seconds}s"
-                    )
-                    base_response.update(
-                        {
-                            "time": estimated_seconds,
-                            "timer_active": True,
-                            "timer_type": "break_between_flights",
-                        }
-                    )
-                    return jsonify(base_response)
-                else:
-                    # This is Flight 1 (very first attempt of competition) OR not a first attempt of athlete
-                    print(
-                        f"[DEBUG] No flight transition: Flight {current_flight_id}, Attempt #{next_attempt.attempt_number} -> YOU ARE UP"
-                    )
-                    base_response.update(
-                        {"time": 0, "timer_active": True, "timer_type": "you-are-up"}
-                    )
-                    return jsonify(base_response)
-            else:
-                # Not first attempt of flight -> YOU ARE UP immediately
-                base_response.update(
-                    {"time": 0, "timer_active": True, "timer_type": "you-are-up"}
-                )
-                return jsonify(base_response)
+            base_response.update(
+                {"time": 0, "timer_active": True, "timer_type": "you-are-up"}
+            )
+            return jsonify(base_response)
 
         # PRIORITY 3: Calculate estimate for waiting attempt
         estimated_seconds = calculate_estimated_time(

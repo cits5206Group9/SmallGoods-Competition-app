@@ -364,7 +364,7 @@
         const timerEl = document.querySelector('.countdown-timer');
         if (!timerEl) return;
 
-        if (remaining <= 0 && timerType !== 'you-are-up' && timerType !== 'ready' && timerType !== 'break_between_flights') {
+        if (remaining <= 0 && timerType !== 'you-are-up' && timerType !== 'ready' && timerType !== 'break_between_flights' && timerType !== 'break_between_events') {
             timerEl.textContent = '--:--';
         } else if (timerType === 'you-are-up') {
             timerEl.textContent = 'YOU ARE UP!';
@@ -373,7 +373,7 @@
             timerEl.textContent = 'GET READY!';
             timerEl.classList.add('ready');
             timerEl.classList.remove('you-are-up');
-        } else if (timerType === 'break_between_flights') {
+        } else if (timerType === 'break_between_flights' || timerType === 'break_between_events') {
             if (remaining <= 0) {
                 timerEl.textContent = 'YOU ARE UP!';
                 timerEl.classList.add('you-are-up');
@@ -410,15 +410,49 @@
             return;
         }
 
-        const sportTypeEl = infoEl.querySelector('.sport-type');
-        const liftTypeEl = infoEl.querySelector('.lift-type');
-        const weightEl = infoEl.querySelector('.weight');
-        const attemptOrderEl = infoEl.querySelector('.attempt-order');
+        // Check if this is a break timer
+        const timerType = data.timer_type || lastTimerType;
+        const isBreakTimer = timerType === 'break_between_flights' || timerType === 'break_between_events';
+        
+        const attemptDetailsEl = infoEl.querySelector('.attempt-details');
+        
+        if (isBreakTimer) {
+            // Hide attempt details during break timers
+            if (attemptDetailsEl) {
+                attemptDetailsEl.style.display = 'none';
+            }
+            
+            // Show break message
+            const existingBreakMsg = infoEl.querySelector('.break-message');
+            if (!existingBreakMsg) {
+                const breakMessage = document.createElement('p');
+                breakMessage.className = 'break-message';
+                breakMessage.textContent = timerType === 'break_between_events' ? 'Event Break in Progress' : 'Flight Break in Progress';
+                infoEl.appendChild(breakMessage);
+            }
+        } else {
+            // Show attempt details for normal timers
+            if (attemptDetailsEl) {
+                attemptDetailsEl.style.display = 'block';
+            }
+            
+            // Remove break message if it exists
+            const existingBreakMsg = infoEl.querySelector('.break-message');
+            if (existingBreakMsg) {
+                existingBreakMsg.remove();
+            }
+            
+            // Update attempt details
+            const sportTypeEl = infoEl.querySelector('.sport-type');
+            const liftTypeEl = infoEl.querySelector('.lift-type');
+            const weightEl = infoEl.querySelector('.weight');
+            const attemptOrderEl = infoEl.querySelector('.attempt-order');
 
-        if (sportTypeEl) sportTypeEl.textContent = data.event?.sport_type?.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) || 'N/A';
-        if (liftTypeEl) liftTypeEl.textContent = data.lift_type || 'N/A';
-        if (weightEl) weightEl.textContent = data.weight || 0;
-        if (attemptOrderEl) attemptOrderEl.textContent = data.order || 1;
+            if (sportTypeEl) sportTypeEl.textContent = data.event?.sport_type?.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) || 'N/A';
+            if (liftTypeEl) liftTypeEl.textContent = data.lift_type || 'N/A';
+            if (weightEl) weightEl.textContent = data.weight || 0;
+            if (attemptOrderEl) attemptOrderEl.textContent = data.order || 1;
+        }
     }
 
     // UPDATED: Start local countdown timer
@@ -441,8 +475,8 @@
         }
         
         // Handle break timer - should countdown normally but with special display
-        if (timerType === 'break_between_flights') {
-            console.log('🔄 Starting break timer countdown:', initialSeconds);
+        if (timerType === 'break_between_flights' || timerType === 'break_between_events') {
+            console.log('🔄 Starting break timer countdown:', initialSeconds, 'for', timerType);
         }
         
         timerTargetSeconds = initialSeconds;
@@ -522,7 +556,7 @@
         timerHasExpired = true;
         
         // Check the timer type to determine what to show after expiration
-        if (lastTimerType === 'break_between_flights') {
+        if (lastTimerType === 'break_between_flights' || lastTimerType === 'break_between_events') {
             // Break timer expired - show YOU ARE UP immediately
             updateTimerDisplay(0, 'you-are-up', '');
             console.log('Break timer expired - transitioning to YOU ARE UP');

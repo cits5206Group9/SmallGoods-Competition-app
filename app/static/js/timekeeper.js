@@ -2176,11 +2176,9 @@
             
       if (lastFlightInEvent && Number(lastFlightInEvent.id) === Number(flightId)) {
         // This is the last flight in the event - trigger EVENT break
-        console.log(`[BREAK DEBUG] Triggering EVENT break for flight ${flightId}`);
         triggerEventBreak();
       } else {
         // Not the last flight - trigger FLIGHT break
-        console.log(`[BREAK DEBUG] Triggering FLIGHT break for flight ${flightId}`);
         triggerFlightBreak();
       }
       
@@ -2191,13 +2189,11 @@
   
   function triggerFlightBreak() {
     const breakSeconds = currentCompetitionData?.breaktime_between_flights || 180;
-    console.log(`[BREAK DEBUG] triggerFlightBreak() called with ${breakSeconds} seconds`);
     startBreakTimer('Flight Break', 'Flight has finished. Break time before next flight.', breakSeconds);
   }
   
   function triggerEventBreak() {
     const breakSeconds = currentCompetitionData?.breaktime_between_events || 300;
-    console.log(`[BREAK DEBUG] triggerEventBreak() called with ${breakSeconds} seconds`);
     startBreakTimer('Event Break', 'Event has finished. Break time before next event.', breakSeconds);
   }
   

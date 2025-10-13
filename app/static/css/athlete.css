@@ -90,6 +90,36 @@
     padding: 5px;
 }
 
+/* Break timer styles */
+.timer.break_timer, .timer.break-timer {
+    color: #fff !important;
+    background: linear-gradient(135deg, #17a2b8 0%, #138496 100%);
+    border: 2px solid #17a2b8 !important;
+    border-radius: 8px;
+    padding: 10px !important;
+    font-size: 1.5em !important;
+    font-weight: 600;
+}
+
+/* Break timer labels for both flight and event breaks */
+.timer.break_between_flights::after {
+    content: "FLIGHT BREAK";
+    display: block;
+    font-size: 0.6em;
+    font-weight: 400;
+    margin-top: 5px;
+    text-transform: uppercase;
+}
+
+.timer.break_between_events::after {
+    content: "EVENT BREAK";
+    display: block;
+    font-size: 0.6em;
+    font-weight: 400;
+    margin-top: 5px;
+    text-transform: uppercase;
+}
+
 .timer.paused {
     opacity: 0.7;
     animation: pulse-slow 2s infinite;
