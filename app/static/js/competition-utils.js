@@ -172,21 +172,59 @@ window.CompetitionUtils = (function() {
     function addMovementCard(eventCard) {
         const frag = document.importNode($('#tpl-movement').content, true);
         const card = $('.movement-card', frag);
-        // Copy movement card logic from competition_create.js
+        
+        // Wire buttons
+        $('.remove-movement', card).addEventListener('click', () => {
+            card.remove();
+            renderPreview();
+        });
+        
+        $('.add-metric', card).addEventListener('click', () => {
+            addMetricRow(card);
+            renderPreview();
+        });
+        
+        // Input listeners
+        $$('input, select, textarea', card).forEach(el => {
+            el.addEventListener('input', renderPreview);
+        });
+        
         $('.movements-container', eventCard).appendChild(card);
     }
 
     function addMetricRow(movementCard) {
         const frag = document.importNode($('#tpl-metric').content, true);
         const row = $('.metric-row', frag);
-        // Copy metric row logic from competition_create.js
+        
+        // Wire remove button
+        $('.remove-metric', row).addEventListener('click', () => {
+            row.remove();
+            renderPreview();
+        });
+        
+        // Input listeners
+        $$('input', row).forEach(el => {
+            el.addEventListener('input', renderPreview);
+        });
+        
         $('.metrics-container', movementCard).appendChild(row);
     }
 
     function addGroupCard(eventCard) {
         const frag = document.importNode($('#tpl-group').content, true);
         const card = $('.group-card', frag);
-        // Copy group card logic from competition_create.js
+        
+        // Wire remove button
+        $('.remove-group', card).addEventListener('click', () => {
+            card.remove();
+            renderPreview();
+        });
+        
+        // Input listeners
+        $$('input, select, textarea', card).forEach(el => {
+            el.addEventListener('input', renderPreview);
+        });
+        
         $('.groups-container', eventCard).appendChild(card);
     }
 
