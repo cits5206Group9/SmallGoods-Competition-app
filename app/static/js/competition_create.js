@@ -374,6 +374,10 @@
   async function saveToDatabase() {
     try {
         const model = serializeFromDOM();
+        console.log('=== Saving Competition Model ===');
+        console.log('Total events in model:', model.events.length);
+        console.log('Events:', model.events.map(e => ({ name: e.name, sport_type: e.sport_type })));
+        
         const response = await fetch('/admin/competition-model/save', {
             method: 'POST',
             headers: {
@@ -385,7 +389,8 @@
         const result = await response.json();
         
         if (result.status === 'success') {
-            setStatus(`Saved to database! ID: ${result.competition_id}`);
+            setStatus(`Saved to database! ID: ${result.competition_id}, Events: ${result.events_created + result.events_updated}`);
+            console.log('Save result:', result);
             // Save to local storage as backup
             localStorage.setItem('competition_model', JSON.stringify(model));
         } else {
