@@ -124,6 +124,16 @@ def create_app(config_name: str | None = None) -> Flask:
                     and "200" in message
                 ):
                     return False
+                # Suppress display timer-state endpoint
+                if "/display/api/timer-state" in message and "200" in message:
+                    return False
+                # Suppress display flights-data endpoint
+                if (
+                    "/display/api/competition/" in message
+                    and "/flights-data" in message
+                    and "200" in message
+                ):
+                    return False
                 # Suppress Socket.IO polling endpoints
                 if (
                     "/socket.io/" in message

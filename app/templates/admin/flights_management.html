@@ -189,7 +189,12 @@ console.log("Data setup complete - no localStorage used");
     style="display: none"
   >
     <div class="section-header">
-      <h2>Flight Athletes</h2>
+      <div class="navigation-header">
+        <button class="btn btn-secondary back-to-flights" id="back-to-flights-btn">
+          ← Back to Flights
+        </button>
+      </div>
+      <h2>Flight Athletes Management</h2>
       <div class="flight-info">
         <span id="current-flight-name">Flight A</span>
         <span id="current-flight-order">Order: 1</span>
@@ -435,7 +440,18 @@ console.log("Data setup complete - no localStorage used");
 <a href="{{ url_for('admin.admin_dashboard') }}" class="back-link"
   >← Back to Admin Dashboard</a
 >
-{% endblock %} {% block scripts %}
+{% endblock %} 
+
+{% block scripts %}
+<!-- Load SortableJS first before flights_management.js -->
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+<script>
+  // Wait for SortableJS to be fully loaded before loading flights_management.js
+  if (typeof Sortable !== 'undefined') {
+    console.log('SortableJS loaded successfully');
+  } else {
+    console.error('SortableJS failed to load');
+  }
+</script>
 <script src="{{ url_for('static', filename='js/admin/flights_management.js') }}"></script>
 {% endblock %}

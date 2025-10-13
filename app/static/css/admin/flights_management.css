@@ -251,16 +251,29 @@
 
 .flight-event-info {
   margin-bottom: 0.75rem;
-  padding: 0.5rem;
-  background: #f8f9fa;
+  padding: 0.75rem;
+  background: #ffffff;
   border-radius: 4px;
-  border-left: 3px solid #3498db;
+  border: 1px solid #e9ecef;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
 }
 
 .flight-event-info small {
-  color: #6c757d;
+  color: #495057;
   font-size: 0.85rem;
   font-weight: 500;
+  line-height: 1.5;
+  display: flex;
+  align-items: center;
+}
+
+.flight-event-info small strong {
+  min-width: 95px;
+  color: #2c3e50;
+  font-weight: 600;
+  display: inline-block;
 }
 
 .flight-info {
@@ -285,11 +298,16 @@
 }
 
 .flight-actions .btn {
-  flex: 1;
+  flex: 1 1 auto; /* Allow flexible sizing based on content */
   padding: 0.375rem 0.75rem;
   font-size: 0.8rem;
-  min-width: 60px; /* Ensure minimum width for readability */
+  min-width: fit-content; /* Fit content width */
   white-space: nowrap; /* Prevent text wrapping */
+}
+
+.flight-actions .btn-danger {
+  flex-grow: 0; /* Don't let delete button grow */
+  flex-basis: auto; /* Size based on content */
 }
 
 /* Flight Athletes Section */
@@ -1158,4 +1176,26 @@
   .filter-input, .filter-select {
     min-width: auto;
   }
+}
+
+/* Navigation Header Styles */
+.navigation-header {
+  margin-bottom: 1rem;
+}
+
+.back-to-flights {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+  text-decoration: none;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.back-to-flights:hover {
+  background-color: #5a6268;
+  transform: translateX(-2px);
 }

@@ -141,12 +141,14 @@
         } else if (notificationPermission === 'denied') {
             btn.textContent = '🔕';
             btn.style.background = '#f44336';
+            btn.style.opacity = '0.6';
             btn.style.cursor = 'not-allowed';
             btn.disabled = true;
             btn.style.display = 'block';
         } else {
             btn.textContent = '🔔';
             btn.style.background = '#4CAF50';
+            btn.style.opacity = '0.6';
             btn.style.cursor = 'pointer';
             btn.disabled = false;
             btn.style.display = 'block';
@@ -362,7 +364,7 @@
         const timerEl = document.querySelector('.countdown-timer');
         if (!timerEl) return;
 
-        if (remaining <= 0 && timerType !== 'you-are-up' && timerType !== 'ready') {
+        if (remaining <= 0 && timerType !== 'you-are-up' && timerType !== 'ready' && timerType !== 'break_between_flights' && timerType !== 'break_between_events') {
             timerEl.textContent = '--:--';
         } else if (timerType === 'you-are-up') {
             timerEl.textContent = 'YOU ARE UP!';
@@ -371,11 +373,23 @@
             timerEl.textContent = 'GET READY!';
             timerEl.classList.add('ready');
             timerEl.classList.remove('you-are-up');
+        } else if (timerType === 'break_between_flights' || timerType === 'break_between_events') {
+            if (remaining <= 0) {
+                timerEl.textContent = 'YOU ARE UP!';
+                timerEl.classList.add('you-are-up');
+                timerEl.classList.remove('break-timer');
+            } else {
+                const m = Math.floor(remaining / 60);
+                const s = Math.floor(remaining % 60);
+                timerEl.textContent = `${m}:${s.toString().padStart(2, "0")}`;
+                timerEl.classList.add('break-timer');
+                timerEl.classList.remove('you-are-up', 'ready');
+            }
         } else {
             const m = Math.floor(remaining / 60);
             const s = Math.floor(remaining % 60);
             timerEl.textContent = `${m}:${s.toString().padStart(2, "0")}`;
-            timerEl.classList.remove('you-are-up', 'ready');
+            timerEl.classList.remove('you-are-up', 'ready', 'break-timer');
         }
         
         timerEl.className = `timer countdown-timer ${timerType || ''} ${state || ''}`;
@@ -396,15 +410,49 @@
             return;
         }
 
-        const sportTypeEl = infoEl.querySelector('.sport-type');
-        const liftTypeEl = infoEl.querySelector('.lift-type');
-        const weightEl = infoEl.querySelector('.weight');
-        const attemptOrderEl = infoEl.querySelector('.attempt-order');
+        // Check if this is a break timer
+        const timerType = data.timer_type || lastTimerType;
+        const isBreakTimer = timerType === 'break_between_flights' || timerType === 'break_between_events';
+        
+        const attemptDetailsEl = infoEl.querySelector('.attempt-details');
+        
+        if (isBreakTimer) {
+            // Hide attempt details during break timers
+            if (attemptDetailsEl) {
+                attemptDetailsEl.style.display = 'none';
+            }
+            
+            // Show break message
+            const existingBreakMsg = infoEl.querySelector('.break-message');
+            if (!existingBreakMsg) {
+                const breakMessage = document.createElement('p');
+                breakMessage.className = 'break-message';
+                breakMessage.textContent = timerType === 'break_between_events' ? 'Event Break in Progress' : 'Flight Break in Progress';
+                infoEl.appendChild(breakMessage);
+            }
+        } else {
+            // Show attempt details for normal timers
+            if (attemptDetailsEl) {
+                attemptDetailsEl.style.display = 'block';
+            }
+            
+            // Remove break message if it exists
+            const existingBreakMsg = infoEl.querySelector('.break-message');
+            if (existingBreakMsg) {
+                existingBreakMsg.remove();
+            }
+            
+            // Update attempt details
+            const sportTypeEl = infoEl.querySelector('.sport-type');
+            const liftTypeEl = infoEl.querySelector('.lift-type');
+            const weightEl = infoEl.querySelector('.weight');
+            const attemptOrderEl = infoEl.querySelector('.attempt-order');
 
-        if (sportTypeEl) sportTypeEl.textContent = data.event?.sport_type?.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) || 'N/A';
-        if (liftTypeEl) liftTypeEl.textContent = data.lift_type || 'N/A';
-        if (weightEl) weightEl.textContent = data.weight || 0;
-        if (attemptOrderEl) attemptOrderEl.textContent = data.order || 1;
+            if (sportTypeEl) sportTypeEl.textContent = data.event?.sport_type?.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) || 'N/A';
+            if (liftTypeEl) liftTypeEl.textContent = data.lift_type || 'N/A';
+            if (weightEl) weightEl.textContent = data.weight || 0;
+            if (attemptOrderEl) attemptOrderEl.textContent = data.order || 1;
+        }
     }
 
     // UPDATED: Start local countdown timer
@@ -424,6 +472,11 @@
             currentAttemptTimeRemaining = 0;
             updateWeightInputAvailability();
             return;
+        }
+        
+        // Handle break timer - should countdown normally but with special display
+        if (timerType === 'break_between_flights' || timerType === 'break_between_events') {
+            console.log('🔄 Starting break timer countdown:', initialSeconds, 'for', timerType);
         }
         
         timerTargetSeconds = initialSeconds;
@@ -502,14 +555,17 @@
     function handleExpiredTimer() {
         timerHasExpired = true;
         
-        // Check if this was a first-of-flight countdown
-        // In that case, we should transition to YOU ARE UP instead of GET READY
-        const currentData = currentAttemptInfo;
-        
-        // For now, show GET READY as default
-        // The polling will detect is_first_of_flight and transition appropriately
-        updateTimerDisplay(0, 'ready', '');
-        console.log('â±ï¸ Timer expired - showing GET READY (will check for first-of-flight status)');
+        // Check the timer type to determine what to show after expiration
+        if (lastTimerType === 'break_between_flights' || lastTimerType === 'break_between_events') {
+            // Break timer expired - show YOU ARE UP immediately
+            updateTimerDisplay(0, 'you-are-up', '');
+            console.log('Break timer expired - transitioning to YOU ARE UP');
+        } else {
+            // Regular timer expired - show GET READY as default
+            // The polling will detect is_first_of_flight and transition appropriately
+            updateTimerDisplay(0, 'ready', '');
+            console.log('Timer expired - showing GET READY (will check for first-of-flight status)');
+        }
         
         updateWeightInputAvailability();
         saveTimerState();
@@ -600,20 +656,20 @@
     function shouldRestartTimer(serverData) {
         // Never restart during grace period
         if (gracePeriodActive && Date.now() < gracePeriodEnd) {
-            console.log('🛡️ Grace period active - preventing restart');
+            console.log('Grace period active - preventing restart');
             return false;
         }
         
         // Always restart if no countdown is running
         if (!timerCountdownInterval) {
-            console.log('🔄 No countdown running - restart needed');
+            console.log('No countdown running - restart needed');
             return true;
         }
         
         // Check if attempt ID changed (queue order changed)
         const serverAttemptId = serverData.attempt_id;
         if (String(currentCountdownAttemptId) !== String(serverAttemptId)) {
-            console.log(`🔄 Attempt ID changed: ${currentCountdownAttemptId} → ${serverAttemptId}`);
+            console.log(`Attempt ID changed: ${currentCountdownAttemptId} → ${serverAttemptId}`);
             return true;
         }
         
@@ -624,17 +680,17 @@
             const liftTypeChanged = currentAttemptInfo.lift_type !== serverData.lift_type;
             
             if (weightChanged) {
-                console.log(`🔄 Weight changed: ${currentAttemptInfo.weight} → ${serverData.weight}`);
+                console.log(`Weight changed: ${currentAttemptInfo.weight} → ${serverData.weight}`);
                 return true;
             }
             
             if (orderChanged) {
-                console.log(`🔄 Order changed: ${currentAttemptInfo.order} → ${serverData.order}`);
+                console.log(`Order changed: ${currentAttemptInfo.order} → ${serverData.order}`);
                 return true;
             }
 
             if (liftTypeChanged) {
-            console.log(`🔄 Lift type changed: ${currentAttemptInfo.lift_type} → ${serverData.lift_type}`);
+            console.log(`Lift type changed: ${currentAttemptInfo.lift_type} → ${serverData.lift_type}`);
             return true;
         }
         }
@@ -643,7 +699,7 @@
             const timeDiff = Math.abs(serverData.time - lastServerTime);
             // If server time differs by more than 10 seconds from what we expect, restart
             if (timeDiff > 10) {
-                console.log(`🔄 Time jumped significantly: ${lastServerTime}s → ${serverData.time}s (diff: ${timeDiff}s)`);
+                console.log(`Time jumped significantly: ${lastServerTime}s → ${serverData.time}s (diff: ${timeDiff}s)`);
                 return true;
             }
         }
@@ -656,7 +712,7 @@
     const isFirstOfFlight = data.is_first_of_flight;
     const isFirstInQueue = data.is_first_in_queue;
     
-    console.log(`🔵 Active timer: time=${serverTime}s, first_in_queue=${isFirstInQueue}, first_of_flight=${isFirstOfFlight}`);
+    console.log(`Active timer: time=${serverTime}s, first_in_queue=${isFirstInQueue}, first_of_flight=${isFirstOfFlight}`);
     
     checkAndNotify(serverTime, data.timer_type, currentAttemptInfo);
     
@@ -673,13 +729,13 @@
     // Special handling for first attempt of flight
     if (isFirstOfFlight && isFirstInQueue) {
         if (serverTime <= 0) {
-            console.log('⏰ First attempt timer expired - transitioning to YOU ARE UP');
+            console.log('First attempt timer expired - transitioning to YOU ARE UP');
             handleYouAreUp(data, infoEl);
             return;
         }
         
         if (shouldRestartTimer(data)) {
-            console.log(`🔄 Restarting first-attempt countdown: time=${serverTime}s`);
+            console.log(`Restarting first-attempt countdown: time=${serverTime}s`);
             
             timerHasExpired = false;
             startLocalCountdown(serverTime, data.timer_type, currentAttemptInfo);
@@ -696,7 +752,7 @@
     
     // Normal timer handling for non-first attempts
     if (shouldRestartTimer(data)) {
-        console.log(`🔄 Restarting timer: attempt=${data.attempt_id}, time=${serverTime}s`);
+        console.log(`Restarting timer: attempt=${data.attempt_id}, time=${serverTime}s`);
         
         timerHasExpired = false;
         startLocalCountdown(serverTime, data.timer_type, currentAttemptInfo);
@@ -1084,7 +1140,7 @@
         // Restore timer state before initializing WebSocket/polling
         const restored = restoreTimerState();
         if (restored) {
-            console.log('✅ Timer state restored from previous session');
+            console.log('Timer state restored from previous session');
         }
         
         initializeWebSocket();
@@ -1102,7 +1158,7 @@
         const socket = io();
         
         socket.on('connect', () => {
-            console.log('🔌 Connected to real-time server');
+            console.log('Connected to real-time server');
             
             const competitionMeta = window.competitionData;
             if (competitionMeta && competitionMeta.id) {
@@ -1114,7 +1170,7 @@
         });
 
         socket.on('timer_update', (data) => {
-            console.log('📨 WebSocket timer update:', data);
+            console.log('WebSocket timer update:', data);
             
             // Normalize websocket data to match polling format
             const serverTime = data.remaining !== undefined ? data.remaining : data.time;
@@ -1123,7 +1179,7 @@
             
             // Handle paused state
             if (data.state === 'paused' && data.source === 'timekeeper') {
-                console.log('⏸️ Timer paused by timekeeper');
+                console.log('⏸Timer paused by timekeeper');
                 if (timerCountdownInterval) {
                     clearInterval(timerCountdownInterval);
                     timerCountdownInterval = null;
@@ -1150,7 +1206,7 @@
             if (normalizedData.is_first_in_queue) {
                 handleYouAreUp(normalizedData, document.querySelector('.next-attempt-info'));
             } else if (shouldRestartTimer(normalizedData)) {
-                console.log('🔄 [WebSocket] Restarting timer');
+                console.log('[WebSocket] Restarting timer');
                 timerHasExpired = false;
                 readyStateStartTime = null;
                 startLocalCountdown(serverTime, serverTimerType, currentAttemptInfo);
@@ -1163,7 +1219,7 @@
         });
 
         socket.on('attempt_result', (payload) => {
-            console.log('📊 [WebSocket] Attempt result received', payload);
+            console.log('[WebSocket] Attempt result received', payload);
             // Refresh next-attempt info when an attempt completes
             refreshNextAttemptFromServer().then(() => {
                 if (!timerHasExpired) stopReadyPolling();
@@ -1223,7 +1279,7 @@
 
     // UPDATED: Polling-based timer updates with simplified restart logic
     function initializePollingTimerUpdates() {
-        console.log('📡 Using polling for timer updates');
+        console.log('Using polling for timer updates');
         
         let connectionFailures = 0;
         const maxFailures = 3;
@@ -1255,7 +1311,7 @@
                     // End grace period if expired
                     if (gracePeriodActive && Date.now() >= gracePeriodEnd) {
                         gracePeriodActive = false;
-                        console.log('🛡️ Grace period ended');
+                        console.log('Grace period ended');
                     }
                     
                     // If in expired state, let ready polling handle it
@@ -1303,13 +1359,13 @@
                         // No attempts left
                         handleNoAttempts(data, infoEl);
                         
-                    } else if (data.is_first_in_queue || data.status === 'in-progress') {
-                        // Athlete is up - show YOU ARE UP
-                        handleYouAreUp(data, infoEl);
-                        
                     } else if (data.timer_active && data.time !== null && data.time >= 0) {
-                        // Active countdown
+                        // Active countdown (including break timers)
                         handleActiveTimer(data, infoEl);
+                        
+                    } else if (data.is_first_in_queue || data.status === 'in-progress') {
+                        // Athlete is up - show YOU ARE UP (only when no active timer)
+                        handleYouAreUp(data, infoEl);
                         
                     } else {
                         // Inactive state
@@ -1337,7 +1393,7 @@
         }
         
         function handleYouAreUp(data, infoEl) {
-            console.log('🔴 YOU ARE UP');
+            console.log('YOU ARE UP');
             
             // Clear any running countdown
             if (timerCountdownInterval) {
@@ -1371,14 +1427,14 @@
                 
                 if (serverTime <= 0) {
                     // Timer has expired - transition to YOU ARE UP
-                    console.log('â° First attempt timer expired - transitioning to YOU ARE UP');
+                    console.log('First attempt timer expired - transitioning to YOU ARE UP');
                     handleYouAreUp(data, infoEl);
                     return;
                 }
                 
                 // Continue countdown
                 if (shouldRestartTimer(data)) {
-                    console.log(`ðŸ"„ Restarting first-attempt countdown: time=${serverTime}s`);
+                    console.log(`Restarting first-attempt countdown: time=${serverTime}s`);
                     
                     timerHasExpired = false;
                     readyStateStartTime = null;
@@ -1396,7 +1452,7 @@
             
             // Normal timer handling for non-first attempts
             if (shouldRestartTimer(data)) {
-                console.log(`ðŸ"„ Restarting timer: attempt=${data.attempt_id}, time=${serverTime}s`);
+                console.log(`Restarting timer: attempt=${data.attempt_id}, time=${serverTime}s`);
                 
                 timerHasExpired = false;
                 readyStateStartTime = null;
@@ -1411,7 +1467,7 @@
             updateTimerInfoDisplay(infoEl, data);
         }        
         function handleInactive(infoEl) {
-            console.log('💤 Inactive state');
+            console.log('Inactive state');
             clearTimerState();
             updateTimerDisplay(0, 'inactive', 'inactive');
             if (infoEl) infoEl.innerHTML = '<p>No upcoming attempts</p>';

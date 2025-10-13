@@ -203,26 +203,53 @@ class FlightManager {
 
   // Function to ensure competition and event information is available
   enrichFlightData(flight) {
-    if (!flight.competition_name && flight.competition_id) {
-      const competition = this.competitions.find(c => c.id === flight.competition_id);
+    // Create a copy to avoid mutating the original
+    const enrichedFlight = { ...flight };
+    
+    if (!enrichedFlight.competition_name && enrichedFlight.competition_id) {
+      const competition = this.competitions.find(c => c.id === enrichedFlight.competition_id);
       if (competition) {
-        flight.competition_name = competition.name;
+        enrichedFlight.competition_name = competition.name;
       }
     }
     
-    if (!flight.event_name && flight.event_id) {
-      const event = this.events.find(e => e.id === flight.event_id);
+    if (!enrichedFlight.event_name && enrichedFlight.event_id) {
+      // Try this.events first
+      let event = this.events.find(e => e.id === enrichedFlight.event_id);
+      
+      // If not found, try this.allEvents
+      if (!event && this.allEvents) {
+        event = this.allEvents.find(e => e.id === enrichedFlight.event_id);
+      }
+      
+      // If still not found, try nested events in competitions
+      if (!event && this.competitions) {
+        for (const comp of this.competitions) {
+          if (comp.events) {
+            event = comp.events.find(e => e.id === enrichedFlight.event_id);
+            if (event) {
+              // Add competition info to the event
+              event.competition_id = comp.id;
+              event.competition_name = comp.name;
+              break;
+            }
+          }
+        }
+      }
+      
       if (event) {
-        flight.event_name = event.name;
+        enrichedFlight.event_name = event.name;
         // Also ensure competition info from event
-        if (!flight.competition_id && event.competition_id) {
-          flight.competition_id = event.competition_id;
-          flight.competition_name = event.competition_name;
+        if (!enrichedFlight.competition_id && event.competition_id) {
+          enrichedFlight.competition_id = event.competition_id;
+        }
+        if (!enrichedFlight.competition_name && event.competition_name) {
+          enrichedFlight.competition_name = event.competition_name;
         }
       }
     }
     
-    return flight;
+    return enrichedFlight;
   }
 
   populateCompetitionDropdowns() {
@@ -343,6 +370,12 @@ class FlightManager {
     }
     if (cancelDeleteFlightBtn) {
       cancelDeleteFlightBtn.addEventListener("click", () => this.closeModals());
+    }
+
+    // Back to flights button
+    const backToFlightsBtn = document.getElementById("back-to-flights-btn");
+    if (backToFlightsBtn) {
+      backToFlightsBtn.addEventListener("click", () => this.backToFlightsList());
     }
 
     // Form submission
@@ -857,6 +890,12 @@ class FlightManager {
 
   initializeFlightsSortable() {
     console.log('Initializing flights sortable...');
+    
+    // Check if Sortable library is loaded
+    if (typeof Sortable === 'undefined') {
+      console.error('Sortable library is not loaded. Cannot initialize drag-and-drop.');
+      return;
+    }
     
     // Destroy existing sortable if it exists
     if (this.flightsSortable) {
@@ -1709,10 +1748,11 @@ class FlightManager {
       // Use status field as primary indicator, fall back to legacy fields
       let isFinished = false;
       
-      if (attempt.status) {
+      // Always prioritize the status field from database if it exists
+      if (attempt.status && attempt.status.trim() !== '') {
         isFinished = ['finished', 'success', 'failed'].includes(attempt.status.toLowerCase());
       } else {
-        // Fallback for backward compatibility
+        // Fallback for backward compatibility (only when status field is truly missing)
         isFinished = attempt.completed_at || attempt.final_result;
       }
       
@@ -1749,6 +1789,8 @@ class FlightManager {
     orderedAttempts.forEach((attempt, index) => {
       const item = document.createElement("div");
       
+
+      
       // Use the status field from database as primary source
       let statusClass = "waiting";
       let statusText = "Waiting";
@@ -1756,19 +1798,21 @@ class FlightManager {
       let isFinished = false;
       let isInProgress = false;
       
-      // Primary logic: use the status field from database
-      if (attempt.status) {
+      // Primary logic: use the status field from database (always prioritize this)
+      if (attempt.status && attempt.status.trim() !== '') {
         switch(attempt.status.toLowerCase()) {
           case "waiting":
             statusClass = "waiting";
             statusText = "Waiting";
             itemClass += " attempt-waiting";
+            isFinished = false; // Explicitly set for clarity
             break;
           case "in-progress":
             statusClass = "in-progress";
             statusText = "In Progress";
             itemClass += " attempt-in-progress";
             isInProgress = true;
+            isFinished = false; // Explicitly set for clarity
             break;
           case "finished":
             statusClass = "finished";
@@ -1792,6 +1836,7 @@ class FlightManager {
             statusClass = "waiting";
             statusText = attempt.status;
             itemClass += " attempt-waiting";
+            isFinished = false; // Explicitly set for clarity
         }
       } else {
         // Fallback logic for backward compatibility (if status field is missing)
@@ -2033,8 +2078,8 @@ class FlightManager {
       const result = await response.json();
       this.showNotification('Weight updated successfully', 'success');
       
-      // Update the display
-      input.value = newWeight;
+      // Refresh the attempt table to ensure all data is synchronized
+      await this.loadFlightAttemptOrder();
       
     } catch (error) {
       console.error('Error updating weight:', error);
@@ -2143,6 +2188,24 @@ class FlightManager {
     }
   }
 
+  backToFlightsList() {
+    // Hide the flight athletes section and show the flights list
+    this.flightAthletesSection.style.display = "none";
+    this.flightsList.style.display = "block";
+    
+    // Reset current flight selection
+    this.currentFlightId = null;
+    
+    // Close any open modals
+    const modals = ['flight-modal', 'delete-flight-modal', 'attempt-modal'];
+    modals.forEach(modalId => {
+      const modal = document.getElementById(modalId);
+      if (modal) {
+        modal.style.display = 'none';
+      }
+    });
+  }
+
   showLoading(element) {
     element.classList.add("loading");
   }
@@ -2226,11 +2289,41 @@ class FlightManager {
   
   // Direct DOM update functions similar to athlete page
   updateFlightInGrid(flight) {
-    const card = document.querySelector(`.flight-card[data-flight-id="${flight.id}"]`);
+    console.log('updateFlightInGrid called with:', flight);
+    
+    // Enrich the incoming flight data first
+    const enrichedFlight = this.enrichFlightData(flight);
+    console.log('Enriched flight data:', enrichedFlight);
+    
+    // Update the in-memory data structures
+    const flightIndex = this.flights.findIndex(f => f.id === enrichedFlight.id);
+    if (flightIndex !== -1) {
+      // Merge with existing data to preserve any fields not returned by the server
+      this.flights[flightIndex] = { ...this.flights[flightIndex], ...enrichedFlight };
+      console.log('Updated flight in data array:', enrichedFlight.id);
+    } else {
+      // If not found, add it (shouldn't happen for update, but just in case)
+      this.flights.push(enrichedFlight);
+      console.log('Flight not found in array, added new entry:', enrichedFlight.id);
+    }
+    
+    // Also update allFlights if it's populated
+    const allFlightIndex = this.allFlights.findIndex(f => f.id === enrichedFlight.id);
+    if (allFlightIndex !== -1) {
+      this.allFlights[allFlightIndex] = { ...this.allFlights[allFlightIndex], ...enrichedFlight };
+    } else if (this.allFlights.length > 0) {
+      this.allFlights.push(enrichedFlight);
+    }
+    
+    // Update filteredFlights if it exists
+    const filteredFlightIndex = this.filteredFlights.findIndex(f => f.id === enrichedFlight.id);
+    if (filteredFlightIndex !== -1) {
+      this.filteredFlights[filteredFlightIndex] = { ...this.filteredFlights[filteredFlightIndex], ...enrichedFlight };
+    }
+    
+    // Now update the DOM
+    const card = document.querySelector(`.flight-card[data-flight-id="${enrichedFlight.id}"]`);
     if (card) {
-      // Enrich flight data to ensure all fields are available
-      const enrichedFlight = this.enrichFlightData(flight);
-      
       // Update data attributes
       card.dataset.flightOrder = enrichedFlight.order;
       card.dataset.competitionId = enrichedFlight.competition_id || '';
@@ -2253,9 +2346,11 @@ class FlightManager {
       if (eventInfoSection) {
         const competitionInfo = enrichedFlight.competition_name || 'No Competition';
         const eventInfo = enrichedFlight.event_name || 'No Event';
+        const movementInfo = enrichedFlight.movement_type || 'No Movement';
         eventInfoSection.innerHTML = `
           <small><strong>Competition:</strong> ${competitionInfo}</small>
           <small><strong>Event:</strong> ${eventInfo}</small>
+          <small><strong>Movement:</strong> ${movementInfo}</small>
         `;
       }
       
@@ -2280,12 +2375,25 @@ class FlightManager {
   }
   
   addFlightToGrid(flight) {
+    console.log('addFlightToGrid called with:', flight);
+    
+    // Enrich the incoming flight data first
+    const enrichedFlight = this.enrichFlightData(flight);
+    console.log('Enriched flight data:', enrichedFlight);
+    
+    // Add to in-memory data structures
+    this.flights.push(enrichedFlight);
+    console.log('Added flight to data array:', enrichedFlight.id);
+    
+    // Add to allFlights if it's populated
+    if (this.allFlights.length > 0) {
+      this.allFlights.push(enrichedFlight);
+    }
+    
+    // Now update the DOM
     const flightsGrid = this.flightsGrid;
     if (flightsGrid) {
-      // Enrich flight data to ensure all fields are available
-      const enrichedFlight = this.enrichFlightData(flight);
-      
-      // Create the new flight card
+      // Create the new flight card with enriched data
       const newCard = this.createFlightCard(enrichedFlight);
       
       // Add to the grid
@@ -2299,6 +2407,13 @@ class FlightManager {
   }
   
   removeFlightFromGrid(flightId) {
+    // First, remove from in-memory data structures
+    this.flights = this.flights.filter(f => f.id !== parseInt(flightId));
+    this.allFlights = this.allFlights.filter(f => f.id !== parseInt(flightId));
+    this.filteredFlights = this.filteredFlights.filter(f => f.id !== parseInt(flightId));
+    console.log('Removed flight from data arrays:', flightId);
+    
+    // Now remove from DOM
     const card = document.querySelector(`.flight-card[data-flight-id="${flightId}"]`);
     if (card) {
       card.remove();

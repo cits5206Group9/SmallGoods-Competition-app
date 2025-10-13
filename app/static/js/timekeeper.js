@@ -57,7 +57,7 @@
   }
 
   // Helper function to update attempt status - make it globally accessible
-  window.updateAttemptStatus = async function(athleteId, attemptNumber, flightId, status) {
+ const baseUpdateAttemptStatus = async function(athleteId, attemptNumber, flightId, status) {
     if (!athleteId || !attemptNumber) {
       console.warn('Missing athlete ID or attempt number for status update');
       return false;
@@ -102,6 +102,19 @@
     }
   };
 
+  // Wrap with break trigger check
+  window.updateAttemptStatus = async function(athleteId, attemptNumber, flightId, status) {
+    const result = await baseUpdateAttemptStatus(athleteId, attemptNumber, flightId, status);
+    
+    // Check if this was marking an attempt as finished
+    if (result && status === 'finished' && flightId) {
+      // Use a slight delay to ensure DB is updated
+      setTimeout(() => checkForBreakTrigger(flightId), 100);
+    }
+    
+    return result;
+  };
+  
   // Helper function to mark all "in-progress" attempts in a flight as "finished" except the specified one
   window.markOtherAttemptsAsFinished = async function(flightId, currentAthleteId, currentAttemptNumber) {
     if (!flightId) return;
@@ -455,7 +468,7 @@
       break_timer_type: breakTimerState.type,
       break_timer_message: breakTimerState.message
     };
-
+    
     fetch('/admin/api/timer-state', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -834,11 +847,17 @@
 
       // Update attempt status to 'finished' when timer is stopped
       if (athleteId && attemptNo) {
-        await window.updateAttemptStatus(athleteId, attemptNo, CURRENT_FLIGHT_ID, 'finished');
+        // Use the current flight ID from context
+        const currentFlightId = CURRENT_CTX.flightId || CURRENT_FLIGHT_ID;
+        
+        await window.updateAttemptStatus(athleteId, attemptNo, currentFlightId, 'finished');
         
         // Refresh the attempt order list to show updated status (without auto-selecting)
-        if (CURRENT_FLIGHT_ID && typeof loadAttemptOrder === 'function') {
-          await loadAttemptOrder(CURRENT_FLIGHT_ID, false); // Pass false to prevent auto-selection
+        if (currentFlightId && typeof window.loadAttemptOrder === 'function') {
+          console.log("Stop button: Refreshing attempt order visualization after marking attempt as finished");
+          await window.loadAttemptOrder(currentFlightId, false); // Pass false to prevent auto-selection
+        } else {
+          console.warn("Stop button: Cannot refresh attempt order - missing flight ID or loadAttemptOrder function");
         }
       }
 
@@ -1233,9 +1252,9 @@
         console.log("attemptSelect.value AFTER status update:", attemptSelect?.value);
         
         // Refresh the attempt order list to show updated status (without auto-selecting)
-        if (typeof loadAttemptOrder === 'function') {
+        if (typeof window.loadAttemptOrder === 'function') {
           console.log("Calling loadAttemptOrder with autoSelect=false");
-          await loadAttemptOrder(lastFlightId, false); // Pass false to prevent auto-selection
+          await window.loadAttemptOrder(lastFlightId, false); // Pass false to prevent auto-selection
           console.log("athleteSelect.value AFTER loadAttemptOrder:", athleteSelect?.value);
           console.log("attemptSelect.value AFTER loadAttemptOrder:", attemptSelect?.value);
         }
@@ -1596,11 +1615,12 @@
     // Show attempt order section and load attempts
     if (attemptOrderSection) {
       attemptOrderSection.style.display = "block";
-      loadAttemptOrder(flight.id);
+      window.loadAttemptOrder(flight.id);
     }
   };
   
-  async function loadAttemptOrder(flightId, autoSelect = true) {
+  // Make loadAttemptOrder globally accessible so it can be called from the Stop button
+  window.loadAttemptOrder = async function loadAttemptOrder(flightId, autoSelect = true) {
     if (!flightId) return;
     
     console.log("loadAttemptOrder called with autoSelect:", autoSelect);
@@ -1841,7 +1861,7 @@
   
   if (refreshAttemptsBtn) {
     refreshAttemptsBtn.addEventListener("click", () => {
-      if (lastFlightId) loadAttemptOrder(lastFlightId);
+      if (lastFlightId) window.loadAttemptOrder(lastFlightId);
     });
   }
   
@@ -1919,7 +1939,7 @@
       showNotification(result.message || `Attempts sorted by ${sortType} successfully`, "success");
       
       // Reload attempt order
-      await loadAttemptOrder(lastFlightId);
+      await window.loadAttemptOrder(lastFlightId);
       
     } catch (error) {
       console.error('Error sorting attempts:', error);
@@ -1964,7 +1984,7 @@
       showNotification(result.message || 'Test attempts generated successfully', "success");
       
       // Reload attempt order to show new attempts
-      await loadAttemptOrder(lastFlightId);
+      await window.loadAttemptOrder(lastFlightId);
       
     } catch (error) {
       console.error('Error generating test attempts:', error);
@@ -2005,7 +2025,7 @@
       
       if (response.ok) {
         // Reload the attempt order to show the updated queue
-        await loadAttemptOrder(lastFlightId);
+        await window.loadAttemptOrder(lastFlightId);
         showNotification(`Attempt by ${firstPendingAttempt.athlete_name} marked as completed.`, 'success');
       } else {
         const errorData = await response.json();
@@ -2082,6 +2102,7 @@
       message: breakTimerMessage ? breakTimerMessage.textContent : ''
     };
   };
+
   
   // Listen for attempt status updates to detect when to start break timers
   if (typeof window.updateAttemptStatus !== 'undefined') {
@@ -2112,7 +2133,7 @@
       
       // Check if all attempts in the flight are finished
       const allFinished = attempts.every(att => 
-        ['finished', 'success', 'failed'].includes(att.status?.toLowerCase() || '')
+        att.status?.toLowerCase() === 'finished'
       );
       
       if (!allFinished) return; // Not all attempts finished yet
@@ -2152,8 +2173,8 @@
       const flights = await eventsResponse.json();
       const sortedFlights = flights.sort((a, b) => (a.order || 0) - (b.order || 0));
       const lastFlightInEvent = sortedFlights[sortedFlights.length - 1];
-      
-      if (lastFlightInEvent && lastFlightInEvent.id === flightId) {
+            
+      if (lastFlightInEvent && Number(lastFlightInEvent.id) === Number(flightId)) {
         // This is the last flight in the event - trigger EVENT break
         triggerEventBreak();
       } else {

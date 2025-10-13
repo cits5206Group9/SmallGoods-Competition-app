@@ -408,6 +408,8 @@ body {
     margin-left: 20px;
     text-transform: uppercase;
     letter-spacing: 0.1em;
+    display: none; /* Hidden by default */
+    transition: opacity 0.3s ease-in-out; /* Smooth transition */
     box-shadow: 0 4px 6px rgba(220, 38, 38, 0.3);
 }
 

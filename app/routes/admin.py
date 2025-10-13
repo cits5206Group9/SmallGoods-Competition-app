@@ -315,6 +315,23 @@ def save_competition_model():
 
         print("Processing events from config:", competition.config.get("events", []))
 
+        def extract_scoring_type_from_event(event_data):
+            """Extract scoring type from event movements data"""
+            movements = event_data.get("movements", [])
+            if movements and len(movements) > 0:
+                first_movement = movements[0]
+                scoring_data = first_movement.get("scoring", {})
+                scoring_type_str = scoring_data.get("type", "max")
+
+                # Map string to enum
+                scoring_type_map = {
+                    "max": ScoringType.MAX,
+                    "sum": ScoringType.SUM,
+                    "min": ScoringType.MIN,
+                }
+                return scoring_type_map.get(scoring_type_str, ScoringType.MAX)
+            return ScoringType.MAX
+
         for event_data in competition.config["events"]:
             event_id = event_data.get("id")
 
@@ -329,8 +346,8 @@ def save_competition_model():
                         if event_data.get("sport_type")
                         else SportType.OLYMPIC_WEIGHTLIFTING
                     )
-                    if not hasattr(event, "scoring_type") or event.scoring_type is None:
-                        event.scoring_type = ScoringType.MAX
+                    # Extract scoring type from movements data
+                    event.scoring_type = extract_scoring_type_from_event(event_data)
                     event.is_active = True
                     current_event_ids.add(event.id)
             else:
@@ -342,7 +359,7 @@ def save_competition_model():
                     sport_type=SportType(event_data["sport_type"])
                     if event_data.get("sport_type")
                     else SportType.OLYMPIC_WEIGHTLIFTING,
-                    scoring_type=ScoringType.MAX,  # Default scoring type
+                    scoring_type=extract_scoring_type_from_event(event_data),
                     is_active=True,
                 )
                 db.session.add(event)
@@ -2436,6 +2453,98 @@ def regenerate_referee_credentials(referee_id):
         ), 500
 
 
+# Helper function to sync flights to competition config
+def sync_flight_to_competition_config(flight, operation="create"):
+    """
+    Sync a flight to the competition's config JSON.
+
+    Args:
+        flight: Flight object to sync
+        operation: 'create', 'update', or 'delete'
+    """
+    if not flight.event_id:
+        # If flight has no event, we can't sync it to config
+        return
+
+    # Get the competition through the event
+    event = Event.query.get(flight.event_id)
+    if not event or not event.competition:
+        return
+
+    competition = event.competition
+
+    # Ensure config exists and has events
+    if not competition.config:
+        competition.config = {"events": []}
+    if "events" not in competition.config:
+        competition.config["events"] = []
+
+    # Find the event in the config
+    event_in_config = None
+    event_index = None
+    for idx, evt in enumerate(competition.config["events"]):
+        if evt.get("id") == event.id:
+            event_in_config = evt
+            event_index = idx
+            break
+
+    # If event not in config, add it
+    if event_in_config is None:
+        event_in_config = {
+            "id": event.id,
+            "name": event.name,
+            "gender": event.gender,
+            "sport_type": event.sport_type.value
+            if event.sport_type
+            else "olympic_weightlifting",
+            "groups": [],
+        }
+        competition.config["events"].append(event_in_config)
+        event_index = len(competition.config["events"]) - 1
+
+    # Ensure groups array exists
+    if "groups" not in event_in_config:
+        event_in_config["groups"] = []
+
+    # Find the flight in the groups
+    flight_in_config = None
+    flight_index = None
+    for idx, grp in enumerate(event_in_config["groups"]):
+        if grp.get("id") == flight.id:
+            flight_in_config = grp
+            flight_index = idx
+            break
+
+    if operation == "delete":
+        # Remove the flight from config
+        if flight_index is not None:
+            event_in_config["groups"].pop(flight_index)
+    elif operation in ["create", "update"]:
+        # Create flight data
+        flight_data = {
+            "id": flight.id,
+            "name": flight.name,
+            "order": flight.order,
+            "is_active": flight.is_active,
+        }
+
+        if operation == "create":
+            # Add new flight to config
+            event_in_config["groups"].append(flight_data)
+        else:  # update
+            # Update existing flight in config
+            if flight_index is not None:
+                event_in_config["groups"][flight_index] = flight_data
+            else:
+                # Flight not found in config, add it
+                event_in_config["groups"].append(flight_data)
+
+    # Mark the config as modified so SQLAlchemy detects the change
+    from sqlalchemy.orm.attributes import flag_modified
+
+    flag_modified(competition, "config")
+
+
 # Flight API Routes
 @admin_bp.route("/flights", methods=["POST"])
 def create_flight():
@@ -2503,13 +2612,19 @@ def create_flight():
         )
 
         db.session.add(flight)
-        db.session.commit()
+        db.session.flush()  # Flush to get the flight ID without committing
 
-        # Reload with relationships
+        # Reload with relationships to get event/competition info
         flight = Flight.query.options(
             db.joinedload(Flight.event).joinedload(Event.competition),
             db.joinedload(Flight.competition),
         ).get(flight.id)
+
+        # Sync the flight to competition config (before final commit)
+        sync_flight_to_competition_config(flight, operation="create")
+
+        # Now commit everything together
+        db.session.commit()
 
         return jsonify(
             {
@@ -2562,14 +2677,26 @@ def reorder_flights():
         data = request.get_json()
         updates = data.get("updates", [])
 
+        # Track which flights need config sync
+        flights_to_sync = []
+
         for update in updates:
             flight_id = update.get("id")
             new_order = update.get("order")
 
-            flight = Flight.query.get(flight_id)
+            flight = Flight.query.options(
+                db.joinedload(Flight.event).joinedload(Event.competition),
+                db.joinedload(Flight.competition),
+            ).get(flight_id)
             if flight:
                 flight.order = new_order
+                flights_to_sync.append(flight)
 
+        # Sync all updated flights to their competition configs (before commit)
+        for flight in flights_to_sync:
+            sync_flight_to_competition_config(flight, operation="update")
+
+        # Now commit all changes (flight orders + config updates)
         db.session.commit()
 
         return jsonify(
@@ -2685,14 +2812,19 @@ def update_flight(flight_id):
                 # Allow setting event_id to None
                 flight.event_id = None
 
-        db.session.commit()
-
-        # Reload with relationships
+        # Reload with relationships to ensure we have event/competition info
+        db.session.flush()  # Flush changes without committing
         flight = Flight.query.options(
             db.joinedload(Flight.event).joinedload(Event.competition),
             db.joinedload(Flight.competition),
             db.joinedload(Flight.athlete_flights),
         ).get(flight_id)
+
+        # Sync the flight to competition config (before commit)
+        sync_flight_to_competition_config(flight, operation="update")
+
+        # Now commit everything together
+        db.session.commit()
 
         return jsonify(
             {
@@ -2748,6 +2880,9 @@ def delete_flight(flight_id):
 
         if not flight:
             return jsonify({"status": "error", "message": "Flight not found"}), 404
+
+        # Sync the flight deletion to competition config before deleting
+        sync_flight_to_competition_config(flight, operation="delete")
 
         db.session.delete(flight)
         db.session.commit()
@@ -3940,14 +4075,25 @@ def update_attempt_weight(attempt_id):
                 {"status": "error", "message": "Weight must be a valid number"}
             ), 400
 
-        # Check if attempt is already finished
-        if attempt.completed_at or attempt.final_result:
-            return jsonify(
-                {
-                    "status": "error",
-                    "message": "Cannot modify weight of a finished attempt",
-                }
-            ), 400
+        # Check if attempt is already finished - prioritize status field over legacy fields
+        if attempt.status and attempt.status.strip():
+            # Use the current status field as the authoritative source
+            if attempt.status.lower() in ["finished", "success", "failed"]:
+                return jsonify(
+                    {
+                        "status": "error",
+                        "message": "Cannot modify weight of a finished attempt",
+                    }
+                ), 400
+        else:
+            # Fallback to legacy fields only if status field is missing or empty
+            if attempt.completed_at or attempt.final_result:
+                return jsonify(
+                    {
+                        "status": "error",
+                        "message": "Cannot modify weight of a finished attempt",
+                    }
+                ), 400
 
         # Update the weight
         attempt.requested_weight = new_weight
@@ -4412,9 +4558,15 @@ def delete_attempt(attempt_id):
     try:
         attempt = Attempt.query.get_or_404(attempt_id)
 
-        # Don't allow deletion of finished attempts
-        if attempt.completed_at or attempt.final_result:
-            return jsonify({"error": "Cannot delete finished attempts"}), 400
+        # Don't allow deletion of finished attempts - prioritize status field over legacy fields
+        if attempt.status and attempt.status.strip():
+            # Use the current status field as the authoritative source
+            if attempt.status.lower() in ["finished", "success", "failed"]:
+                return jsonify({"error": "Cannot delete finished attempts"}), 400
+        else:
+            # Fallback to legacy fields only if status field is missing or empty
+            if attempt.completed_at or attempt.final_result:
+                return jsonify({"error": "Cannot delete finished attempts"}), 400
 
         db.session.delete(attempt)
         db.session.commit()

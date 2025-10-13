@@ -31,6 +31,11 @@ class TimerSynchronizer {
         this.mode = 'countdown';
         this.isRunning = false;
         this.isBreakTimer = false;
+        
+        // Add debouncing for break timer state changes
+        this.lastBreakTimerState = false;
+        this.breakTimerStateChangeTime = 0;
+        this.BREAK_TIMER_DEBOUNCE_MS = 500; // Wait 500ms before showing/hiding break timer
     }
 
     start() {
@@ -125,12 +130,12 @@ class TimerSynchronizer {
         this.lastSyncTimestamp = now;
         this.lastState = state;
         const breakSecondsRaw = parseSeconds(state.break_timer_seconds);
-        const hasBreakSeconds = Number.isFinite(breakSecondsRaw);
+        const hasBreakSeconds = Number.isFinite(breakSecondsRaw) && breakSecondsRaw > 0;
         const breakRunning = parseBool(state.break_timer_running);
         const attemptRunning = parseBool(state.timer_running);
-        const breakHasMetadata = typeof state.break_timer_type === 'string' || typeof state.break_timer_message === 'string';
-        const breakLikelyActive = (breakRunning && hasBreakSeconds) ||
-            (!attemptRunning && hasBreakSeconds && breakHasMetadata);
+        
+        // Only show break timer if it's explicitly running AND has time > 0
+        const breakLikelyActive = breakRunning && hasBreakSeconds;
 
         if (breakLikelyActive) {
             const breakSeconds = hasBreakSeconds ? breakSecondsRaw : 0;
@@ -138,7 +143,7 @@ class TimerSynchronizer {
             this.baseSeconds = this.seconds;
             this.lastKnownSeconds = this.seconds;
             this.mode = 'countdown';
-            this.isRunning = breakRunning || !attemptRunning;
+            this.isRunning = breakRunning;
             this.isBreakTimer = true;
         } else if (attemptRunning) {
             const attemptSeconds = parseSeconds(state.timer_seconds);
@@ -192,7 +197,10 @@ class TimerSynchronizer {
                 this.updateClasses('idle');
                 // Hide break label
                 const breakLabel = document.getElementById('breakLabel');
-                if (breakLabel) breakLabel.style.display = 'none';
+                if (breakLabel) {
+                    breakLabel.style.display = 'none';
+                    breakLabel.style.opacity = '0';
+                }
             }
             return;
         }
@@ -204,13 +212,32 @@ class TimerSynchronizer {
 
         this.timerDisplay.classList.toggle('break-timer', !!this.isBreakTimer);
 
-        // Show/hide BREAK label
+        // Show/hide BREAK label with debouncing to prevent flickering
         const breakLabel = document.getElementById('breakLabel');
         if (breakLabel) {
-            if (this.isBreakTimer && this.isRunning) {
-                breakLabel.style.display = 'inline-block';
-            } else {
-                breakLabel.style.display = 'none';
+            const shouldShowBreakTimer = this.isBreakTimer && this.isRunning && seconds > 0;
+            
+            // Check if break timer state has changed
+            if (shouldShowBreakTimer !== this.lastBreakTimerState) {
+                this.lastBreakTimerState = shouldShowBreakTimer;
+                this.breakTimerStateChangeTime = Date.now();
+            }
+            
+            // Only update display if enough time has passed since last state change
+            const timeSinceChange = Date.now() - this.breakTimerStateChangeTime;
+            if (timeSinceChange >= this.BREAK_TIMER_DEBOUNCE_MS || force) {
+                if (shouldShowBreakTimer) {
+                    breakLabel.style.display = 'inline-block';
+                    breakLabel.style.opacity = '1';
+                } else {
+                    breakLabel.style.opacity = '0';
+                    // Hide the element after transition completes
+                    setTimeout(() => {
+                        if (breakLabel.style.opacity === '0') {
+                            breakLabel.style.display = 'none';
+                        }
+                    }, 300); // Match CSS transition duration
+                }
             }
         }
 
@@ -270,6 +297,14 @@ document.addEventListener('DOMContentLoaded', function() {
     loadCompetitionsList();
 
     timerSynchronizer = new TimerSynchronizer();
+    
+    // Initialize break label as hidden
+    const breakLabel = document.getElementById('breakLabel');
+    if (breakLabel) {
+        breakLabel.style.display = 'none';
+        breakLabel.style.opacity = '0';
+    }
+    
     timerSynchronizer.start();
 
     // Initial fetch

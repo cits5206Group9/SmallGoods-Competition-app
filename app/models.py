@@ -22,7 +22,7 @@ class SportType(Enum):
 class ScoringType(Enum):
     MAX = "max"  # Heaviest weight
     SUM = "sum"  # Total weight/reps
-    TIME = "time"  # Fastest completion
+    MIN = "min"  # Lowest score (fastest time, fewest reps, etc.)
 
 
 class AttemptResult(Enum):

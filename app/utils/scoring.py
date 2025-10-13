@@ -67,8 +67,8 @@ class ScoringCalculator:
             # Note: If reps are stored somewhere, multiply here
             return weight
 
-        elif scoring_type == ScoringType.TIME:
-            # For TIME scoring, return time taken (lower is better)
+        elif scoring_type == ScoringType.MIN:
+            # For MIN scoring, return time taken (lower is better)
             if attempt.started_at and attempt.completed_at:
                 time_taken = (attempt.completed_at - attempt.started_at).total_seconds()
                 return float(time_taken)
@@ -154,7 +154,7 @@ class ScoringCalculator:
                 (s["weight"] for s in attempt_scores if s["score"] > 0), default=0.0
             )
 
-        elif scoring_type == ScoringType.TIME:
+        elif scoring_type == ScoringType.MIN:
             # Best (lowest) time
             valid_scores = [s["score"] for s in attempt_scores if s["score"] > 0]
             total_score = min(valid_scores) if valid_scores else 0.0
@@ -236,8 +236,8 @@ class ScoringCalculator:
             )
 
         # Sort based on scoring type
-        if event.scoring_type == ScoringType.TIME:
-            # For time, lower is better (exclude 0 scores)
+        if event.scoring_type == ScoringType.MIN:
+            # For minimum time, lower is better (exclude 0 scores)
             athlete_scores = [s for s in athlete_scores if s["total_score"] > 0]
             athlete_scores.sort(key=lambda x: x["total_score"])
         else:
@@ -316,7 +316,7 @@ class ScoringCalculator:
             )
 
         # Sort based on scoring type
-        if event.scoring_type == ScoringType.TIME:
+        if event.scoring_type == ScoringType.MIN:
             athlete_scores = [s for s in athlete_scores if s["total_score"] > 0]
             athlete_scores.sort(key=lambda x: x["total_score"])
         else:

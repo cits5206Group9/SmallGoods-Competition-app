@@ -1178,16 +1178,55 @@ class RefereePanel {
     }
 
     async saveAttempt(attemptData) {
-        // For demo purposes, just log the data
+        // Log the data for debugging
         console.log('Saving attempt:', attemptData);
         
-        // In a real implementation, this would save to the database
-        // const response = await fetch('/admin/api/attempts', {
-        //     method: 'POST',
-        //     headers: { 'Content-Type': 'application/json' },
-        //     body: JSON.stringify(attemptData)
-        // });
-        // return response.json();
+        // Submit referee decisions via API
+        if (this.refereeVotes && Object.keys(this.refereeVotes).length > 0) {
+            try {
+                // Submit each referee decision
+                const promises = [];
+                for (const [refereeId, voteData] of Object.entries(this.refereeVotes)) {
+                    const decisionData = {
+                        referee_id: parseInt(refereeId),
+                        competition_id: this.currentCompetition?.id,
+                        attempt_id: attemptData.attemptId, // Use the attempt ID from the data
+                        decision: voteData.label || (voteData.vote === 'true' || voteData.vote === true ? 'good_lift' : 'no_lift'),
+                        timestamp: attemptData.timestamp,
+                        notes: JSON.stringify(attemptData.violations || [])
+                    };
+                    
+                    const promise = fetch('/admin/api/referee-decision', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(decisionData)
+                    });
+                    
+                    promises.push(promise);
+                }
+                
+                // Wait for all referee decisions to be submitted
+                const responses = await Promise.all(promises);
+                
+                // Check if all responses are successful
+                for (const response of responses) {
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.message || 'Failed to submit referee decision');
+                    }
+                }
+                
+                console.log('All referee decisions submitted successfully');
+                return { success: true };
+                
+            } catch (error) {
+                console.error('Error submitting referee decisions:', error);
+                throw error; // Re-throw to trigger the catch block in submitDecision
+            }
+        } else {
+            console.log('No referee votes to submit');
+            return { success: true };
+        }
     }
 
     nextAthlete() {
