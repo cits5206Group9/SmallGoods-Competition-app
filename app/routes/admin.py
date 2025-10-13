@@ -2457,7 +2457,7 @@ def regenerate_referee_credentials(referee_id):
 def sync_flight_to_competition_config(flight, operation="create"):
     """
     Sync a flight to the competition's config JSON.
-    
+
     Args:
         flight: Flight object to sync
         operation: 'create', 'update', or 'delete'
@@ -2465,20 +2465,20 @@ def sync_flight_to_competition_config(flight, operation="create"):
     if not flight.event_id:
         # If flight has no event, we can't sync it to config
         return
-    
+
     # Get the competition through the event
     event = Event.query.get(flight.event_id)
     if not event or not event.competition:
         return
-    
+
     competition = event.competition
-    
+
     # Ensure config exists and has events
     if not competition.config:
         competition.config = {"events": []}
     if "events" not in competition.config:
         competition.config["events"] = []
-    
+
     # Find the event in the config
     event_in_config = None
     event_index = None
@@ -2487,23 +2487,25 @@ def sync_flight_to_competition_config(flight, operation="create"):
             event_in_config = evt
             event_index = idx
             break
-    
+
     # If event not in config, add it
     if event_in_config is None:
         event_in_config = {
             "id": event.id,
             "name": event.name,
             "gender": event.gender,
-            "sport_type": event.sport_type.value if event.sport_type else "olympic_weightlifting",
-            "groups": []
+            "sport_type": event.sport_type.value
+            if event.sport_type
+            else "olympic_weightlifting",
+            "groups": [],
         }
         competition.config["events"].append(event_in_config)
         event_index = len(competition.config["events"]) - 1
-    
+
     # Ensure groups array exists
     if "groups" not in event_in_config:
         event_in_config["groups"] = []
-    
+
     # Find the flight in the groups
     flight_in_config = None
     flight_index = None
@@ -2512,7 +2514,7 @@ def sync_flight_to_competition_config(flight, operation="create"):
             flight_in_config = grp
             flight_index = idx
             break
-    
+
     if operation == "delete":
         # Remove the flight from config
         if flight_index is not None:
@@ -2523,9 +2525,9 @@ def sync_flight_to_competition_config(flight, operation="create"):
             "id": flight.id,
             "name": flight.name,
             "order": flight.order,
-            "is_active": flight.is_active
+            "is_active": flight.is_active,
         }
-        
+
         if operation == "create":
             # Add new flight to config
             event_in_config["groups"].append(flight_data)
@@ -2536,9 +2538,10 @@ def sync_flight_to_competition_config(flight, operation="create"):
             else:
                 # Flight not found in config, add it
                 event_in_config["groups"].append(flight_data)
-    
+
     # Mark the config as modified so SQLAlchemy detects the change
     from sqlalchemy.orm.attributes import flag_modified
+
     flag_modified(competition, "config")
 
 
