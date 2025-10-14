@@ -223,11 +223,6 @@ def get_competition_model(id):
                 "comp_date": competition.start_date.isoformat()
                 if competition.start_date
                 else None,
-                "features": {
-                    "allowAthleteInput": True,
-                    "allowCoachAssignment": True,
-                    "enableAttemptOrdering": True,
-                },
                 "events": [],
             },
             "is_active": competition.is_active,
@@ -288,14 +283,6 @@ def save_competition_model():
         competition.config = {
             "name": data["name"],
             "comp_date": data["comp_date"],
-            "features": data.get(
-                "features",
-                {
-                    "allowAthleteInput": True,
-                    "allowCoachAssignment": True,
-                    "enableAttemptOrdering": True,
-                },
-            ),
             "events": data.get("events", []),
         }
 

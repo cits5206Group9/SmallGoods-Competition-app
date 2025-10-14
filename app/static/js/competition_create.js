@@ -7,9 +7,6 @@
   const compDateEl = $('#comp-date');
   const breaktimeEventsEl = $('#breaktime-events');
   const breaktimeFlightsEl = $('#breaktime-flights');
-  const allowAthleteInputEl = $('#allow-athlete-input');
-  const allowCoachAssignmentEl = $('#allow-coach-assignment');
-  const enableAttemptOrderingEl = $('#enable-attempt-ordering');
 
   const eventsContainer = $('#events-container');
   const addEventBtn = $('#add-event-btn');
@@ -34,11 +31,6 @@
   function createEmptyModel() {
     return {
       name: '',
-      features: {
-        allowAthleteInput: true,
-        allowCoachAssignment: true,
-        enableAttemptOrdering: true
-      },
       events: []
     };
   }
@@ -83,11 +75,6 @@
       comp_date: compDateEl.value,
       breaktime_between_events: Number(breaktimeEventsEl.value) || 600,
       breaktime_between_flights: Number(breaktimeFlightsEl.value) || 180,
-      features: {
-        allowAthleteInput: !!allowAthleteInputEl.checked,
-        allowCoachAssignment: !!allowCoachAssignmentEl.checked,
-        enableAttemptOrdering: !!enableAttemptOrderingEl.checked
-      },
       // SG-DSL-like structure
       events: []
     };
@@ -286,9 +273,6 @@
     compDateEl.value = '';
     breaktimeEventsEl.value = 600;
     breaktimeFlightsEl.value = 180;
-    allowAthleteInputEl.checked = true;
-    allowCoachAssignmentEl.checked = true;
-    enableAttemptOrderingEl.checked = true;
     eventsContainer.innerHTML = '';
     model = createEmptyModel();
     renderPreview();
@@ -302,9 +286,6 @@
     compDateEl.value = data.comp_date || '';
     breaktimeEventsEl.value = data.breaktime_between_events || 600;
     breaktimeFlightsEl.value = data.breaktime_between_flights || 180;
-    allowAthleteInputEl.checked = !!(data.features?.allowAthleteInput);
-    allowCoachAssignmentEl.checked = !!(data.features?.allowCoachAssignment);
-    enableAttemptOrderingEl.checked = !!(data.features?.enableAttemptOrdering);
 
     (data.events || []).forEach(evt => {
       addEventCard();
@@ -362,7 +343,7 @@
   });
 
   // Top-level inputs update preview
-  [compNameEl, compDateEl, allowAthleteInputEl, allowCoachAssignmentEl, enableAttemptOrderingEl]
+  [compNameEl, compDateEl, breaktimeEventsEl, breaktimeFlightsEl]
     .forEach(el => el.addEventListener('input', renderPreview));
 
   saveLocalBtn.addEventListener('click', saveToLocal);
