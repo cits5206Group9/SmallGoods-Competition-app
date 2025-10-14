@@ -5,11 +5,6 @@ window.CompetitionUtils = (function() {
     function createEmptyModel() {
         return {
             name: '',
-            features: {
-                allowAthleteInput: true,
-                allowCoachAssignment: true,
-                enableAttemptOrdering: true
-            },
             events: []
         };
     }
@@ -53,11 +48,6 @@ window.CompetitionUtils = (function() {
             comp_date: $('#comp-date').value,
             breaktime_between_events: Number($('#breaktime-events').value) || 600,
             breaktime_between_flights: Number($('#breaktime-flights').value) || 180,
-            features: {
-                allowAthleteInput: !!$('#allow-athlete-input').checked,
-                allowCoachAssignment: !!$('#allow-coach-assignment').checked,
-                enableAttemptOrdering: !!$('#enable-attempt-ordering').checked
-            },
             events: []
         };
 
@@ -243,9 +233,6 @@ window.CompetitionUtils = (function() {
         // Load basic fields
         $('#comp-name').value = data.name || '';
         $('#comp-date').value = data.date || '';
-        $('#allow-athlete-input').checked = !!(data.features?.allowAthleteInput);
-        $('#allow-coach-assignment').checked = !!(data.features?.allowCoachAssignment);
-        $('#enable-attempt-ordering').checked = !!(data.features?.enableAttemptOrdering);
 
         // Load events
         (data.events || []).forEach(evt => {
