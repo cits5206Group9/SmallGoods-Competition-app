@@ -1,87 +1,145 @@
-# Small Goods Competion App 🏋️‍♂️
+# 🏋️‍♂️ SmallGoods Competition App
 
-A Flask-based web app.
+A comprehensive Flask-based web application for managing weightlifting competitions with real-time scoring, timing, and referee management.
 
-## Tech Stack
+[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![Flask](https://img.shields.io/badge/flask-2.0+-green.svg)](https://flask.palletsprojects.com/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-- **Backend:** Flask, Flask-SQLAlchemy, Flask-Migrate
-- **Database:** SQLite (dev/testing), easily switchable to Postgres/MySQL
-- **Frontend:** Jinja templates + vanilla JS (upgradeable to Tailwind/Bootstrap)
-- **Tests:** pytest
-- **CI:** GitHub Actions (runs lint & tests on every PR)
+## 📖 Documentation
 
----
+- **[User Guide](USER_GUIDE.md)** - Comprehensive guide for all users (athletes, referees, admins)
+- **[Violations User Guide](VIOLATIONS_USER_GUIDE.md)** - Technical violations feature guide
+- **[Architecture](docs/ARCHITECTURE.md)** - Technical architecture documentation
+- **[Contributing](docs/CONTRIBUTING.md)** - Development guidelines
 
-## 📚 Documentation
+## ✨ Key Features
 
-Comprehensive documentation is available in the `docs/` directory:
+- 🏆 **Competition Management** - Create and manage multiple competitions with events and flights
+- ⏱️ **Real-time Timer** - Synchronized countdown/countup timer with auto-stop functionality
+- ✈️ **Flight Management** - Organize athletes with drag-and-drop attempt ordering
+- 👨‍⚖️ **Referee System** - Multi-referee decision recording with light indicators
+- 📺 **Live Displays** - Scoreboard, attempt tracking, and audience displays
+- 👤 **Athlete Portal** - Personal dashboard for competitors
+- 🌐 **Network Support** - Multi-device access on local network
+- 📊 **Scoring Systems** - Support for Total, Sinclair, and bodyweight scoring
 
-- **[User Guide](docs/USER_GUIDE.md)** - Complete guide for using the application
-  - Competition, Event, Athlete, and Flight Management
-  - Step-by-step workflows and best practices
-  - Troubleshooting common issues
+## 🛠️ Tech Stack
 
-- **[Coverage Testing Guide](docs/COVERAGE_TESTING_GUIDE.md)** - Detailed coverage testing documentation
-  - Running coverage tests
-  - Understanding coverage reports
-  - Best practices and CI/CD integration
-
-- **[Testing Summary](docs/TESTING_SUMMARY.md)** - Quick reference for testing and formatting
-  - Quick start commands
-  - Current coverage status
-  - Pre-commit workflow
-
-- **[Architecture](docs/ARCHITECTURE.md)** - System architecture and design decisions
-
-- **[Contributing](docs/CONTRIBUTING.md)** - Guidelines for contributors
+- **Backend:** Flask 2.0+, Flask-SQLAlchemy, Flask-Migrate
+- **Database:** SQLite (development), PostgreSQL/MySQL ready
+- **Frontend:** Jinja2 templates, Vanilla JavaScript, Sortable.js
+- **Real-time:** WebSockets for live updates
+- **Testing:** pytest with unit, integration, and system tests
+- **CI/CD:** GitHub Actions
 
 ---
 
-## Getting Started (Local)
+## 🚀 Quick Start
+
+### Prerequisites
+
+- Python 3.8 or higher
+- pip (Python package manager)
+- Git
+
+### Installation
 
 ```bash
-# 1) Create & activate a virtual environment
+# 1. Clone the repository
+git clone https://github.com/cits5206Group9/SmallGoods-Competition-app.git
+cd SmallGoods-Competition-app
+
+# 2. Create & activate a virtual environment
 python3 -m venv .venv
-source .venv/bin/activate  # Windows: .venv\Scripts\activate
 
-# 2) Install dependencies
-pip install -r requirements.txt
-
-# 4) Check Database consistency
-flask db upgrade  # first run will create SQLite file
-flask db current # check current migration version
-flask db history # view all migrations
-
-# 5) Run int DEBUG model (very verbose logging)
-# INFO level (default)
-./run.sh INFO
-
-# DEBUG level (most verbose)
-./run.sh DEBUG
-
-# WARNING level (less verbose)
-./run.sh WARNING
-
-# 6) Run without DEBUG model
-./run.sh
+# macOS/Linux
+source .venv/bin/activate
 
 # Windows
-run.bat           # Production mode
-run.bat INFO      # Custom INFO logging
-run.bat DEBUG     # Custom DEBUG logging
-# visit http://127.0.0.1:5000
+.venv\Scripts\activate
+
+# 3. Install dependencies
+pip install -r requirements.txt
+
+# 4. Initialize database
+flask db upgrade
+
+# 5. Run the application
+./run.sh          # macOS/Linux
+run.bat           # Windows
+
+# Visit http://127.0.0.1:5000
 ```
-## DB migrations
+
+### Running with Custom Settings
 
 ```bash
-# If you need to change the database schema: app/models.py
-# save the current database version
+# Different logging levels
+./run.sh INFO     # Standard logging (default)
+./run.sh DEBUG    # Verbose logging (for troubleshooting)
+./run.sh WARNING  # Minimal logging
+
+# Custom port
+python3 run.py --port 5001
+
+# Network access (for multiple devices)
+python3 -c "from run import app; app.run(host='0.0.0.0', port=5001, debug=True)"
+```
+
+### Accessing on Local Network
+
+To access from tablets, phones, or other computers:
+
+1. Find your computer's IP address:
+   ```bash
+   # macOS/Linux
+   ifconfig | grep "inet "
+   
+   # Windows
+   ipconfig
+   ```
+
+2. Access from other devices:
+   ```
+   http://YOUR_IP_ADDRESS:5001
+   ```
+
+**See [User Guide - Network Access](USER_GUIDE.md#accessing-on-local-network) for detailed setup.**
+## 🗄️ Database Management
+
+### Migrations
+
+When modifying database schema in `app/models.py`:
+
+```bash
+# Check current database version
 flask db current
-flask db migrate -m "describe changes"
+
+# Create a new migration
+flask db migrate -m "describe your changes"
+
+# Apply migrations
+flask db upgrade
+
+# View migration history
+flask db history
+
+# Rollback one migration
+flask db downgrade
+```
+
+### Reset Database (Development Only)
+
+```bash
+# WARNING: This deletes all data
+rm instance/app.db
 flask db upgrade
 ```
 
-### Run tests
+## 🧪 Testing
+
+### Quick Test Commands
 
 ```bash
 # Run all tests
@@ -91,21 +149,30 @@ pytest
 pytest -v
 
 # Run specific test types
-pytest -m unit          # Unit tests only
-pytest -m integration   # Integration tests only  
-pytest -m system        # System tests only
+pytest -m unit          # Unit tests only (fast)
+pytest -m integration   # Integration tests
+pytest -m system        # System/E2E tests
 
 # Run specific test files
 pytest tests/test_models.py
 pytest tests/test_integration.py
 pytest tests/test_system.py
 
-# Run and stop on first failure
+# Stop on first failure
 pytest -x
 
-# Run quietly with minimal output
-pytest -q
+# Generate coverage report
+pytest --cov=app --cov-report=html
+# View: open htmlcov/index.html
 ```
+
+### Test Structure
+
+- **Unit Tests** (`tests/test_models.py`) - Test individual components
+- **Integration Tests** (`tests/test_integration.py`) - Test component interactions
+- **System Tests** (`tests/test_system.py`) - Test complete workflows
+
+**See [Testing Guide](USER_GUIDE.md#testing-guide) for detailed information.**
 
 ### Writing Tests
 
@@ -276,373 +343,192 @@ pytest --cov=app --cov-report=html
 # View: open htmlcov/index.html
 ```
 
-#### 📊 **Running Tests with Coverage**
+---
 
-This project includes comprehensive code coverage reporting. Coverage measures how much of the codebase is tested.
+## 📋 Usage
 
-**Quick Coverage Check:**
+### User Roles
 
-```bash
-# Run all tests with coverage report
-pytest --cov=app --cov-report=term-missing
+The application supports multiple user roles:
 
-# Generate HTML coverage report
-pytest --cov=app --cov-report=html
+| Role | Access | Description |
+|------|--------|-------------|
+| **Admin** | Full access | Manage competitions, flights, athletes, settings |
+| **Timekeeper** | Timer control | Manage attempt timer, track lifting order |
+| **Referee** | Referee panel | Record attempt decisions |
+| **Coach** | Athlete management | Register athletes, submit weight changes |
+| **Athlete** | Personal view | View schedule, attempts, results |
 
-# Open HTML report (macOS)
-open htmlcov/index.html
+### Key Pages
 
-# Open HTML report (Linux)
-xdg-open htmlcov/index.html
+- **Admin Dashboard** - `http://localhost:5000/admin`
+- **Timer Control** - `http://localhost:5000/admin/timer`
+- **Referee Panel** - `http://localhost:5000/referee`
+- **Scoreboard Display** - `http://localhost:5000/display/scoreboard`
+- **Athlete Portal** - `http://localhost:5000/athlete`
 
-# Open HTML report (Windows)
-start htmlcov/index.html
-```
-
-**Coverage with Threshold:**
-
-```bash
-# Fail if coverage is below 70%
-pytest --cov=app --cov-fail-under=70
-
-# Run specific tests with coverage
-pytest tests/test_models.py --cov=app.models --cov-report=html
-```
-
-**Coverage Report Formats:**
-
-```bash
-# Terminal report with missing lines
-pytest --cov=app --cov-report=term-missing
-
-# HTML report (interactive, browsable)
-pytest --cov=app --cov-report=html
-
-# JSON report (machine-readable)
-pytest --cov=app --cov-report=json
-
-# XML report (for CI/CD tools)
-pytest --cov=app --cov-report=xml
-
-# Generate all formats at once
-pytest --cov=app --cov-report=html --cov-report=term-missing --cov-report=json
-```
-
-**Understanding Coverage Output:**
-
-```
----------- coverage: platform darwin, python 3.13.0 -----------
-Name                        Stmts   Miss  Cover   Missing
----------------------------------------------------------
-app/models.py                 187     12    94%   145-148
-app/routes/admin.py           542     87    84%   234, 456-489
-app/utils/scoring.py           89      5    94%   67-69
----------------------------------------------------------
-TOTAL                        1284    185    86%
-```
-
-- **Stmts**: Total statements
-- **Miss**: Uncovered statements
-- **Cover**: Coverage percentage
-- **Missing**: Line numbers not covered
-
-**Coverage Configuration:**
-
-Coverage settings are in `.coveragerc` and `pytest.ini`:
-- Minimum coverage: 70%
-- Target coverage: 80%+
-- Critical modules: 90%+
-
-For detailed coverage testing guide, see: [`docs/COVERAGE_TESTING_GUIDE.md`](docs/COVERAGE_TESTING_GUIDE.md)
+**📖 See [User Guide](USER_GUIDE.md) for detailed feature documentation.**
 
 ---
 
-## Code Formatting
+## 🏗️ Project Structure
 
-This project uses automated code formatting tools to maintain consistent code style.
-
-### Formatting Tools
-
-**Black** - Python code formatter (opinionated, PEP 8 compliant)
-
-```bash
-# Format all Python files
-black .
-
-# Format specific file or directory
-black app/
-black tests/
-
-# Check formatting without making changes
-black --check .
-
-# See what would be changed
-black --diff .
 ```
-
-**isort** - Import statement organizer
-
-```bash
-# Sort all imports
-isort .
-
-# Sort specific file or directory
-isort app/
-isort tests/
-
-# Check without making changes
-isort --check-only .
-
-# Show diff of what would change
-isort --diff .
-```
-
-**Ruff** - Fast Python linter (alternative to flake8)
-
-```bash
-# Lint all files
-ruff check .
-
-# Lint and auto-fix issues
-ruff check --fix .
-
-# Lint specific directory
-ruff check app/
-
-# Show detailed error information
-ruff check --verbose .
-```
-
-**Flake8** - Python linter (style and error checking)
-
-```bash
-# Check all Python files
-flake8 .
-
-# Check specific directory
-flake8 app/
-
-# Show statistics
-flake8 --statistics .
-
-# Generate HTML report
-flake8 --format=html --htmldir=flake-report .
-```
-
-### Format All Code
-
-Run all formatting tools in sequence:
-
-```bash
-# 1. Sort imports
-isort .
-
-# 2. Format code
-black .
-
-# 3. Check for linting issues
-ruff check --fix .
-
-# Or run flake8 (alternative to ruff)
-flake8 .
-```
-
-**One-liner for all formatting:**
-
-```bash
-isort . && black . && ruff check --fix .
-```
-
-### Pre-commit Hooks
-
-The project includes pre-commit configuration for automatic formatting.
-
-**Setup pre-commit:**
-
-```bash
-# Install pre-commit hooks
-pre-commit install
-
-# Run manually on all files
-pre-commit run --all-files
-
-# Update hooks to latest versions
-pre-commit autoupdate
-```
-
-**What pre-commit does:**
-- Runs Black on Python files
-- Sorts imports with isort
-- Checks for trailing whitespace
-- Validates YAML, JSON, TOML files
-- Checks for large files
-- Runs linters (ruff/flake8)
-
-### Formatting Configuration
-
-**Black settings** (in `pyproject.toml` or command line):
-```bash
-# Line length (default: 88)
-black --line-length 88 .
-
-# Python version target
-black --target-version py311 .
-```
-
-**isort settings** (compatible with Black):
-```bash
-# Use Black-compatible profile
-isort --profile black .
-```
-
-**Ruff settings** (in `pyproject.toml` or `ruff.toml`):
-```toml
-# Example ruff.toml
-line-length = 88
-target-version = "py311"
-
-[lint]
-select = ["E", "F", "W", "C90", "I", "N"]
-ignore = ["E501"]  # Line too long (handled by Black)
-```
-
-### VS Code Integration
-
-For automatic formatting on save, add to `.vscode/settings.json`:
-
-```json
-{
-  "python.formatting.provider": "black",
-  "python.linting.enabled": true,
-  "python.linting.ruffEnabled": true,
-  "editor.formatOnSave": true,
-  "editor.codeActionsOnSave": {
-    "source.organizeImports": true
-  }
-}
-```
-
-### CI/CD Formatting Checks
-
-GitHub Actions checks formatting on every PR (see `.github/workflows/tests.yml`):
-
-```yaml
-- name: Check code formatting
-  run: |
-    black --check .
-    isort --check-only .
-    ruff check .
-```
-
-### Common Formatting Commands
-
-```bash
-# Full formatting workflow
-isort . && black .                    # Format code
-
-# Check formatting (CI/CD)
-black --check . && isort --check-only . && ruff check .
-
-# Fix common issues
-ruff check --fix .                    # Auto-fix linting issues
-isort . && black .                    # Fix imports and formatting
-
-# Generate reports
-flake8 --statistics .                 # Linting statistics
-black --diff . > formatting-diff.txt  # Save formatting changes
+SmallGoods-Competition-app/
+├── app/                      # Main application package
+│   ├── models.py            # Database models (SQLAlchemy)
+│   ├── routes/              # Route blueprints
+│   │   ├── admin.py         # Admin panel routes
+│   │   ├── timer.py         # Timer control routes
+│   │   ├── athlete.py       # Athlete portal routes
+│   │   ├── display.py       # Public display routes
+│   │   └── login.py         # Authentication routes
+│   ├── templates/           # Jinja2 HTML templates
+│   │   ├── admin/           # Admin interface templates
+│   │   ├── athlete/         # Athlete portal templates
+│   │   ├── display/         # Display screen templates
+│   │   └── base.html        # Base template
+│   ├── static/              # Static assets
+│   │   ├── css/             # Stylesheets
+│   │   ├── js/              # JavaScript files
+│   │   │   ├── timekeeper.js
+│   │   │   ├── admin/flights_management.js
+│   │   │   └── athlete.js
+│   │   └── images/          # Image assets
+│   ├── utils/               # Utility functions
+│   │   ├── scoring.py       # Scoring calculations
+│   │   └── referee_generator.py
+│   └── extensions.py        # Flask extensions initialization
+├── tests/                   # Test suite
+│   ├── test_models.py       # Unit tests
+│   ├── test_integration.py  # Integration tests
+│   ├── test_system.py       # System tests
+│   ├── conftest.py          # Test fixtures
+│   └── test_utils.py        # Test utilities
+├── docs/                    # Documentation
+│   ├── ARCHITECTURE.md      # Technical architecture
+│   └── CONTRIBUTING.md      # Contribution guidelines
+├── migrations/              # Database migrations
+├── instance/                # Instance-specific files
+│   ├── app.db              # SQLite database (auto-created)
+│   └── timer_state.json    # Timer state persistence
+├── .github/                 # GitHub configuration
+│   └── workflows/          # CI/CD workflows
+├── USER_GUIDE.md           # Comprehensive user documentation
+├── README.md               # This file
+├── requirements.txt        # Python dependencies
+├── run.py                  # Application entry point
+├── run.sh                  # Unix run script
+└── run.bat                 # Windows run script
 ```
 
 ---
 
-## Running the Application
+## 🔀 Development Workflow
 
-### Development Mode
+### Branch Strategy
 
-```bash
-# With INFO logging
-./run.sh INFO
+- **`main`** - Stable, production-ready code
+- **`dev`** - Integration branch for features
+- **`feature/*`** - Feature branches (e.g., `feature/timer-improvements`)
+- **`fix/*`** - Bug fix branches (e.g., `fix/scoreboard-update`)
 
-# With DEBUG logging (very verbose)
-./run.sh DEBUG
+### Pull Request Process
 
-# With WARNING logging (less verbose)
-./run.sh WARNING
+1. Create feature branch from `dev`
+2. Make changes and commit
+3. Push branch and create PR to `dev`
+4. Ensure CI tests pass
+5. Request code review
+6. Merge after approval
 
-# Default (production mode)
-./run.sh
+**Note:** Only merge `dev` → `main` for releases.
+
+---
+
+## 📚 Quick Reference
+
+### Common Commands
+
+| Task | Command |
+|------|---------|
+| Start app | `./run.sh` or `run.bat` |
+| Run tests | `pytest` |
+| Verbose tests | `pytest -v` |
+| Test coverage | `pytest --cov=app` |
+| Create migration | `flask db migrate -m "description"` |
+| Apply migrations | `flask db upgrade` |
+| Check DB version | `flask db current` |
+
+### Important URLs
+
+| Page | URL |
+|------|-----|
+| Admin Dashboard | `http://localhost:5000/admin` |
+| Timer Control | `http://localhost:5000/admin/timer` |
+| Referee Panel | `http://localhost:5000/referee` |
+| Scoreboard | `http://localhost:5000/display/scoreboard` |
+| Athlete Portal | `http://localhost:5000/athlete` |
+| Login | `http://localhost:5000/login` |
+
+### Default Credentials
+
+**⚠️ Change these immediately in production!**
+
 ```
-
-### Production Mode
-
-```bash
-# Using gunicorn (production server)
-gunicorn -w 4 -b 0.0.0.0:5000 "app:create_app()"
-
-# With logging
-gunicorn -w 4 -b 0.0.0.0:5000 --access-logfile - --error-logfile - "app:create_app()"
+Admin:
+Email: admin@example.com
+Password: admin123
 ```
 
 ---
 
-## Complete Testing Workflow
+## 🤝 Contributing
 
-**Before committing code:**
+We welcome contributions! Please see our [Contributing Guide](docs/CONTRIBUTING.md) for details.
 
-```bash
-# 1. Format code
-isort . && black .
+### Quick Contribution Steps
 
-# 2. Check linting
-ruff check --fix .
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature/amazing-feature`
+3. Make your changes
+4. Run tests: `pytest`
+5. Commit: `git commit -m "Add amazing feature"`
+6. Push: `git push origin feature/amazing-feature`
+7. Open a Pull Request
 
-# 3. Run tests
-pytest
+### Code Style
 
-# 4. Run tests with coverage
-pytest --cov=app --cov-fail-under=70
-
-# 5. Review coverage report
-open htmlcov/index.html
-```
-
-**Quick pre-commit check:**
-
-```bash
-# All checks in one line
-isort . && black . && ruff check --fix . && pytest --cov=app --cov-fail-under=70
-```
+- Follow PEP 8 for Python code
+- Use meaningful variable names
+- Add comments for complex logic
+- Write tests for new features
+- Update documentation as needed
 
 ---
 
-## Additional Documentation
+## 📝 License
 
-- **User Guide**: [`docs/USER_GUIDE.md`](docs/USER_GUIDE.md) - Instructions for using the app (sections, athlete management, flight management)
-- **Coverage Testing**: [`docs/COVERAGE_TESTING_GUIDE.md`](docs/COVERAGE_TESTING_GUIDE.md) - Comprehensive guide on coverage testing
-- **Architecture**: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) - System architecture and design decisions
-- **Contributing**: [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md) - Contribution guidelines
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ---
 
-## Branch Strategy
+## 👏 Acknowledgments
 
-- `main` → stable, release-ready
-- `dev` → integration branch for features
-- feature branches → `feature/<short-description>`
-
-PRs: feature → `dev` (with passing CI). Merge `dev` → `main` only for releases.
+- **CITS5206** - University of Western Australia
+- **Group 9** - Development team
+- **SmallGoods** - Project sponsor
+- **Open Source Community** - Flask, SQLAlchemy, and other dependencies
 
 ---
 
-## Project Structure
+## 📧 Contact & Support
 
-```bash
-app/              # Flask application package
-app/templates/    # Jinja templates
-app/static/       # Static assets (css/js)
-tests/                # pytest tests
-docs/                 # Notes, architecture, decisions
-assets/               # Images or design assets
-.github/workflows/    # CI
-instance/            # db.sqlite (created on first run)
-migrations/         # Flask-Migrate files
-```
+- **Issues:** [GitHub Issues](https://github.com/cits5206Group9/SmallGoods-Competition-app/issues)
+- **Documentation:** [User Guide](USER_GUIDE.md)
+- **Repository:** [GitHub](https://github.com/cits5206Group9/SmallGoods-Competition-app)
+
+---
+
+**Made with ❤️ by Group 9 for the SmallGoods Community**
+
