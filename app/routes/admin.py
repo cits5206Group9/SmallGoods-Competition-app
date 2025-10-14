@@ -214,7 +214,7 @@ def get_competition_model(id):
         else None,
         "events": [],
     }
-    
+
     # Always sync comp_date in config with start_date from model
     if competition.start_date:
         config["comp_date"] = competition.start_date.isoformat()
