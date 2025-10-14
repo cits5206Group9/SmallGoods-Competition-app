@@ -1,62 +1,145 @@
-# Small Goods Competion App 🏋️‍♂️
+# 🏋️‍♂️ SmallGoods Competition App
 
-A Flask-based web app.
+A comprehensive Flask-based web application for managing weightlifting competitions with real-time scoring, timing, and referee management.
 
-## Tech Stack
+[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![Flask](https://img.shields.io/badge/flask-2.0+-green.svg)](https://flask.palletsprojects.com/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-- **Backend:** Flask, Flask-SQLAlchemy, Flask-Migrate
-- **Database:** SQLite (dev/testing), easily switchable to Postgres/MySQL
-- **Frontend:** Jinja templates + vanilla JS (upgradeable to Tailwind/Bootstrap)
-- **Tests:** pytest
-- **CI:** GitHub Actions (runs lint & tests on every PR)
+## 📖 Documentation
+
+- **[User Guide](USER_GUIDE.md)** - Comprehensive guide for all users (athletes, referees, admins)
+- **[Violations User Guide](VIOLATIONS_USER_GUIDE.md)** - Technical violations feature guide
+- **[Architecture](docs/ARCHITECTURE.md)** - Technical architecture documentation
+- **[Contributing](docs/CONTRIBUTING.md)** - Development guidelines
+
+## ✨ Key Features
+
+- 🏆 **Competition Management** - Create and manage multiple competitions with events and flights
+- ⏱️ **Real-time Timer** - Synchronized countdown/countup timer with auto-stop functionality
+- ✈️ **Flight Management** - Organize athletes with drag-and-drop attempt ordering
+- 👨‍⚖️ **Referee System** - Multi-referee decision recording with light indicators
+- 📺 **Live Displays** - Scoreboard, attempt tracking, and audience displays
+- 👤 **Athlete Portal** - Personal dashboard for competitors
+- 🌐 **Network Support** - Multi-device access on local network
+- 📊 **Scoring Systems** - Support for Total, Sinclair, and bodyweight scoring
+
+## 🛠️ Tech Stack
+
+- **Backend:** Flask 2.0+, Flask-SQLAlchemy, Flask-Migrate
+- **Database:** SQLite (development), PostgreSQL/MySQL ready
+- **Frontend:** Jinja2 templates, Vanilla JavaScript, Sortable.js
+- **Real-time:** WebSockets for live updates
+- **Testing:** pytest with unit, integration, and system tests
+- **CI/CD:** GitHub Actions
 
 ---
 
-## Getting Started (Local)
+## 🚀 Quick Start
+
+### Prerequisites
+
+- Python 3.8 or higher
+- pip (Python package manager)
+- Git
+
+### Installation
 
 ```bash
-# 1) Create & activate a virtual environment
+# 1. Clone the repository
+git clone https://github.com/cits5206Group9/SmallGoods-Competition-app.git
+cd SmallGoods-Competition-app
+
+# 2. Create & activate a virtual environment
 python3 -m venv .venv
-source .venv/bin/activate  # Windows: .venv\Scripts\activate
 
-# 2) Install dependencies
-pip install -r requirements.txt
-
-# 4) Check Database consistency
-flask db upgrade  # first run will create SQLite file
-flask db current # check current migration version
-flask db history # view all migrations
-
-# 5) Run int DEBUG model (very verbose logging)
-# INFO level (default)
-./run.sh INFO
-
-# DEBUG level (most verbose)
-./run.sh DEBUG
-
-# WARNING level (less verbose)
-./run.sh WARNING
-
-# 6) Run without DEBUG model
-./run.sh
+# macOS/Linux
+source .venv/bin/activate
 
 # Windows
-run.bat           # Production mode
-run.bat INFO      # Custom INFO logging
-run.bat DEBUG     # Custom DEBUG logging
-# visit http://127.0.0.1:5000
+.venv\Scripts\activate
+
+# 3. Install dependencies
+pip install -r requirements.txt
+
+# 4. Initialize database
+flask db upgrade
+
+# 5. Run the application
+./run.sh          # macOS/Linux
+run.bat           # Windows
+
+# Visit http://127.0.0.1:5000
 ```
-## DB migrations
+
+### Running with Custom Settings
 
 ```bash
-# If you need to change the database schema: app/models.py
-# save the current database version
+# Different logging levels
+./run.sh INFO     # Standard logging (default)
+./run.sh DEBUG    # Verbose logging (for troubleshooting)
+./run.sh WARNING  # Minimal logging
+
+# Custom port
+python3 run.py --port 5001
+
+# Network access (for multiple devices)
+python3 -c "from run import app; app.run(host='0.0.0.0', port=5001, debug=True)"
+```
+
+### Accessing on Local Network
+
+To access from tablets, phones, or other computers:
+
+1. Find your computer's IP address:
+   ```bash
+   # macOS/Linux
+   ifconfig | grep "inet "
+   
+   # Windows
+   ipconfig
+   ```
+
+2. Access from other devices:
+   ```
+   http://YOUR_IP_ADDRESS:5001
+   ```
+
+**See [User Guide - Network Access](USER_GUIDE.md#accessing-on-local-network) for detailed setup.**
+## 🗄️ Database Management
+
+### Migrations
+
+When modifying database schema in `app/models.py`:
+
+```bash
+# Check current database version
 flask db current
-flask db migrate -m "describe changes"
+
+# Create a new migration
+flask db migrate -m "describe your changes"
+
+# Apply migrations
+flask db upgrade
+
+# View migration history
+flask db history
+
+# Rollback one migration
+flask db downgrade
+```
+
+### Reset Database (Development Only)
+
+```bash
+# WARNING: This deletes all data
+rm instance/app.db
 flask db upgrade
 ```
 
-### Run tests
+## 🧪 Testing
+
+### Quick Test Commands
 
 ```bash
 # Run all tests
@@ -66,21 +149,30 @@ pytest
 pytest -v
 
 # Run specific test types
-pytest -m unit          # Unit tests only
-pytest -m integration   # Integration tests only  
-pytest -m system        # System tests only
+pytest -m unit          # Unit tests only (fast)
+pytest -m integration   # Integration tests
+pytest -m system        # System/E2E tests
 
 # Run specific test files
 pytest tests/test_models.py
 pytest tests/test_integration.py
 pytest tests/test_system.py
 
-# Run and stop on first failure
+# Stop on first failure
 pytest -x
 
-# Run quietly with minimal output
-pytest -q
+# Generate coverage report
+pytest --cov=app --cov-report=html
+# View: open htmlcov/index.html
 ```
+
+### Test Structure
+
+- **Unit Tests** (`tests/test_models.py`) - Test individual components
+- **Integration Tests** (`tests/test_integration.py`) - Test component interactions
+- **System Tests** (`tests/test_system.py`) - Test complete workflows
+
+**See [Testing Guide](USER_GUIDE.md#testing-guide) for detailed information.**
 
 ### Writing Tests
 
@@ -253,26 +345,190 @@ pytest --cov=app --cov-report=html
 
 ---
 
-## Branch Strategy
+## 📋 Usage
 
-- `main` → stable, release-ready
-- `dev` → integration branch for features
-- feature branches → `feature/<short-description>`
+### User Roles
 
-PRs: feature → `dev` (with passing CI). Merge `dev` → `main` only for releases.
+The application supports multiple user roles:
+
+| Role | Access | Description |
+|------|--------|-------------|
+| **Admin** | Full access | Manage competitions, flights, athletes, settings |
+| **Timekeeper** | Timer control | Manage attempt timer, track lifting order |
+| **Referee** | Referee panel | Record attempt decisions |
+| **Coach** | Athlete management | Register athletes, submit weight changes |
+| **Athlete** | Personal view | View schedule, attempts, results |
+
+### Key Pages
+
+- **Admin Dashboard** - `http://localhost:5000/admin`
+- **Timer Control** - `http://localhost:5000/admin/timer`
+- **Referee Panel** - `http://localhost:5000/referee`
+- **Scoreboard Display** - `http://localhost:5000/display/scoreboard`
+- **Athlete Portal** - `http://localhost:5000/athlete`
+
+**📖 See [User Guide](USER_GUIDE.md) for detailed feature documentation.**
 
 ---
 
-## Project Structure
+## 🏗️ Project Structure
 
-```bash
-app/              # Flask application package
-app/templates/    # Jinja templates
-app/static/       # Static assets (css/js)
-tests/                # pytest tests
-docs/                 # Notes, architecture, decisions
-assets/               # Images or design assets
-.github/workflows/    # CI
-instance/            # db.sqlite (created on first run)
-migrations/         # Flask-Migrate files
 ```
+SmallGoods-Competition-app/
+├── app/                      # Main application package
+│   ├── models.py            # Database models (SQLAlchemy)
+│   ├── routes/              # Route blueprints
+│   │   ├── admin.py         # Admin panel routes
+│   │   ├── timer.py         # Timer control routes
+│   │   ├── athlete.py       # Athlete portal routes
+│   │   ├── display.py       # Public display routes
+│   │   └── login.py         # Authentication routes
+│   ├── templates/           # Jinja2 HTML templates
+│   │   ├── admin/           # Admin interface templates
+│   │   ├── athlete/         # Athlete portal templates
+│   │   ├── display/         # Display screen templates
+│   │   └── base.html        # Base template
+│   ├── static/              # Static assets
+│   │   ├── css/             # Stylesheets
+│   │   ├── js/              # JavaScript files
+│   │   │   ├── timekeeper.js
+│   │   │   ├── admin/flights_management.js
+│   │   │   └── athlete.js
+│   │   └── images/          # Image assets
+│   ├── utils/               # Utility functions
+│   │   ├── scoring.py       # Scoring calculations
+│   │   └── referee_generator.py
+│   └── extensions.py        # Flask extensions initialization
+├── tests/                   # Test suite
+│   ├── test_models.py       # Unit tests
+│   ├── test_integration.py  # Integration tests
+│   ├── test_system.py       # System tests
+│   ├── conftest.py          # Test fixtures
+│   └── test_utils.py        # Test utilities
+├── docs/                    # Documentation
+│   ├── ARCHITECTURE.md      # Technical architecture
+│   └── CONTRIBUTING.md      # Contribution guidelines
+├── migrations/              # Database migrations
+├── instance/                # Instance-specific files
+│   ├── app.db              # SQLite database (auto-created)
+│   └── timer_state.json    # Timer state persistence
+├── .github/                 # GitHub configuration
+│   └── workflows/          # CI/CD workflows
+├── USER_GUIDE.md           # Comprehensive user documentation
+├── README.md               # This file
+├── requirements.txt        # Python dependencies
+├── run.py                  # Application entry point
+├── run.sh                  # Unix run script
+└── run.bat                 # Windows run script
+```
+
+---
+
+## 🔀 Development Workflow
+
+### Branch Strategy
+
+- **`main`** - Stable, production-ready code
+- **`dev`** - Integration branch for features
+- **`feature/*`** - Feature branches (e.g., `feature/timer-improvements`)
+- **`fix/*`** - Bug fix branches (e.g., `fix/scoreboard-update`)
+
+### Pull Request Process
+
+1. Create feature branch from `dev`
+2. Make changes and commit
+3. Push branch and create PR to `dev`
+4. Ensure CI tests pass
+5. Request code review
+6. Merge after approval
+
+**Note:** Only merge `dev` → `main` for releases.
+
+---
+
+## 📚 Quick Reference
+
+### Common Commands
+
+| Task | Command |
+|------|---------|
+| Start app | `./run.sh` or `run.bat` |
+| Run tests | `pytest` |
+| Verbose tests | `pytest -v` |
+| Test coverage | `pytest --cov=app` |
+| Create migration | `flask db migrate -m "description"` |
+| Apply migrations | `flask db upgrade` |
+| Check DB version | `flask db current` |
+
+### Important URLs
+
+| Page | URL |
+|------|-----|
+| Admin Dashboard | `http://localhost:5000/admin` |
+| Timer Control | `http://localhost:5000/admin/timer` |
+| Referee Panel | `http://localhost:5000/referee` |
+| Scoreboard | `http://localhost:5000/display/scoreboard` |
+| Athlete Portal | `http://localhost:5000/athlete` |
+| Login | `http://localhost:5000/login` |
+
+### Default Credentials
+
+**⚠️ Change these immediately in production!**
+
+```
+Admin:
+Email: admin@example.com
+Password: admin123
+```
+
+---
+
+## 🤝 Contributing
+
+We welcome contributions! Please see our [Contributing Guide](docs/CONTRIBUTING.md) for details.
+
+### Quick Contribution Steps
+
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature/amazing-feature`
+3. Make your changes
+4. Run tests: `pytest`
+5. Commit: `git commit -m "Add amazing feature"`
+6. Push: `git push origin feature/amazing-feature`
+7. Open a Pull Request
+
+### Code Style
+
+- Follow PEP 8 for Python code
+- Use meaningful variable names
+- Add comments for complex logic
+- Write tests for new features
+- Update documentation as needed
+
+---
+
+## 📝 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+---
+
+## 👏 Acknowledgments
+
+- **CITS5206** - University of Western Australia
+- **Group 9** - Development team
+- **SmallGoods** - Project sponsor
+- **Open Source Community** - Flask, SQLAlchemy, and other dependencies
+
+---
+
+## 📧 Contact & Support
+
+- **Issues:** [GitHub Issues](https://github.com/cits5206Group9/SmallGoods-Competition-app/issues)
+- **Documentation:** [User Guide](USER_GUIDE.md)
+- **Repository:** [GitHub](https://github.com/cits5206Group9/SmallGoods-Competition-app)
+
+---
+
+**Made with ❤️ by Group 9 for the SmallGoods Community**
+
