@@ -206,6 +206,19 @@ def get_competition_model(id):
         for event in competition.events
     ]
 
+    # Ensure config is synced with model's start_date
+    config = competition.config or {
+        "name": competition.name,
+        "comp_date": competition.start_date.isoformat()
+        if competition.start_date
+        else None,
+        "events": [],
+    }
+    
+    # Always sync comp_date in config with start_date from model
+    if competition.start_date:
+        config["comp_date"] = competition.start_date.isoformat()
+
     return jsonify(
         {
             "id": competition.id,
@@ -217,14 +230,7 @@ def get_competition_model(id):
             "breaktime_between_events": competition.breaktime_between_events,
             "breaktime_between_flights": competition.breaktime_between_flights,
             "events": events_data,  # Include the actual events data
-            "config": competition.config
-            or {
-                "name": competition.name,
-                "comp_date": competition.start_date.isoformat()
-                if competition.start_date
-                else None,
-                "events": [],
-            },
+            "config": config,
             "is_active": competition.is_active,
         }
     )
@@ -274,8 +280,6 @@ def save_competition_model():
         competition.breaktime_between_flights = data.get(
             "breaktime_between_flights", 180
         )
-
-        competition.start_date = datetime.now().date()
 
         competition.is_active = True
 
@@ -1191,6 +1195,11 @@ def get_competition_details(competition_id):
         if competition.config and "events" in competition.config:
             events = competition.config["events"]
 
+        # Ensure config is synced with model's start_date
+        config = competition.config or {}
+        if competition.start_date:
+            config["comp_date"] = competition.start_date.isoformat()
+
         return jsonify(
             {
                 "id": competition.id,
@@ -1201,7 +1210,7 @@ def get_competition_details(competition_id):
                 if competition.start_date
                 else None,
                 "events": events,
-                "config": competition.config,
+                "config": config,
                 "breaktime_between_flights": competition.breaktime_between_flights,
                 "breaktime_between_events": competition.breaktime_between_events,
             }
